@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "courses": [
+    {
+      "id": "clinical-psych-intro",
+      "title": { "ja": "臨床心理学概論", "zh": "临床心理学概论" },
+      "subtitle": { "ja": "授業まるごと復習ツール", "zh": "整门课复习工具" },
+      "dir": "courses/clinical-psych-intro",
+      "exam": { "total": 30, "minSubjective": 4, "floatCount": 1 }
+    }
+  ]
+}
