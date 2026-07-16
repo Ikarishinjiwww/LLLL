@@ -16,7 +16,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="მეიმეი">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=3.2.0">
 </head>
 <body>
 <div class="topbar"><div class="tb-in">
@@ -29,13 +29,13 @@
 <button class="devbtn hide" id="devBtn">DEV</button>
 <div id="modalRoot"></div>
 
-<script src="engine-core.js"></script>
+<script src="engine-core.js?v=3.2.0"></script>
 <script>
 'use strict';
 /* =========================================================================
  * App ― UI 编排 (vanilla)。核心逻辑在 QuizCore。
  * =======================================================================*/
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 const C = window.QuizCore;
 
 const App = {
@@ -45,12 +45,12 @@ const App = {
 };
 
 </script>
-<script src="i18n.js"></script>
-<script src="core.js"></script>
-<script src="session.js"></script>
-<script src="manual-reader.js"></script>
-<script src="panels.js"></script>
-<script src="talk.js"></script>
+<script src="i18n.js?v=3.2.0"></script>
+<script src="core.js?v=3.2.0"></script>
+<script src="session.js?v=3.2.0"></script>
+<script src="manual-reader.js?v=3.2.0"></script>
+<script src="panels.js?v=3.2.0"></script>
+<script src="talk.js?v=3.2.0"></script>
 <script>
 'use strict';
 
@@ -75,8 +75,22 @@ document.addEventListener('touchstart', function(){}, {passive:true}); // v1.3.1
   document.addEventListener('pointercancel', unpress, {passive:true});
   window.addEventListener('blur', unpress);
 })();
-boot();
-try{ meiInit(); }catch(e){} // მეიმეიトーク浮動入口(非主入口)
+/* ---------- F-05 起動前検: 部品が一つでも欠けたら boot せず静的エラー画面（部分更新/キャッシュ混在の隔離） */
+var __missing=[];
+if(typeof QuizCore==='undefined') __missing.push('engine-core.js');
+if(typeof T==='undefined') __missing.push('i18n.js');
+if(typeof el==='undefined'||typeof boot==='undefined') __missing.push('core.js');
+if(typeof renderHome==='undefined') __missing.push('session.js');
+if(typeof conceptCardNode==='undefined') __missing.push('manual-reader.js');
+if(typeof wireChrome==='undefined') __missing.push('panels.js');
+if(typeof meiInit==='undefined') __missing.push('talk.js');
+if(__missing.length){
+  var __v=document.getElementById('view');
+  if(__v){ __v.innerHTML='<div style="max-width:560px;margin:48px auto;padding:20px;border:1px solid #ddd;border-radius:12px;font-family:sans-serif;line-height:1.7"><h2 style="margin:0 0 8px;font-size:17px">アプリの部品が読み込めませんでした / 应用部件加载失败</h2><p style="margin:0 0 6px;color:#666;font-size:13px">app '+APP_VERSION+' ― 欠落: '+__missing.join(', ')+'</p><p style="margin:0 0 12px;color:#666;font-size:13px">更新の途中か、キャッシュが混ざった可能性があります。／可能是更新进行中或缓存混杂。</p><button style="font-size:14px;padding:8px 16px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer" onclick="location.reload()">再読み込み / 重新载入</button></div>'; }
+}else{
+  boot();
+  try{ meiInit(); }catch(e){} // მეიმეიトーク浮動入口(非主入口)
+}
 </script>
 </body>
 </html>

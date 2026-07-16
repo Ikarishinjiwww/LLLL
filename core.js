@@ -264,6 +264,15 @@ async function fetchJSON(url){
   if(!res.ok) throw new Error('HTTP '+res.status+' @ '+url);
   return res.json();
 }
+/* F-04: データ束縛核対用――テキストで取り、UTF-8 バイト指紋(md5)を添えて parse する。
+ * boundTo の md5 は生成側(Python)がファイルバイトで実測した値なので、同じバイト列で照合する。 */
+const SUPPORTED_MANUAL_SCHEMAS=['manual-0.2','manual-0.3'];
+async function fetchJSONv(url){
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok) throw new Error('HTTP '+res.status+' @ '+url);
+  const text=await res.text();
+  return { data: JSON.parse(text), md5: C.md5Hex(text) };
+}
 
 async function boot(){
   App.dev=/[?&]dev=1/.test(location.search);
@@ -295,27 +304,46 @@ async function loadCourse(meta){
    * 「強調ポイント 22件」など神経の手が残り、押すと空の画面が出る(実機で確認)。まるごと畳む。 */
   resetMei();
   refreshChrome();
-  let questions,concepts;
+  let qv,cv;
   try{
-    questions=await fetchJSON(meta.dir+'/questions.json');
-    concepts=await fetchJSON(meta.dir+'/concepts.json');
+    qv=await fetchJSONv(meta.dir+'/questions.json');
+    cv=await fetchJSONv(meta.dir+'/concepts.json');
   }catch(e){ renderLoadError(meta.dir+'/questions.json',e); return false; } // 失敗は false を返す(呼び手が after を走らせないため)
-  App.questions=questions; App.concepts=concepts;
-  App.manual=await loadManual(meta); // 復習トラック手册(増強層・任意): 缺失/不正なら null, course 載入は止めない
-  App.validation=C.validateContent(questions,concepts);
+  App.questions=qv.data; App.concepts=cv.data;
+  const manRes=await loadManual(meta,qv.md5,cv.md5); // F-04: 手册は「無い」は許すが「合わない」は止める
+  if(manRes && manRes.fatal){ renderBindError(manRes); return false; }
+  App.manual=manRes?manRes.manual:null;
+  App.validation=C.validateContent(App.questions,App.concepts);
   if(App.validation.fatal){ renderRefuse(); return false; }
-  App.idx=C.buildIndices(questions,concepts);
+  App.idx=C.buildIndices(App.questions,App.concepts);
   loadProgress();
   reconcileExam();
   renderHome();
   return true;
 }
-async function loadManual(meta){ // 資料集リーダーのデータ源。任意: 失敗しても course を止めない
-  try{
-    const man=await fetchJSON(meta.dir+'/manual.json');
-    if(man && man.boundTo && Array.isArray(man.units) && man.units.length) return man;
-  }catch(e){}
-  return null;
+async function loadManual(meta,qMd5,cMd5){ // F-04: 存在すれば厳格核対、缺失は従来どおり null(course を止めない)
+  let mv;
+  try{ mv=await fetchJSONv(meta.dir+'/manual.json'); }
+  catch(e){ return null; } // 404/網路失敗＝手册なし(増強層は任意)
+  const man=mv.data;
+  if(!(man && man.boundTo && Array.isArray(man.units) && man.units.length))
+    return { fatal:true, detail:'manual.json: boundTo/units 欠落（構造不正）' };
+  if(SUPPORTED_MANUAL_SCHEMAS.indexOf(man.schemaVersion)<0)
+    return { fatal:true, detail:'manual schemaVersion「'+man.schemaVersion+'」非対応（対応: '+SUPPORTED_MANUAL_SCHEMAS.join(' / ')+'）' };
+  if(man.boundTo.questionsMd5!==qMd5 || man.boundTo.conceptsMd5!==cMd5)
+    return { fatal:true, detail:
+      'questions: '+(man.boundTo.questionsMd5===qMd5?'OK':'期待 '+man.boundTo.questionsMd5+' ≠ 実測 '+qMd5)+'\n'+
+      'concepts:  '+(man.boundTo.conceptsMd5===cMd5?'OK':'期待 '+man.boundTo.conceptsMd5+' ≠ 実測 '+cMd5) };
+  return { manual:man };
+}
+
+function renderBindError(res){ // F-04: 束縛不一致は静かに続行しない（可操作エラー）
+  setView(el('div',{class:'card'},[
+    el('div',{class:'sechd'},[el('h2',{class:'jp',text:t('bindErrTitle')})]),
+    el('p',{class:'muted jp',text:t('bindErrBody')}),
+    el('pre',{class:'mono',style:'white-space:pre-wrap;font-size:11.5px;color:var(--no-deep);background:var(--no-wash);border:1px solid var(--no-line);border-radius:var(--r-1);padding:11px',text:res.detail}),
+    el('button',{class:'btn',text:t('bindErrReload'),onclick:function(){ location.reload(); }})
+  ]));
 }
 
 function renderLoadError(file,err){

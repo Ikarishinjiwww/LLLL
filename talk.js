@@ -28,7 +28,7 @@ function meiInit(){
     meiEl=el('div',{class:'meiChat',id:'meiChat',role:'dialog','aria-modal':'true','aria-label':t('chatOpen')},[ // F6: 浮層に対話框の身分と名前を与える
       el('div',{class:'mcHead'},[ el('span',{class:'mcAva',text:'\u10db'}),
         el('div',{class:'mcTt'},[ el('b',{text:'\u10db\u10d4\u10d8\u10db\u10d4\u10d8'}), el('small',{class:'jp',id:'mcSub',text:''}) ]),
-        el('button',{class:'mcX','aria-label':t('back'),text:'\u2715',onclick:closeMeiChat}) ]),
+        el('button',{class:'mcX','aria-label':t('close'),text:'\u2715',onclick:closeMeiChat}) ]), // F-08: \u300c\u623b\u308b\u300d\u3067\u306a\u304f\u300c\u9589\u3058\u308b\u300d
       el('div',{class:'mcBody',id:'mcBody'}),
       el('div',{class:'mcChips',id:'mcChips'}) ]);
     meiEl.setAttribute('aria-hidden','true'); meiEl.inert=true;

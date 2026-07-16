@@ -58,7 +58,7 @@ function closeModal(){
   card.addEventListener('animationend', fin, {once:true});
   setTimeout(fin, 500); // 兜底: animationend 不触发也必清
 }
-function modalShell(title,body){ const inner=el('div',{class:'modal-in'},[ el('button',{class:'modal-x',text:'×',onclick:closeModal}), el('h3',{class:'jp',text:title}) ]); (Array.isArray(body)?body:[body]).forEach(b=>inner.appendChild(b)); return inner; }
+function modalShell(title,body){ const inner=el('div',{class:'modal-in'},[ el('button',{class:'modal-x',text:'×','aria-label':t('close'),onclick:closeModal}), el('h3',{class:'jp',text:title}) ]); (Array.isArray(body)?body:[body]).forEach(b=>inner.appendChild(b)); return inner; } // F-08: ×に読み上げ名
 
 /* 神経の「使い方」。臨床(問題を解く道具)とは使い方そのものが違うので、説明も別に書く。
  * 臨床の文面をそのまま出すと「模擬試験」「苦手を重点的に」など、この課には無い機能の話になる。 */
@@ -109,16 +109,83 @@ function ioBlock(withReset){ withReset=(withReset!==false); // v1.3.1 抽出复�
         return el('span',{style:'display:contents'},[ btn, inp ]); })()
     ])
   ];
+  if(lsGet(nk('importBackup'),null)){ // F-02: 直前の取り込みが戻せる間だけ出す
+    arr.push(el('button',{class:'btn ghost sm',style:'margin-top:8px',text:t('impUndo'),onclick:undoImport}));
+  }
   if(withReset){ arr.push(
     el('hr',{style:'border:none;border-top:1px dashed var(--line);margin:16px 0'}),
     el('div',{class:'rubt jp',text:t('resetTitle')}),
-    el('button',{class:'btn ghost',style:'border-color:var(--no-line);color:var(--no-deep)',text:t('reset'),onclick:doReset})
+    el('div',{class:'row'},[ // F-02: 二段リセット（軽=進捗のみ／重=全ローカルデータ、文案どおり）
+      el('button',{class:'btn ghost',text:t('resetProg'),onclick:doResetProgress}),
+      el('button',{class:'btn ghost',style:'border-color:var(--no-line);color:var(--no-deep)',text:t('reset'),onclick:doReset})
+    ])
   ); }
   return arr;
 }
 function openIO(){ openModal(modalShell(t('ioTitle'),ioBlock())); }
+/* ---------- F-02: 完全バックアップ v2（データ字典＝課の名前空間の全鍵） ---------- */
+const COURSE_KEYS=['progress','examInProgress','helpSeen','lastRead','readerFs','readerBm','examDate','bookmarks','examHistory'];
+const EXTRA_SPEC={ // 取り込み時の型白名单（progress は engine の deserialize が別途厳格処理）
+  examInProgress:function(v){ return v===null||typeof v==='object'; },
+  helpSeen:function(v){ return typeof v==='boolean'; },
+  lastRead:function(v){ return v&&typeof v==='object'&&typeof v.kai==='number'; },
+  readerFs:function(v){ return typeof v==='number'||typeof v==='string'; },
+  readerBm:function(v){ return Array.isArray(v)&&v.every(function(x){return typeof x==='string';}); },
+  examDate:function(v){ return typeof v==='string'&&v.length<40; },
+  bookmarks:function(v){ return Array.isArray(v)&&v.every(function(x){return typeof x==='string';}); },
+  examHistory:function(v){ return Array.isArray(v)&&v.every(function(x){return x&&typeof x==='object';}); }
+};
 function exportPayload(includeRaw){
   return C.serializeProgress(App.progress,{courseId:App.course.id,schemaVersion:PROGRESS_SCHEMA,appVersion:APP_VERSION},{includeRawAnswers:includeRaw});
+}
+function buildExportV2(includeRaw){ // v1 本体＋extras 全鍵＝完全バックアップ（v1 読み手とも互換）
+  const payload=exportPayload(includeRaw);
+  payload.exportSchema=2;
+  payload.exportedAt=new Date().toISOString();
+  payload.extras={};
+  Object.keys(EXTRA_SPEC).forEach(function(k){
+    const v=lsGet(nk(k),null);
+    if(v!==null) payload.extras[k]=v;
+  });
+  return payload;
+}
+function applyImportPayload(obj){ // 検証→自動バックアップ→適用→失敗時ロールバック。戻り値＝適用摘要
+  const parsed=C.deserializeProgress(obj);
+  const rawBackup={};
+  COURSE_KEYS.forEach(function(k){ rawBackup[k]=localStorage.getItem(nk(k)); });
+  lsSet(nk('importBackup'),{at:new Date().toISOString(),data:rawBackup});
+  const applied=[],skipped=[];
+  try{
+    App.progress=Object.assign(emptyProgress(),parsed.progress,{schemaVersion:PROGRESS_SCHEMA});
+    App.progress.cardMarks=(obj&&obj.cardMarks)||{}; App.progress.hideLearned=!!(obj&&obj.hideLearned);
+    saveProgress(); applied.push('progress');
+    if(obj.exportSchema>=2 && obj.extras && typeof obj.extras==='object'){
+      Object.keys(EXTRA_SPEC).forEach(function(k){
+        if(!(k in obj.extras)) return;
+        const v=obj.extras[k];
+        if(EXTRA_SPEC[k](v)){ lsSet(nk(k),v); applied.push(k); }
+        else skipped.push(k);
+      });
+    }
+  }catch(err){ // ロールバック: バックアップ原値を書き戻す
+    COURSE_KEYS.forEach(function(k){
+      if(rawBackup[k]===null) localStorage.removeItem(nk(k));
+      else localStorage.setItem(nk(k),rawBackup[k]);
+    });
+    loadProgress();
+    throw err;
+  }
+  return {applied:applied,skipped:skipped};
+}
+function undoImport(){ // 直前の取り込みを 1 段だけ戻す
+  const b=lsGet(nk('importBackup'),null);
+  if(!b||!b.data){ alert(t('impNoBackup')); return; }
+  COURSE_KEYS.forEach(function(k){
+    if(b.data[k]===null||b.data[k]===undefined) localStorage.removeItem(nk(k));
+    else localStorage.setItem(nk(k),b.data[k]);
+  });
+  lsDel(nk('importBackup'));
+  location.reload();
 }
 function buildExportAIPrompt(){
   // 从累计错题反查 回 / section / 概念, 自动生成 AI 提示词 + 结构化材料清单
@@ -151,7 +218,7 @@ function buildExportAIPrompt(){
   return { prompt:lines.join('\n'), materials:{ kais:kais, sections:sections, concepts:concepts } };
 }
 function doExport(includeRaw){
-  const payload=exportPayload(includeRaw);
+  const payload=buildExportV2(includeRaw); // F-02: v2＝全鍵同梱
   // 顶部嵌入説明(随语言)
   payload._説明 = App.lang==='ja'
     ? 'これは『'+L(App.course.title)+'』復習ドリルの学習データです。用途は ①バックアップ ②端末間の手動移行 ③AIに渡して復習計画を作る、の3つ。個人を特定する情報・端末情報は含みません。'+(includeRaw?'※手書き解答を含むため共有時は注意。':'手書き解答は既定で除外しています。')
@@ -166,23 +233,51 @@ function doExport(includeRaw){
   a.download='quiz-progress_'+App.course.id+'_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
-function doImport(e){
+function doImport(e){ // F-02: 解析→検証→プレビュー確認→自動バックアップ付き適用
   const file=e.target.files[0]; if(!file) return;
+  e.target.value='';
+  if(file.size>8*1024*1024){ alert(t('impSizeErr')); return; }
   const reader=new FileReader();
-  reader.onload=function(){ try{
+  reader.onload=function(){
+    try{
     const obj=JSON.parse(reader.result);
     const parsed=C.deserializeProgress(obj);
-    if(parsed.courseId && parsed.courseId!==App.course.id){ if(!confirm(App.lang==='ja'?'別コースのデータです。読み込みますか？':'这是另一门课的数据，仍要读入吗？')) return; }
-    if(parsed.schemaVersion!==PROGRESS_SCHEMA){ if(!confirm(App.lang==='ja'?'スキーマ版が異なります。読み込みを試みますか？':'schema 版本不同，仍尝试读入吗？')) return; }
-    App.progress=Object.assign(emptyProgress(),parsed.progress,{schemaVersion:PROGRESS_SCHEMA});
-    App.progress.cardMarks=(obj&&obj.cardMarks)||{}; App.progress.hideLearned=!!(obj&&obj.hideLearned); // §5-11: 生ファイルから復元(deserializeProgress は含まない)
-    saveProgress(); closeModal(); renderHome();
-  }catch(err){ alert((App.lang==='ja'?'読み込み失敗: ':'读取失败：')+err.message); } };
+    const ex=obj.extras||{};
+    const n=function(k){ return Array.isArray(ex[k])?ex[k].length:0; };
+    const warn=[];
+    if(parsed.courseId && parsed.courseId!==App.course.id) warn.push(t('impMismatch')+'（'+parsed.courseId+'）');
+    if(parsed.schemaVersion!==PROGRESS_SCHEMA) warn.push(t('impSchemaDiff'));
+    const rows=[
+      t('impCourse')+': '+(parsed.courseId||'?'),
+      t('impDate')+': '+(obj.exportedAt||(obj.exportSchema>=2?'?':'v1（旧形式）')),
+      t('impSeen')+': '+Object.keys(parsed.progress.seen||{}).length+' / '+t('impWrong')+': '+Object.keys(parsed.progress.wrong||{}).length,
+      t('impExtras')+': '+(obj.exportSchema>=2?('examHistory '+n('examHistory')+'・bookmarks '+n('bookmarks')+'・readerBm '+n('readerBm')):t('impExtrasNone'))
+    ];
+    openModal(modalShell(t('impTitle'),[ // modalShell は null 子を受けない → filter(Boolean)
+      el('div',{class:'jp'},rows.map(function(r){ return el('p',{class:'muted',style:'margin:4px 0',text:r}); })),
+      warn.length?el('p',{class:'jp',style:'color:var(--no-deep);background:var(--no-wash);border:1px solid var(--no-line);border-radius:8px;padding:8px 10px',text:'⚠ '+warn.join(' / ')}):null,
+      el('p',{class:'muted jp',style:'font-size:12px',text:t('impBackupNote')}),
+      el('div',{class:'row',style:'margin-top:10px'},[
+        el('button',{class:'btn',text:t('impApply'),onclick:function(){
+          try{ applyImportPayload(obj); closeModal(); location.reload(); }
+          catch(err){ alert(t('impBadFile')+': '+err.message); }
+        }}),
+        el('button',{class:'btn ghost',text:t('impCancel'),onclick:closeModal})
+      ])
+    ].filter(Boolean)));
+    }catch(err){ alert(t('impBadFile')+': '+err.message); }
+  };
   reader.readAsText(file);
 }
-function doReset(){
-  if(!confirm(t('resetConfirm'))) return;
+function doResetProgress(){ // F-02: 二段リセットの軽い方＝学習進捗のみ
+  if(!confirm(t('resetProgConfirm'))) return;
   App.progress=emptyProgress(); saveProgress(); lsDel(nk('examInProgress')); closeModal(); renderHome();
+}
+function doReset(){ // F-02: 重い方＝この課の端末内データ全消去（文案どおりに動く）
+  if(!confirm(t('resetConfirm'))) return;
+  COURSE_KEYS.forEach(function(k){ lsDel(nk(k)); });
+  lsDel(nk('importBackup'));
+  location.reload();
 }
 function showMigrationModal(){
   if(!pendingMigration) return;
@@ -246,12 +341,24 @@ async function enterCourse(c, after){
 async function switchTo(c){ await enterCourse(c); }
 
 /* 課の切替に全画面シートは重い(たかが 2 コースの行き来)。topbar 直下の小さな浮きに統一する。 */
-function closeCoursePop(){ const o=document.getElementById('cpop'); if(o) o.remove(); const cb=document.getElementById('courseBtn'); if(cb) cb.setAttribute('aria-expanded','false'); } // F10: 閉路は全てここに集約=aria-expanded の戻し忘れなし
+function closeCoursePop(restoreFocus){ const o=document.getElementById('cpop'); if(o) o.remove(); const cb=document.getElementById('courseBtn'); if(cb){ cb.setAttribute('aria-expanded','false'); if(restoreFocus) cb.focus(); } } // F10: 閉路は全てここに集約=aria-expanded の戻し忘れなし。F-03: Escape 閉路は焦点を釦へ返す
 function openCoursePop(kids,cls){
   closeCoursePop();
-  const pop=el('div',{class:'cpop '+(cls||''),id:'cpop'},kids);
+  const pop=el('div',{class:'cpop '+(cls||''),id:'cpop',role:'dialog','aria-label':t('coursePop')},kids);
   document.body.appendChild(pop);
   const cb=document.getElementById('courseBtn'); if(cb) cb.setAttribute('aria-expanded','true'); // F10: 開閉状態を晒す (aria-controls=cpop は静的標記側)
+  trapFocus(pop); // F-03: Tab/Shift+Tab は浮き内で循環
+  pop.addEventListener('keydown',function(e){ // F-03: Escape=閉じて呼び出し元へ・↑↓=項目間移動
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); closeCoursePop(true); return; }
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      const f=Array.prototype.filter.call(pop.querySelectorAll(FOCUSABLE),function(x){ return x.offsetParent!==null; });
+      if(!f.length) return;
+      let i=f.indexOf(document.activeElement);
+      i=(e.key==='ArrowDown')?(i+1)%f.length:(i-1+f.length)%f.length;
+      f[i].focus(); e.preventDefault();
+    }
+  });
+  const first=pop.querySelector(FOCUSABLE); if(first) first.focus(); // F-03: 開いたら焦点は浮きの先頭へ
   setTimeout(function(){
     document.addEventListener('click',function h(e){
       if(!pop.contains(e.target) && !e.target.closest('#courseBtn')){ closeCoursePop(); document.removeEventListener('click',h); }
@@ -305,7 +412,7 @@ function installErrorBoundary(){
 function openDev(){
   const v=App.validation||{errors:[],warnings:[],degraded:[],stats:{byKai:{},byType:{}},degeneracy:{}};
   const inner=el('div',{class:'dev-in'});
-  inner.appendChild(el('button',{class:'modal-x',text:'×',onclick:closeDev}));
+  inner.appendChild(el('button',{class:'modal-x',text:'×','aria-label':t('close'),onclick:closeDev})); // F-08
   inner.appendChild(el('h3',{text:'DEV · データ健康診断'}));
   inner.appendChild(el('div',{class:'muted',text:'course: '+(App.course?App.course.id:'-')+' · engine '+C.VERSION+' · app '+APP_VERSION}));
   // counts
@@ -1188,7 +1295,9 @@ function openSettings(){
     el('div',{class:'setblk'},[ el('div',{class:'setlbl jp',text:(App.lang==='zh'?'版本':'バージョン')}),
       el('button',{class:'btn ghost sm',onclick:openUpdates,html:'<span class="mono">v'+APP_VERSION+'</span> · '+t('updTitle')}) ]), /* ④版本 chip 移出顶栏黄金位 → 收进设置（七项④） */
     el('div',{class:'setblk'},[ el('div',{class:'setlbl jp',text:t('resetTitle')}),
-      el('button',{class:'btn ghost',style:'border-color:var(--no-line);color:var(--no-deep)',text:t('reset'),onclick:doReset}) ]) /* ⑤すべてリセット */
+      el('div',{class:'row'},[ // F-02: 二段リセット
+        el('button',{class:'btn ghost',text:t('resetProg'),onclick:doResetProgress}),
+        el('button',{class:'btn ghost',style:'border-color:var(--no-line);color:var(--no-deep)',text:t('reset'),onclick:doReset}) ]) ]) /* ⑤リセット二段 */
   ];
   openModal(modalShell(t('setTitle'),body));
 }
@@ -1234,6 +1343,20 @@ function fireCarePop(kind){
 
 /* ===================== updates modal（用户向、温和、颜文字；详细在 CHANGELOG/dev） ===================== */
 const UPDATES=[
+  { v:'3.2.0', items:{
+      ja:['書き出しが完全バックアップになりました。栞・成績の記録・読書位置なども全部入ります',
+          '読み込む前に中身を確認できるようになり、取り込みは自動バックアップ付き・一回だけ元に戻せます',
+          'リセットが二段階になりました。「学習進捗だけ消す」と「この課の全データを消す」を選べます',
+          'コース切替がキーボードで操作できるようになりました（↑↓で移動・Escで閉じて元の場所へ）',
+          '教材データの整合性を毎回確認し、合わない時は止まってお知らせするようにしました',
+          '更新の直後に新旧ファイルが混ざって動かなくなる問題への備えを入れました'],
+      zh:['导出升级为完整备份：书签、成绩记录、阅读位置等全部包含在内',
+          '导入前可以先预览内容；导入带自动备份，可一键撤销一次',
+          '重置分成两档：只清学习进度，或清空这门课的全部本地数据',
+          '切换课程支持键盘操作了（↑↓移动・Esc 关闭并回到原处）',
+          '每次都会核对教材数据的一致性，不吻合时会停下来提示',
+          '加入了防止更新后新旧文件混跑的机制']
+  }},
   { v:'3.1.0', items:{
       ja:['中身のファイル構成を整理しました（1枚の大きなファイル→7つの部品）。使い勝手・見た目・学習データはそのまま変わりません'],
       zh:['整理了内部文件结构（一个大文件拆成 7 个部件）。用法・外观・学习数据都不变']

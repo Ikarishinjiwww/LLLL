@@ -15,7 +15,7 @@ function renderHome(){
     /* 読む/さがす主体の課(神経)で「模擬試験を通しで」と言うのは製品として嘘。課の形で文案を分ける。 */
     const hintKey=(m.shape==='reader')?'firstHintReader':'firstHint';
     pad.appendChild(el('div',{class:'firsthint'},[ el('span',{class:'jp',text:t(hintKey)}),
-      el('button',{text:'×',title:'OK',onclick:function(e){ lsSet(nk('helpSeen'),true); e.target.closest('.firsthint').remove(); }}) ]));
+      el('button',{text:'×','aria-label':t('close'),title:t('close'),onclick:function(e){ lsSet(nk('helpSeen'),true); e.target.closest('.firsthint').remove(); }}) ])); // F-08: ×に読み上げ名
   }
   var a2=a2hsBannerNode(); if(a2) pad.appendChild(a2);
   /* コースの形(shape)で home を分ける。神経は問題が 11 問しかなく、読む/さがすが本体なので、
