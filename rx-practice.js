@@ -163,8 +163,8 @@ function rxAnswerAids(it,onDontKnow,extra){
   const unsure=el('button',{class:'rx-unsure jp','aria-pressed':String(!!it.st.unsure),text:t('rxUnsure'),onclick:rxW(function(){
     it.st.unsure=!it.st.unsure; unsure.setAttribute('aria-pressed',String(it.st.unsure)); unsure.classList.toggle('on',it.st.unsure); })});
   if(it.st.unsure) unsure.classList.add('on');
-  return el('div',{class:'rx-aids'},[ unsure, el('button',{class:'btn ghost sm jp rx-dk',text:t('rxDontKnow'),onclick:rxW(onDontKnow)}) ].concat(extra||[]).concat([
-    el('button',{class:'btn ghost sm jp rx-quit',text:t('rxQuitRun'),onclick:rxW(rxQuitRun)}) ])); // 途中でやめる出口（S8 persona 第二批：固定 20 題に途中の出口が無く、上の「戻る」しか無い）。各題は答えた時点で記録済み（rxRecord）なので確認は出さない
+  return el('div',{class:'rx-aids'},[ unsure, el('button',{class:'btn ghost sm jp rx-dk',text:t('rxDontKnow'),onclick:rxW(onDontKnow)}) ].concat(extra||[]).concat(App.rxRun?[
+    el('button',{class:'btn ghost sm jp rx-quit',text:t('rxQuitRun'),onclick:rxW(rxQuitRun)}) ]:[])); // 「ここでやめる」は新課の練習（App.rxRun）の中だけ：旧課の runner（answerFirst）もこの部品を使うが rxQuitRun は App.rxRun が無いと何もしない（4.3.0 補丁 F-02）。 途中でやめる出口（S8 persona 第二批：固定 20 題に途中の出口が無く、上の「戻る」しか無い）。各題は答えた時点で記録済み（rxRecord）なので確認は出さない
 }
 function rxQuitRun(){ if(!App.rxRun) return; rxRunEnd(); } // ここまでの分で結果へ（未回答は数えない）
 /* キーボード（臨床 runner と同じ流儀）：○=O/1 ×=X/2・選択肢 1〜6・わからない 0/D・自信なし U・訂正 ⌘Enter・次へ Enter/→。

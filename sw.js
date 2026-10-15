@@ -8,7 +8,7 @@
  *   数据缓存（各课数据・看过的图・离线包）安装时从旧版继承。
  * 只处理本作用域内的同源 GET；跨源（字体等）与 POST 不碰。真题层只有密文（quiz.enc.json）会进缓存，明文只在页面内存。 */
 'use strict';
-const VERSION='4.3.0';
+const VERSION='4.3.0.1';
 const SCOPE=self.registration.scope;
 function scopeTag(path){ let h=5381; for(let i=0;i<path.length;i++) h=((h*33)^path.charCodeAt(i))>>>0; return h.toString(36); } // offline.js・tools/sw_unregister.js 同式
 const PFX='rx-'+scopeTag(new URL(SCOPE).pathname)+'-';

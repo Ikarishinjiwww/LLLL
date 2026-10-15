@@ -32,7 +32,7 @@ var RX = (function () {
    * 引用不到的 id 只记诊断，不抛错（降级）。 */
   function buildIndex(content) {
     var ix = { lectures: [], lecById: {}, props: {}, variants: {}, cards: {}, questions: {}, kps: {},
-               propCards: {}, tamper: {}, refs: {}, diag: [] };
+               propCards: {}, tamper: {}, refs: {}, explain: {}, diag: [] }; // explain＝カード id → 通った讲解块（「読む」・検索が読む。4.3.0 補丁 F-01：索引を作っていなかった）
     arr(content.tamper_types).forEach(function (t) { if (t && t.code) ix.tamper[t.code] = t.name || t.code; });
     arr(content.refs).forEach(function (r) { if (r && r.id) ix.refs[r.id] = r; });
     arr(content.lectures).forEach(function (L) {
@@ -44,7 +44,7 @@ var RX = (function () {
         ix.props[p.id] = { prop: p, lec: L.id };
         arr(p.variants).forEach(function (v) { if (v && v.id) ix.variants[v.id] = { variant: v, prop: p.id }; });
       });
-      arr(L.cards).forEach(function (c) { if (c && c.id) ix.cards[c.id] = { card: c, lec: L.id }; });
+      arr(L.cards).forEach(function (c) { if (c && c.id) { ix.cards[c.id] = { card: c, lec: L.id }; indexExplain(ix, c); } });
       arr(L.questions).forEach(function (q) { if (q && q.id) ix.questions[q.id] = { q: q, lec: L.id }; });
     });
     ix.lectures.sort(function (a, b) { return (a.kai || 0) - (b.kai || 0); });
@@ -60,6 +60,36 @@ var RX = (function () {
       });
     });
     return ix;
+  }
+
+  /* 讲解块（カード級 explain：呈现修复方案 §4-1 の宽松校验）。
+   * 跳过＝diag に記して表示しない：disease/body/topic 以外のカードの块、explain が配列でないカード全体、text が空の块、
+   * props が配列でない块、このカードに無い・存在しない命題を挂けた块。role が四値にない・hashes は、diag だけ記して照常表示（hashes は見ない）。
+   * 残缺データは致命にしない（HF1-01・03）：kind・role・id・props の要素は own property／文字列として扱い、オブジェクトの toString に頼らない；
+   * 収めるのは正規化した写し {id, role, text, props}（描画側 rx-views が読むのはこの四つだけ）。 */
+  var EXPLAIN_KINDS = { disease: 1, body: 1, topic: 1 };
+  var EXPLAIN_ROLES = { '機序': 1, '症状のつながり': 1, '臨床の筋道': 1, '心理職': 1 };
+  function own(map, key) { return typeof key === 'string' && Object.prototype.hasOwnProperty.call(map, key); }
+  function strOf(x) { return typeof x === 'string' ? x : (typeof x === 'number' && isFinite(x)) ? String(x) : ''; }
+  function indexExplain(ix, c) {
+    if (c.explain == null) return;
+    var cid = strOf(c.id);
+    if (!Array.isArray(c.explain)) { ix.diag.push(cid + ': explain が配列でない'); return; }
+    var kind = strOf(c.kind);
+    if (!own(EXPLAIN_KINDS, kind)) { ix.diag.push(cid + ': ' + (kind || '?') + ' のカードに讲解块は掛けられない'); return; }
+    var mine = cardProps(c), kept = [];
+    c.explain.forEach(function (b, i) {
+      var bid = (b && strOf(b.id)) || (cid + ' の讲解块 ' + (i + 1));
+      if (!b || typeof b !== 'object' || typeof b.text !== 'string' || !b.text.trim()) { ix.diag.push(bid + ': 本文が無い'); return; }
+      if (b.props != null && !Array.isArray(b.props)) { ix.diag.push(bid + ': props が配列でない'); return; }
+      var props = arr(b.props).map(strOf);
+      var bad = props.filter(function (pid) { return !pid || !own(ix.props, pid) || mine.indexOf(pid) < 0; });
+      if (bad.length) { ix.diag.push(bid + ': 命題 ' + bad.map(function (x) { return x || '?'; }).join('・') + ' がこのカードに無い'); return; }
+      var role = strOf(b.role);
+      if (!own(EXPLAIN_ROLES, role)) ix.diag.push(bid + ': role「' + role + '」は四値にない');
+      kept.push({ id: bid, role: role, text: b.text, props: props });
+    });
+    if (kept.length) ix.explain[cid] = kept;
   }
 
   function orderOf(L) {
