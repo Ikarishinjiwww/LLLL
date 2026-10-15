@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 440" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">ガレノスの説とハーヴェイの血液循環</title>
+  <desc id="d">左はガレノスの説で、肝臓でできた血液が右心から壁の孔を通って左心へ移り、吸気と合わさって全身で消費されるとする。右はハーヴェイの血液循環で、血液は心臓から全身と肺を巡って心臓に戻る。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:2}
+    .lab{fill:currentColor;font-size:15px}
+    .hd{fill:currentColor;font-size:15px;font-weight:bold}
+    .sm{fill:currentColor;font-size:12.5px;opacity:.85}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .dash{fill:none;stroke:currentColor;stroke-width:1.8;stroke-dasharray:6 4}
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+  <text class="hd" x="20" y="28">ガレノスの説</text>
+  <text class="sm" x="20" y="46">（血液は全身で消費される）</text>
+  <rect class="box" x="30" y="70" width="110" height="44" rx="8"/>
+  <text class="lab" x="85" y="97" text-anchor="middle">腸</text>
+  <rect class="box" x="30" y="150" width="110" height="52" rx="8"/>
+  <text class="lab" x="85" y="174" text-anchor="middle">肝臓</text>
+  <text class="sm" x="85" y="192" text-anchor="middle">血液をつくる</text>
+  <rect class="box" x="30" y="240" width="110" height="44" rx="8"/>
+  <text class="lab" x="85" y="267" text-anchor="middle">右心</text>
+  <rect class="box" x="190" y="240" width="110" height="44" rx="8"/>
+  <text class="lab" x="245" y="267" text-anchor="middle">左心</text>
+  <rect class="box" x="190" y="150" width="110" height="44" rx="8"/>
+  <text class="lab" x="245" y="177" text-anchor="middle">肺</text>
+  <rect class="box" x="190" y="330" width="110" height="44" rx="8"/>
+  <text class="lab" x="245" y="357" text-anchor="middle">全身</text>
+  <path class="ln" d="M85 114 L85 150" marker-end="url(#a)"/>
+  <path class="ln" d="M85 202 L85 240" marker-end="url(#a)"/>
+  <path class="ln" d="M140 262 L190 262" marker-end="url(#a)"/>
+  <text class="sm" x="148" y="254">孔</text>
+  <path class="ln" d="M245 194 L245 240" marker-end="url(#a)"/>
+  <text class="sm" x="252" y="222">吸気</text>
+  <path class="ln" d="M245 284 L245 330" marker-end="url(#a)"/>
+  <text class="sm" x="245" y="396" text-anchor="middle">ここで消費されて終わる</text>
+  <path class="dash" d="M320 20 L320 420"/>
+  <text class="hd" x="340" y="28">ハーヴェイの血液循環（1628年）</text>
+  <text class="sm" x="340" y="46">（血液は循環して心臓に戻る）</text>
+  <rect class="box" x="440" y="70" width="110" height="44" rx="8"/>
+  <text class="lab" x="495" y="97" text-anchor="middle">肺</text>
+  <rect class="box" x="440" y="200" width="110" height="60" rx="8"/>
+  <text class="lab" x="495" y="235" text-anchor="middle">心臓</text>
+  <rect class="box" x="440" y="350" width="110" height="44" rx="8"/>
+  <text class="lab" x="495" y="377" text-anchor="middle">全身</text>
+  <path class="ln" d="M470 200 L470 114" marker-end="url(#a)"/>
+  <path class="ln" d="M520 114 L520 200" marker-end="url(#a)"/>
+  <path class="ln" d="M520 260 L520 350" marker-end="url(#a)"/>
+  <path class="ln" d="M470 350 L470 260" marker-end="url(#a)"/>
+  <text class="sm" x="560" y="160">肺から戻る</text>
+  <text class="sm" x="352" y="160">肺へ送る</text>
+  <text class="sm" x="560" y="310">全身へ送る</text>
+  <text class="sm" x="352" y="310">全身から戻る</text>
+  <text class="sm" x="20" y="432">配布資料スライド12・16をもとに作成。心臓の4つの部屋は第2回の図で扱う。</text>
+</svg>

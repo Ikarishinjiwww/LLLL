@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 430" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">動脈血酸素分圧（PaO2）と酸素飽和度（SpO2）</title>
+  <desc id="d">横軸に動脈血酸素分圧（PaO2）、縦軸に酸素飽和度（SpO2）をとった曲線の模式図。一般的な条件では、PaO2 100mmHgでSpO2約98%、80mmHgで約95%となる。同じ条件で、60mmHgでは約90%、40mmHgでは約75%である。室内気でPaO2 60mmHg以下が呼吸不全の目安である。PaO2（mmHg）とSpO2（%）の数値は一致しない。</desc>
+  <style>
+    .ax{fill:none;stroke:currentColor;stroke-width:1.6}
+    .cv{fill:none;stroke:currentColor;stroke-width:2.6}
+    .gd{fill:none;stroke:currentColor;stroke-width:1.1;stroke-dasharray:5 4;opacity:.7}
+    .pt{fill:currentColor}
+    .lab{fill:currentColor;font-size:13.5px}
+    .sm{fill:currentColor;font-size:12px;opacity:.85}
+    .band{fill:currentColor;opacity:.14}
+  </style>
+  <!-- 軸：x＝70＋PaO2/110×520、y＝340−(SpO2−30)/70×300 -->
+  <path class="ax" d="M70 30 V340 H596"/>
+  <text class="sm" x="12" y="24">SpO2（%）</text>
+  <text class="sm" x="430" y="392">PaO2（mmHg）</text>
+  <g class="sm">
+    <text x="44" y="258">50</text><text x="44" y="151">75</text><text x="44" y="87">90</text><text x="44" y="66">95</text><text x="36" y="44">100</text>
+    <text x="156" y="358">20</text><text x="251" y="358">40</text><text x="345" y="358">60</text><text x="440" y="358">80</text><text x="530" y="358">100</text>
+  </g>
+  <!-- 呼吸不全の帯（PaO2 60mmHg以下） -->
+  <rect class="band" x="70" y="318" width="283.6" height="22"/>
+  <text class="lab" x="96" y="334">呼吸不全（室内気でPaO2 60mmHg以下）</text>
+  <!-- 曲線 -->
+  <polyline class="cv" points="164.5,331.4 197.6,254.3 211.8,224.3 235.5,185.7 259.1,147.1 306.4,104.3 353.6,82.9 400.9,70 448.2,61.4 495.5,55 542.7,48.6 590,46"/>
+  <!-- 目盛りへの補助線 -->
+  <path class="gd" d="M259.1 147.1 H70 M259.1 147.1 V340"/>
+  <path class="gd" d="M353.6 82.9 H70 M353.6 82.9 V318"/>
+  <path class="gd" d="M448.2 61.4 H70 M448.2 61.4 V340"/>
+  <path class="gd" d="M542.7 48.6 H70 M542.7 48.6 V340"/>
+  <circle class="pt" cx="259.1" cy="147.1" r="4.5"/>
+  <circle class="pt" cx="353.6" cy="82.9" r="4.5"/>
+  <circle class="pt" cx="448.2" cy="61.4" r="4.5"/>
+  <circle class="pt" cx="542.7" cy="48.6" r="4.5"/>
+  <text class="lab" x="270" y="176">PaO2 40 → SpO2 約75%</text>
+  <text class="sm" x="270" y="194">静脈血とほぼ同じ状態</text>
+  <text class="lab" x="364" y="112">PaO2 60 → SpO2 約90%</text>
+  <text class="sm" x="364" y="130">呼吸不全の目安</text>
+  <text class="lab" x="392" y="90">PaO2 80 → SpO2 約95%（高齢者の平均）</text>
+  <text class="lab" x="336" y="34">PaO2 100 → SpO2 約98%（若い人の平均）</text>
+  <text class="sm" x="12" y="414">PaO2（mmHg）とSpO2（%）の数値は一致しない（対応は一般的な条件での目安）。</text>
+</svg>

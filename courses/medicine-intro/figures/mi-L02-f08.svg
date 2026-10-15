@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 380" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">心不全の症状：二つの系統</title>
+  <desc id="d">高血圧や不整脈、狭心症などで、心臓のポンプ機能が落ちる。一つは、全身に届く血液が足りない系統で、疲れやすさ、血圧の低下、手足の冷えが出る。もう一つは、血液が肺や全身の静脈に滞るうっ血の系統で、足のむくみ、息切れ、夜間の咳、体重増加がみられる。矢印は、原因から結果への流れを表す。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:1.6}
+    .key{fill:currentColor;fill-opacity:.10;stroke:currentColor;stroke-width:2}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .hd{fill:currentColor}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <text class="sm" x="16" y="22">高血圧・不整脈・狭心症など</text>
+  <path class="ln" d="M200 30 V46"/>
+  <path class="hd" d="M194 44 L200 56 L206 44 Z"/>
+  <rect class="key" x="16" y="58" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="81">心臓のポンプ機能が落ちる</text>
+
+  <path class="ln" d="M100 92 V112"/><path class="hd" d="M94 110 L100 122 L106 110 Z"/>
+  <path class="ln" d="M296 92 V112"/><path class="hd" d="M290 110 L296 122 L302 110 Z"/>
+
+  <!-- 全身に届かない系統 -->
+  <rect class="box" x="16" y="124" width="176" height="60" rx="6"/>
+  <text class="lab" x="26" y="148">全身に届く血液が</text>
+  <text class="lab" x="26" y="170">足りない</text>
+  <path class="ln" d="M100 184 V204"/><path class="hd" d="M94 202 L100 214 L106 202 Z"/>
+  <rect class="box" x="16" y="216" width="176" height="104" rx="6"/>
+  <text class="sm" x="26" y="242">疲れやすい</text>
+  <text class="sm" x="26" y="266">血圧の低下</text>
+  <text class="sm" x="26" y="290">手足の冷え</text>
+
+  <!-- うっ血の系統 -->
+  <rect class="box" x="208" y="124" width="176" height="60" rx="6"/>
+  <text class="lab" x="218" y="148">肺や全身の静脈に</text>
+  <text class="lab" x="218" y="170">滞る（うっ血）</text>
+  <path class="ln" d="M296 184 V204"/><path class="hd" d="M290 202 L296 214 L302 202 Z"/>
+  <rect class="box" x="208" y="216" width="176" height="104" rx="6"/>
+  <text class="sm" x="218" y="242">足のむくみ</text>
+  <text class="sm" x="218" y="266">息切れ</text>
+  <text class="sm" x="218" y="290">夜間の咳</text>
+  <text class="sm" x="218" y="314">体重増加</text>
+
+  <text class="sm" x="16" y="358">矢印は、原因から結果への流れを表す</text>
+</svg>

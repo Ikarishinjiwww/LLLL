@@ -1,0 +1,526 @@
+/* ============================================================================
+ * engine-core.js  ―  多课程刷题引擎 / 纯逻辑核心（无 DOM 依赖）
+ * 被 index.html 引用（classic script, 可在 file:// 下加载）。
+ * 设计原则: 全部为纯函数 + 可注入种子的 RNG。生产用真随机, 测试用固定种子。
+ * 这里只有逻辑; 渲染(render)由 app 侧按题型注册表补齐。
+ * ==========================================================================*/
+(function (global) {
+  'use strict';
+
+  function makeRng(seed) {
+    let a = (seed >>> 0) || 1;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // 生产用: 用 crypto 播种一个 mulberry32, 仍可序列化重放(若需要)
+  function makeProdRng() {
+    let seed;
+    try {
+      const buf = new Uint32Array(1);
+      (global.crypto || global.msCrypto).getRandomValues(buf);
+      seed = buf[0];
+    } catch (e) { seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0; }
+    return makeRng(seed);
+  }
+
+  /* ---------- 1. 基础: Fisher–Yates 洗牌(返回新数组, 不改原数组) ---------- */
+  function shuffle(arr, rng) {
+    const r = rng || Math.random;
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(r() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  /* ---------- 2. 选项乱序(不变量2): 打乱 option 对象本身, 各自随身带 correct ----------
+   * 返回新数组, 元素仍引用原 option 对象(携带其 correct 标记与文本)。
+   * 无条件洗牌――不存在"按存储序显示"的路径。*/
+  function shuffleOptions(options, rng) {
+    return shuffle(options, rng);
+  }
+
+  /* ---------- 3. 选择题判分(不变量1): 只看被选对象的 correct, 与 index 无关 ---------- */
+  function gradeChoice(selectedOption) {
+    return !!(selectedOption && selectedOption.correct === true);
+  }
+
+  /* ---------- 4. 主观题百分比: 勾中数 / 要点总数 (返回 0..1 比例) ---------- */
+  function subjectivePercent(checkedCount, totalRubric) {
+    if (!totalRubric) return 0;
+    const c = Math.max(0, Math.min(checkedCount, totalRubric));
+    return c / totalRubric;
+  }
+
+  /* ---------- 5. 题型注册表(逻辑侧): grade / weaknessExtract / validateOne ----------
+   * render 由 app 侧补。所有遍历都经此表, 未知 type 优雅跳过 + 告警。*/
+  const types = {
+    choice: {
+      // 作答结果 ans = { selectedOption } -> 是否正确
+      grade: function (q, ans) {
+        return gradeChoice(ans && ans.selectedOption);
+      },
+      weaknessExtract: function (q, ans, correct) {
+        if (correct) return [];
+        return (q.concepts || []).slice();
+      },
+      validateOne: function (q) {
+        const errs = [], warns = [];
+        const opts = q.options || [];
+        if (opts.length !== 4) errs.push('options 数 ≠ 4 (=' + opts.length + ')');
+        const nCorrect = opts.filter(function (o) { return o && o.correct === true; }).length;
+        if (nCorrect !== 1) errs.push('correct:true 数 ≠ 1 (=' + nCorrect + ')');
+        if (opts.some(function (o) { return !o || typeof o.t !== 'string' || !o.t.trim(); })) errs.push('存在空 option 文本');
+        ['explainShort', 'explainLong'].forEach(function (f) {
+          if (!bilingualOk(q[f])) warns.push(f + ' 双语缺失');
+        });
+        return { errs: errs, warns: warns };
+      }
+    },
+    subjective: {
+      // 作答结果 ans = { checkedConcepts:[...], missedConcepts:[...] }
+      grade: function (q, ans) {
+        const total = (q.rubric || []).length;
+        const hit = ans && ans.checkedConcepts ? ans.checkedConcepts.length : 0;
+        return total > 0 && hit === total; // "全中"才算这题完全正确; 百分比另算
+      },
+      // 没勾中的要点, 按其 concept 计入薄弱
+      weaknessExtract: function (q, ans) {
+        if (ans && Array.isArray(ans.missedConcepts)) return ans.missedConcepts.slice();
+        return [];
+      },
+      validateOne: function (q) {
+        const errs = [], warns = [];
+        const rubric = q.rubric || [];
+        if (!rubric.length) errs.push('rubric 为空');
+        if (rubric.some(function (r) { return !r || !r.concept; })) errs.push('存在缺 concept 的 rubric 条目');
+        if (!bilingualOk(q.modelAnswer)) errs.push('modelAnswer 缺失/双语不全');
+        if (!bilingualOk(q.explainLong)) warns.push('explainLong 双语缺失');
+        rubric.forEach(function (r, i) {
+          if (r && !bilingualOk(r.point)) warns.push('rubric[' + i + '].point 双语缺失');
+        });
+        // 主观题没有 explainShort 属正常, 不校验
+        return { errs: errs, warns: warns };
+      }
+    }
+  };
+
+  function bilingualOk(v) { return v && typeof v.ja === 'string' && typeof v.zh === 'string' && v.ja.length > 0 && v.zh.length > 0; }
+
+  function typeHandler(type, sink) {
+    if (types[type]) return types[type];
+    if (sink) sink.push('未知 type: ' + type + '(已优雅跳过)');
+    return null;
+  }
+
+  /* ---------- 6. 模拟考抽题 ----------
+   * cfg = { total, minSubjective, floatCount }
+   * 规则: 保底 minSubjective 道记述 + floatCount 个浮动名额(每个随机选/记述) + 其余补选择, 总数=total。
+   * 然后整体打乱顺序(记述题散布进序列, 不分段)。
+   * recentIds: 同会话刚做过的题, 抽题时降低权重(轻度, 不硬排除)。
+   * 返回 { set:[...questions], counts:{choice,subjective}, shortfall:{...} }。*/
+  function pickExamSet(questions, cfg, rng, recentIds) {
+    const r = rng || Math.random;
+    cfg = cfg || {};
+    const total = cfg.total || 30;
+    const minSubj = cfg.minSubjective != null ? cfg.minSubjective : 4;
+    const floatN = cfg.floatCount != null ? cfg.floatCount : 1;
+    const recent = new Set(recentIds || []);
+
+    const subjPool = questions.filter(function (q) { return q.type === 'subjective'; });
+    const choicePool = questions.filter(function (q) { return q.type === 'choice'; });
+
+    // recency 轻度压权: 把"最近做过"的排到各自池子末尾(优先抽没做过的), 但不排除
+    function deprio(pool) {
+      const fresh = [], seen = [];
+      pool.forEach(function (q) { (recent.has(q.id) ? seen : fresh).push(q); });
+      return shuffle(fresh, r).concat(shuffle(seen, r));
+    }
+    const subjShuf = deprio(subjPool);
+    const choiceShuf = deprio(choicePool);
+
+    const used = new Set();
+    const picked = [];
+    function take(pool) {
+      for (let i = 0; i < pool.length; i++) { if (!used.has(pool[i].id)) { used.add(pool[i].id); return pool[i]; } }
+      return null;
+    }
+    const shortfall = { subjective: 0, choice: 0 };
+
+    // 1) 保底记述
+    let subjTaken = 0;
+    for (let i = 0; i < minSubj; i++) { const q = take(subjShuf); if (q) { picked.push(q); subjTaken++; } else shortfall.subjective++; }
+
+    // 2) 浮动名额: 每个随机选/记述(coin flip), 记述池空则退化为选择
+    for (let i = 0; i < floatN; i++) {
+      const wantSubj = r() < 0.5;
+      let q = wantSubj ? take(subjShuf) : take(choiceShuf);
+      if (!q) q = wantSubj ? take(choiceShuf) : take(subjShuf);
+      if (q) picked.push(q);
+    }
+
+    // 3) 其余补选择, 凑到 total
+    while (picked.length < total) {
+      const q = take(choiceShuf) || take(subjShuf);
+      if (!q) { shortfall.choice += (total - picked.length); break; }
+      picked.push(q);
+    }
+
+    const set = shuffle(picked, r); // 整体打乱顺序 -> 记述散布, 不分段
+    const counts = {
+      choice: set.filter(function (q) { return q.type === 'choice'; }).length,
+      subjective: set.filter(function (q) { return q.type === 'subjective'; }).length
+    };
+    return { set: set, counts: counts, shortfall: shortfall };
+  }
+
+  /* ---------- 7. 复习: 薄弱加权抽样(非日期驱动) ----------
+   * weakness: { conceptName: count } 越大越该多出现; recentIds 降权; 可按 kai 过滤。
+   * 已掌握(权重低)仍保留在池中(不退出), 错题/薄弱概念权重更高。*/
+  function reviewSample(questions, opts, rng) {
+    const r = rng || Math.random;
+    opts = opts || {};
+    const weakness = opts.weakness || {};
+    const recent = new Set(opts.recentIds || []);
+    const count = opts.count || 12;
+    let pool = questions;
+    if (opts.kai != null) pool = pool.filter(function (q) { return q.kai === opts.kai; });
+    if (opts.onlyIds) { const s = new Set(opts.onlyIds); pool = pool.filter(function (q) { return s.has(q.id); }); }
+    if (!pool.length) return [];
+
+    function weightOf(q) {
+      let w = 1;
+      (q.concepts || []).forEach(function (c) { if (weakness[c]) w += weakness[c] * 2; });
+      (q.rubric || []).forEach(function (rb) { if (rb.concept && weakness[rb.concept]) w += weakness[rb.concept] * 2; });
+      if (recent.has(q.id)) w *= 0.25;
+      return Math.max(0.0001, w);
+    }
+    return weightedSampleWithoutReplacement(pool, count, weightOf, r);
+  }
+
+  function weightedSampleWithoutReplacement(pool, n, weightFn, rng) {
+    const r = rng || Math.random;
+    const items = pool.slice();
+    const weights = items.map(weightFn);
+    const out = [];
+    n = Math.min(n, items.length);
+    for (let k = 0; k < n; k++) {
+      let totalW = 0; for (let i = 0; i < items.length; i++) totalW += weights[i];
+      let x = r() * totalW, idx = 0;
+      for (; idx < items.length; idx++) { x -= weights[idx]; if (x <= 0) break; }
+      if (idx >= items.length) idx = items.length - 1;
+      out.push(items[idx]);
+      items.splice(idx, 1); weights.splice(idx, 1);
+    }
+    return out;
+  }
+
+  /* ---------- 8. 薄弱度两路汇总 ----------
+   * answerLog: [{ id, type, correct, ans }] (ans 含主观题的 missedConcepts)
+   * 返回 { concepts:{name:count}, byKai, byKind, byTopic, wrongIds, totals }。*/
+  function aggregateWeakness(answerLog, byId) {
+    const concepts = {}, byKai = {}, byKind = {}, byTopic = {};
+    const wrongIds = [];
+    let answered = 0, correct = 0;
+    function bump(map, key) { if (key == null) return; map[key] = (map[key] || 0) + 1; }
+
+    answerLog.forEach(function (entry) {
+      const q = byId[entry.id]; if (!q) return;
+      answered++;
+      const h = types[q.type];
+      const isCorrect = entry.correct === true;
+      if (isCorrect) correct++;
+      if (!isCorrect) {
+        wrongIds.push(entry.id);
+        bump(byKai, q.kai); bump(byKind, q.kind); bump(byTopic, q.topic);
+      }
+      if (h && typeof h.weaknessExtract === 'function') {
+        const cs = h.weaknessExtract(q, entry.ans, isCorrect) || [];
+        cs.forEach(function (c) { bump(concepts, c); });
+      }
+    });
+    return {
+      concepts: concepts, byKai: byKai, byKind: byKind, byTopic: byTopic,
+      wrongIds: wrongIds, totals: { answered: answered, correct: correct }
+    };
+  }
+
+  /* ---------- 9. 反向索引(答题与手册共享的基础设施, 加载时构建一次) ----------
+   * 返回 byId / conceptToQuestions / kaiToQuestions / topicToQuestions / conceptMeta / 列表。*/
+  function buildIndices(questions, concepts) {
+    const byId = {}, conceptToQuestions = {}, kaiToQuestions = {}, topicToQuestions = {};
+    const kaiSet = new Set(), topicSet = new Set();
+    function push(map, key, id) { if (key == null) return; (map[key] = map[key] || []).push(id); }
+
+    questions.forEach(function (q) {
+      byId[q.id] = q;
+      push(kaiToQuestions, q.kai, q.id); kaiSet.add(q.kai);
+      push(topicToQuestions, q.topic, q.id); if (q.topic) topicSet.add(q.topic);
+      const cset = new Set();
+      (q.concepts || []).forEach(function (c) { cset.add(c); });
+      (q.rubric || []).forEach(function (rb) { if (rb.concept) cset.add(rb.concept); });
+      cset.forEach(function (c) { push(conceptToQuestions, c, q.id); });
+    });
+
+    /* 概念索引の母集合は「概念辞書 ∪ 問題参照」。問題が参照した概念だけにすると、
+     * 問題が少なく概念が多いコース(神経)では大半の概念が検索にも概念頁にも出ない。 */
+    const conceptNames = new Set(Object.keys(concepts));
+    Object.keys(conceptToQuestions).forEach(function (n) { conceptNames.add(n); });
+
+    const conceptMeta = {}; // name -> { origin, definition, exists }
+    conceptNames.forEach(function (name) {
+      const def = concepts[name];
+      conceptMeta[name] = def ? { origin: def.origin, definition: def.definition, exists: true }
+        : { origin: null, definition: null, exists: false };
+      // 概念辞書に居るが問題からは引かれていない概念も、空配列で索引に載せる(頁は開ける)。
+      if (!conceptToQuestions[name]) conceptToQuestions[name] = [];
+      if (def && def.origin && def.origin.kai != null) kaiSet.add(def.origin.kai);
+    });
+
+    return {
+      byId: byId,
+      conceptToQuestions: conceptToQuestions,
+      kaiToQuestions: kaiToQuestions,
+      topicToQuestions: topicToQuestions,
+      conceptMeta: conceptMeta,
+      kais: Array.from(kaiSet).sort(function (a, b) { return a - b; }),
+      topics: Array.from(topicSet).sort(),
+      concepts: Array.from(conceptNames).sort()
+    };
+  }
+
+  /* ---------- 10. 启动期内容校验 + 退化分布守卫 ----------
+   * 返回 { errors:[{id,msg}], warnings:[{id,msg}], degraded:[{id,reason}],
+   *        stats:{total,byKai,byType,conceptCount,dupIds},
+   *        degeneracy:{ kai: {n,posDist,correctAvgLen,distractorAvgLen,lenDiff,maxPosShare,flags} },
+   *        fatal:boolean }。*/
+  function validateContent(questions, concepts) {
+    const errors = [], warnings = [], degraded = [];
+    const stats = { total: questions.length, byKai: {}, byType: {}, conceptCount: Object.keys(concepts).length, dupIds: [] };
+    const seenIds = {};
+    function bump(m, k) { if (k == null) return; m[k] = (m[k] || 0) + 1; }
+
+    questions.forEach(function (q) {
+      bump(stats.byKai, q.kai); bump(stats.byType, q.type);
+      if (seenIds[q.id]) { stats.dupIds.push(q.id); warnings.push({ id: q.id, msg: 'id 重复(运行时首条胜出)' }); }
+      seenIds[q.id] = true;
+
+      const sink = [];
+      const h = typeHandler(q.type, sink);
+      sink.forEach(function (m) { warnings.push({ id: q.id, msg: m }); });
+      if (h && typeof h.validateOne === 'function') {
+        const v = h.validateOne(q);
+        v.errs.forEach(function (m) { errors.push({ id: q.id, msg: m }); });
+        v.warns.forEach(function (m) { warnings.push({ id: q.id, msg: m }); });
+      }
+      // 概念死链 -> warning + 该题追溯起源对缺失概念降级
+      const cs = new Set();
+      (q.concepts || []).forEach(function (c) { cs.add(c); });
+      (q.rubric || []).forEach(function (rb) { if (rb.concept) cs.add(rb.concept); });
+      cs.forEach(function (c) {
+        if (!concepts[c]) { warnings.push({ id: q.id, msg: '概念未在 concepts.json: ' + c }); degraded.push({ id: q.id, reason: '追溯起源降级(缺概念 ' + c + ')' }); }
+      });
+      if (!bilingualOk(q.explainLong)) degraded.push({ id: q.id, reason: 'explainLong 缺失 → 展开区隐藏' });
+    });
+
+    // 退化分布守卫: 每个 kai 的正确项存储位置分布 + 正确项 vs 干扰项平均字数
+    const degeneracy = {};
+    stats.byKai && Object.keys(stats.byKai).forEach(function () {}); // noop
+    const kais = Array.from(new Set(questions.map(function (q) { return q.kai; }))).sort(function (a, b) { return a - b; });
+    kais.forEach(function (kai) {
+      const items = questions.filter(function (q) { return q.kai === kai && q.type === 'choice'; });
+      if (!items.length) return;
+      const posDist = {}; let cLenSum = 0, cLenN = 0, dLenSum = 0, dLenN = 0;
+      items.forEach(function (q) {
+        (q.options || []).forEach(function (o, i) {
+          if (o.correct) { posDist[i] = (posDist[i] || 0) + 1; cLenSum += (o.t || '').length; cLenN++; }
+          else { dLenSum += (o.t || '').length; dLenN++; }
+        });
+      });
+      const tot = Object.values(posDist).reduce(function (a, b) { return a + b; }, 0);
+      const maxPosShare = tot ? Math.max.apply(null, Object.values(posDist)) / tot : 0;
+      const correctAvgLen = cLenN ? cLenSum / cLenN : 0;
+      const distractorAvgLen = dLenN ? dLenSum / dLenN : 0;
+      const lenDiff = correctAvgLen - distractorAvgLen;
+      const flags = [];
+      if (maxPosShare >= 0.6) flags.push('位置退化: 正确项 ' + Math.round(maxPosShare * 100) + '% 集中在某一位置');
+      if (lenDiff >= 5) flags.push('长度泄题: 正确项平均比干扰项长 ' + lenDiff.toFixed(1) + ' 字');
+      degeneracy[kai] = {
+        n: items.length, posDist: posDist, maxPosShare: maxPosShare,
+        correctAvgLen: correctAvgLen, distractorAvgLen: distractorAvgLen, lenDiff: lenDiff, flags: flags
+      };
+    });
+
+    return { errors: errors, warnings: warnings, degraded: degraded, stats: stats, degeneracy: degeneracy, fatal: errors.length > 0 };
+  }
+
+  /* ---------- 11. 进度导出/导入序列化 ----------
+   * 导出默认"分享安全": 不含手写原始答案(除非 opts.includeRawAnswers)。
+   * 含 courseId/schemaVersion/appVersion/时间戳 + 学习信号(对错/薄弱/分部错误率)。*/
+  function serializeProgress(progress, meta, opts) {
+    opts = opts || {};
+    const out = {
+      _kind: 'quiz-progress-export',
+      courseId: meta.courseId,
+      schemaVersion: meta.schemaVersion,
+      appVersion: meta.appVersion,
+      exportedAt: new Date().toISOString(),
+      includesRawAnswers: !!opts.includeRawAnswers,
+      // 学习信号(不可识别个人)
+      seenIds: Object.keys(progress.seen || {}),
+      wrongIds: Object.keys(progress.wrong || {}),
+      weakness: progress.weakness || {},
+      stats: progress.stats || {},
+      // 完整进度(用于本地还原)。手写答案默认剥离。
+      attempts: (progress.attempts || []).map(function (a) {
+        const copy = { id: a.id, type: a.type, correct: a.correct, at: a.at };
+        if (a.percent != null) copy.percent = a.percent;
+        if (a.missedConcepts) copy.missedConcepts = a.missedConcepts;
+        if (opts.includeRawAnswers && a.rawAnswer != null) copy.rawAnswer = a.rawAnswer;
+        return copy;
+      })
+    };
+    return out;
+  }
+
+  /* 取り込みファイルの形を検査する（予覧より前）。壊れている項目名の配列を返す（空＝合格） */
+  function isPlainObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function validAttempt(a) { return isPlainObj(a) && typeof a.id === 'string' && (a.at == null || typeof a.at === 'number'); }
+  function checkExportShape(obj) {
+    const bad = [];
+    const strArr = function (v) { return v == null || (Array.isArray(v) && v.every(function (x) { return typeof x === 'string'; })); };
+    if (!strArr(obj.seenIds)) bad.push('seenIds');
+    if (!strArr(obj.wrongIds)) bad.push('wrongIds');
+    if (obj.attempts != null && !(Array.isArray(obj.attempts) && obj.attempts.every(validAttempt))) bad.push('attempts');
+    if (obj.weakness != null && !(isPlainObj(obj.weakness) && Object.keys(obj.weakness).every(function (k) { return typeof obj.weakness[k] === 'number' && isFinite(obj.weakness[k]); }))) bad.push('weakness');
+    if (obj.stats != null && !isPlainObj(obj.stats)) bad.push('stats');
+    if (obj.cardMarks != null && !isPlainObj(obj.cardMarks)) bad.push('cardMarks');
+    return bad;
+  }
+  /* 端末内の進捗を読める形に揃える（壊れた項目は捨てる）。読み込み時と取り込み時の共通の最後の砦 */
+  function normalizeProgress(p, schemaVersion) {
+    p = isPlainObj(p) ? p : {};
+    const toSet = function (v) {
+      const o = {};
+      if (Array.isArray(v)) v.forEach(function (id) { if (typeof id === 'string') o[id] = true; });
+      else if (isPlainObj(v)) Object.keys(v).forEach(function (id) { if (v[id]) o[id] = true; });
+      return o;
+    };
+    const weakness = {};
+    if (isPlainObj(p.weakness)) Object.keys(p.weakness).forEach(function (k) { const n = p.weakness[k]; if (typeof n === 'number' && isFinite(n)) weakness[k] = n; });
+    const stats = isPlainObj(p.stats) ? p.stats : {};
+    if (typeof stats.exams !== 'number') stats.exams = 0;
+    return Object.assign({}, p, {
+      schemaVersion: schemaVersion,
+      seen: toSet(p.seen), wrong: toSet(p.wrong), weakness: weakness, stats: stats,
+      attempts: Array.isArray(p.attempts) ? p.attempts.filter(validAttempt) : [],
+      cardMarks: isPlainObj(p.cardMarks) ? p.cardMarks : {},
+      hideLearned: !!p.hideLearned, weakOnly: !!p.weakOnly
+    });
+  }
+
+  function deserializeProgress(obj) {
+    if (!obj || obj._kind !== 'quiz-progress-export') throw new Error('不是有效的进度导出文件');
+    const bad = checkExportShape(obj);
+    if (bad.length) { const err = new Error(bad.join(', ')); err.shapeFields = bad; throw err; }
+    const seen = {}, wrong = {};
+    (obj.seenIds || []).forEach(function (id) { seen[id] = true; });
+    (obj.wrongIds || []).forEach(function (id) { wrong[id] = true; });
+    return {
+      courseId: obj.courseId,
+      schemaVersion: obj.schemaVersion,
+      progress: {
+        seen: seen, wrong: wrong,
+        weakness: obj.weakness || {},
+        stats: obj.stats || {},
+        attempts: obj.attempts || []
+      }
+    };
+  }
+
+  /* ---------- md5（運行時データ束縛核対用） ----------
+   * 標準 MD5（RFC 1321）。boundTo の md5 は Python 側がファイルバイトで実測した値なので、
+   * こちらも fetch テキストを UTF-8 バイト列に戻してから計算する（同一バイト＝同一指紋）。 */
+  function md5Hex(str){
+    var bytes;
+    if (typeof TextEncoder !== 'undefined'){ bytes = new TextEncoder().encode(str); }
+    else { var bs = unescape(encodeURIComponent(str)); bytes = new Uint8Array(bs.length);
+           for (var k = 0; k < bs.length; k++) bytes[k] = bs.charCodeAt(k); }
+    return md5Bytes(bytes);
+  }
+  function md5Bytes(bytes){
+    function add(x, y){ var l = (x & 0xFFFF) + (y & 0xFFFF); var m = (x >> 16) + (y >> 16) + (l >> 16); return (m << 16) | (l & 0xFFFF); }
+    function rol(x, c){ return (x << c) | (x >>> (32 - c)); }
+    function cmn(q, a, b, x, s, t){ return add(rol(add(add(a, q), add(x, t)), s), b); }
+    function ff(a, b, c, d, x, s, t){ return cmn((b & c) | ((~b) & d), a, b, x, s, t); }
+    function gg(a, b, c, d, x, s, t){ return cmn((b & d) | (c & (~d)), a, b, x, s, t); }
+    function hh(a, b, c, d, x, s, t){ return cmn(b ^ c ^ d, a, b, x, s, t); }
+    function ii(a, b, c, d, x, s, t){ return cmn(c ^ (b | (~d)), a, b, x, s, t); }
+    var n = bytes.length, i;
+    var blks = new Int32Array((((n + 8) >> 6) + 1) * 16);
+    for (i = 0; i < n; i++) blks[i >> 2] |= bytes[i] << ((i % 4) * 8);
+    blks[i >> 2] |= 0x80 << ((i % 4) * 8);
+    blks[blks.length - 2] = (n * 8) | 0;
+    blks[blks.length - 1] = Math.floor(n / 536870912) | 0;
+    var a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+    for (i = 0; i < blks.length; i += 16){
+      var oa = a, ob = b, oc = c, od = d;
+      a = ff(a, b, c, d, blks[i + 0], 7, -680876936);   d = ff(d, a, b, c, blks[i + 1], 12, -389564586);
+      c = ff(c, d, a, b, blks[i + 2], 17, 606105819);   b = ff(b, c, d, a, blks[i + 3], 22, -1044525330);
+      a = ff(a, b, c, d, blks[i + 4], 7, -176418897);   d = ff(d, a, b, c, blks[i + 5], 12, 1200080426);
+      c = ff(c, d, a, b, blks[i + 6], 17, -1473231341); b = ff(b, c, d, a, blks[i + 7], 22, -45705983);
+      a = ff(a, b, c, d, blks[i + 8], 7, 1770035416);   d = ff(d, a, b, c, blks[i + 9], 12, -1958414417);
+      c = ff(c, d, a, b, blks[i + 10], 17, -42063);     b = ff(b, c, d, a, blks[i + 11], 22, -1990404162);
+      a = ff(a, b, c, d, blks[i + 12], 7, 1804603682);  d = ff(d, a, b, c, blks[i + 13], 12, -40341101);
+      c = ff(c, d, a, b, blks[i + 14], 17, -1502002290);b = ff(b, c, d, a, blks[i + 15], 22, 1236535329);
+      a = gg(a, b, c, d, blks[i + 1], 5, -165796510);   d = gg(d, a, b, c, blks[i + 6], 9, -1069501632);
+      c = gg(c, d, a, b, blks[i + 11], 14, 643717713);  b = gg(b, c, d, a, blks[i + 0], 20, -373897302);
+      a = gg(a, b, c, d, blks[i + 5], 5, -701558691);   d = gg(d, a, b, c, blks[i + 10], 9, 38016083);
+      c = gg(c, d, a, b, blks[i + 15], 14, -660478335); b = gg(b, c, d, a, blks[i + 4], 20, -405537848);
+      a = gg(a, b, c, d, blks[i + 9], 5, 568446438);    d = gg(d, a, b, c, blks[i + 14], 9, -1019803690);
+      c = gg(c, d, a, b, blks[i + 3], 14, -187363961);  b = gg(b, c, d, a, blks[i + 8], 20, 1163531501);
+      a = gg(a, b, c, d, blks[i + 13], 5, -1444681467); d = gg(d, a, b, c, blks[i + 2], 9, -51403784);
+      c = gg(c, d, a, b, blks[i + 7], 14, 1735328473);  b = gg(b, c, d, a, blks[i + 12], 20, -1926607734);
+      a = hh(a, b, c, d, blks[i + 5], 4, -378558);      d = hh(d, a, b, c, blks[i + 8], 11, -2022574463);
+      c = hh(c, d, a, b, blks[i + 11], 16, 1839030562); b = hh(b, c, d, a, blks[i + 14], 23, -35309556);
+      a = hh(a, b, c, d, blks[i + 1], 4, -1530992060);  d = hh(d, a, b, c, blks[i + 4], 11, 1272893353);
+      c = hh(c, d, a, b, blks[i + 7], 16, -155497632);  b = hh(b, c, d, a, blks[i + 10], 23, -1094730640);
+      a = hh(a, b, c, d, blks[i + 13], 4, 681279174);   d = hh(d, a, b, c, blks[i + 0], 11, -358537222);
+      c = hh(c, d, a, b, blks[i + 3], 16, -722521979);  b = hh(b, c, d, a, blks[i + 6], 23, 76029189);
+      a = hh(a, b, c, d, blks[i + 9], 4, -640364487);   d = hh(d, a, b, c, blks[i + 12], 11, -421815835);
+      c = hh(c, d, a, b, blks[i + 15], 16, 530742520);  b = hh(b, c, d, a, blks[i + 2], 23, -995338651);
+      a = ii(a, b, c, d, blks[i + 0], 6, -198630844);   d = ii(d, a, b, c, blks[i + 7], 10, 1126891415);
+      c = ii(c, d, a, b, blks[i + 14], 15, -1416354905);b = ii(b, c, d, a, blks[i + 5], 21, -57434055);
+      a = ii(a, b, c, d, blks[i + 12], 6, 1700485571);  d = ii(d, a, b, c, blks[i + 3], 10, -1894986606);
+      c = ii(c, d, a, b, blks[i + 10], 15, -1051523);   b = ii(b, c, d, a, blks[i + 1], 21, -2054922799);
+      a = ii(a, b, c, d, blks[i + 8], 6, 1873313359);   d = ii(d, a, b, c, blks[i + 15], 10, -30611744);
+      c = ii(c, d, a, b, blks[i + 6], 15, -1560198380); b = ii(b, c, d, a, blks[i + 13], 21, 1309151649);
+      a = ii(a, b, c, d, blks[i + 4], 6, -145523070);   d = ii(d, a, b, c, blks[i + 11], 10, -1120210379);
+      c = ii(c, d, a, b, blks[i + 2], 15, 718787259);   b = ii(b, c, d, a, blks[i + 9], 21, -343485551);
+      a = add(a, oa); b = add(b, ob); c = add(c, oc); d = add(d, od);
+    }
+    var hex = '0123456789abcdef', out = '';
+    [a, b, c, d].forEach(function(w){
+      for (var j = 0; j < 4; j++){ var by = (w >> (j * 8)) & 0xFF; out += hex[(by >> 4) & 0xF] + hex[by & 0xF]; }
+    });
+    return out;
+  }
+
+  global.QuizCore = {
+    makeRng: makeRng, makeProdRng: makeProdRng, shuffle: shuffle,
+    shuffleOptions: shuffleOptions, gradeChoice: gradeChoice, subjectivePercent: subjectivePercent,
+    types: types, typeHandler: typeHandler,
+    pickExamSet: pickExamSet, reviewSample: reviewSample, weightedSampleWithoutReplacement: weightedSampleWithoutReplacement,
+    aggregateWeakness: aggregateWeakness, buildIndices: buildIndices, validateContent: validateContent,
+    serializeProgress: serializeProgress, deserializeProgress: deserializeProgress,
+    checkExportShape: checkExportShape, normalizeProgress: normalizeProgress,
+    bilingualOk: bilingualOk, md5Hex: md5Hex,
+    VERSION: '1.2.0'
+  };
+
+})(typeof window !== 'undefined' ? window : this);

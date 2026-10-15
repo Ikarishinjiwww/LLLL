@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">覚醒剤と抗精神病薬はシナプスのどこに作用するか</title>
+  <desc id="d">シナプス前の神経終末から放出されたドーパミンが、シナプス後の受容体に結合する。覚醒剤は放出を増やし、多くの抗精神病薬は受容体を遮断する。</desc>
+  <style>
+    .ink{fill:none;stroke:currentColor;stroke-width:2}
+    .thin{fill:none;stroke:currentColor;stroke-width:1.4}
+    .da{fill:currentColor}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:13px;opacity:.85}
+    .blk{fill:currentColor;opacity:.18;stroke:currentColor;stroke-width:1.6}
+  </style>
+  <!-- 前の神経細胞の終末 -->
+  <path class="ink" d="M200 20 L200 120 Q200 170 260 170 L380 170 Q440 170 440 120 L440 20"/>
+  <text class="lab" x="452" y="40">シナプス前の神経細胞</text>
+  <text class="sm" x="452" y="62">神経終末</text>
+  <path class="thin" d="M450 58 L432 100"/>
+  <circle class="thin" cx="270" cy="110" r="22"/><circle class="thin" cx="330" cy="95" r="22"/><circle class="thin" cx="380" cy="120" r="22"/>
+  <g class="da"><circle cx="262" cy="104" r="4"/><circle cx="276" cy="116" r="4"/><circle cx="324" cy="90" r="4"/><circle cx="338" cy="101" r="4"/><circle cx="374" cy="114" r="4"/><circle cx="388" cy="126" r="4"/></g>
+  <text class="sm" x="40" y="66">ドーパミンを含む</text><text class="sm" x="40" y="82">シナプス小胞</text>
+  <path class="thin" d="M136 76 L246 104"/>
+  <!-- 放出されたドーパミン -->
+  <g class="da"><circle cx="270" cy="200" r="4"/><circle cx="300" cy="212" r="4"/><circle cx="330" cy="198" r="4"/><circle cx="360" cy="214" r="4"/><circle cx="392" cy="202" r="4"/></g>
+  <text class="sm" x="452" y="205">放出されたドーパミン（●）</text>
+  <!-- 後ろの神経細胞の膜と受容体 -->
+  <path class="ink" d="M180 270 L460 270"/>
+  <path class="thin" d="M230 270 L230 252 L246 252 L246 270"/>
+  <path class="thin" d="M300 270 L300 252 L316 252 L316 270"/>
+  <path class="thin" d="M370 270 L370 252 L386 252 L386 270"/>
+  <circle class="da" cx="238" cy="246" r="4"/><circle class="da" cx="308" cy="246" r="4"/>
+  <rect class="blk" x="364" y="236" width="28" height="16" rx="3"/>
+  <text class="lab" x="452" y="262">シナプス後の神経細胞</text>
+  <text class="sm" x="452" y="284">ドーパミン受容体</text>
+  <path class="thin" d="M450 280 L394 258"/>
+  <!-- 覚醒剤 -->
+  <path class="thin" d="M110 150 L196 150" marker-end="url(#a)"/>
+  <text class="lab" x="20" y="132">覚醒剤</text>
+  <text class="sm" x="20" y="172">放出を増やす</text>
+  <text class="sm" x="20" y="190">→ ドーパミン過剰</text>
+  <text class="sm" x="20" y="208">→ 統合失調症に似た幻覚・妄想</text>
+  <!-- 抗精神病薬 -->
+  <path class="thin" d="M300 340 L370 264" marker-end="url(#a)"/>
+  <text class="lab" x="200" y="330">多くの抗精神病薬</text>
+  <text class="sm" x="200" y="350">受容体を遮断する</text>
+  <text class="sm" x="200" y="368">→ 幻覚・妄想を抑える</text>
+  <text class="sm" x="200" y="388">過度の遮断 → 錐体外路症状などの副作用</text>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+</svg>

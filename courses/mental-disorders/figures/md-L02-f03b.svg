@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 392" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">期間による鑑別の目安（DSM-5）</title>
+  <desc id="d">上は、各疾患の期間の条件を示すものさしである。短期精神病性障害では、精神病症状が1日以上1か月未満続き、最終的には機能が病前の水準まで回復する。統合失調症様障害では、前駆期・残遺期を含めた期間が1か月以上6か月未満である。統合失調症では、前駆期・残遺期も含めて障害の徴候が6か月以上続く。下は、統合失調症の6か月の内訳の例である。前駆期・残遺期がある場合はそれも含めて6か月以上で、A基準を満たす活動期は1か月以上ある。治療が成功した場合、活動期は1か月より短くてよい。期間だけで診断は決まらず、症状・機能・除外の条件も確認する。目盛りは等間隔ではない。</desc>
+  <style>
+    .b1{fill:currentColor;fill-opacity:.08;stroke:currentColor;stroke-width:1.6}
+    .b2{fill:currentColor;fill-opacity:.18;stroke:currentColor;stroke-width:1.6}
+    .b3{fill:currentColor;fill-opacity:.30;stroke:currentColor;stroke-width:2}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .hd{fill:currentColor}
+    .h{fill:currentColor;font-size:16px;font-weight:bold}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <!-- 期間のものさし -->
+  <text class="h" x="16" y="22">期間による鑑別の目安（DSM-5）</text>
+  <text class="sm" x="16" y="44">各疾患の期間の条件</text>
+  <rect class="b1" x="56" y="52" width="104" height="48"/>
+  <rect class="b2" x="160" y="52" width="130" height="48"/>
+  <rect class="b3" x="290" y="52" width="98" height="48"/>
+  <text class="sm" x="64" y="72">短期精神病性</text>
+  <text class="sm" x="64" y="90">障害</text>
+  <text class="sm" x="168" y="72">統合失調症様</text>
+  <text class="sm" x="168" y="90">障害</text>
+  <text class="sm" x="298" y="81">統合失調症</text>
+
+  <path class="ln" d="M16 100 H380"/>
+  <path class="hd" d="M378 94 L390 100 L378 106 Z"/>
+  <path class="ln" d="M16 100 V108 M56 100 V108 M160 100 V108 M290 100 V108"/>
+  <text class="sm" x="16" y="124">0</text>
+  <text class="sm" x="56" y="124" text-anchor="middle">1日</text>
+  <text class="sm" x="160" y="124" text-anchor="middle">1か月</text>
+  <text class="sm" x="290" y="124" text-anchor="middle">6か月</text>
+  <text class="sm" x="56" y="148">最終的に機能が</text>
+  <text class="sm" x="56" y="166">病前の水準まで</text>
+  <text class="sm" x="56" y="184">回復する</text>
+  <text class="sm" x="168" y="148">統合失調症様障害・統合失調症の</text>
+  <text class="sm" x="168" y="166">期間は、前駆期・残遺期も含む</text>
+  <text class="sm" x="168" y="184">徴候の持続期間</text>
+
+  <!-- 統合失調症の6か月の内訳 -->
+  <text class="lab" x="16" y="216">統合失調症の6か月（例）</text>
+  <rect class="b1" x="16" y="226" width="118" height="36"/>
+  <rect class="b3" x="134" y="226" width="136" height="36"/>
+  <rect class="b1" x="270" y="226" width="118" height="36"/>
+  <text class="sm" x="54" y="249">前駆期</text>
+  <text class="sm" x="146" y="249">活動期（A基準）</text>
+  <text class="sm" x="308" y="249">残遺期</text>
+  <path class="ln" d="M16 270 V276 H388 V270"/>
+  <text class="sm" x="16" y="296">前駆期・残遺期がある場合はそれも含めて6か月以上</text>
+  <text class="sm" x="16" y="316">活動期は1か月以上（治療が成功すれば短くてよい）</text>
+
+  <text class="sm" x="16" y="344">期間だけで診断は決まらず、</text>
+  <text class="sm" x="16" y="362">症状・機能・除外の条件も確認する</text>
+  <text class="sm" x="16" y="384">目盛りは等間隔ではない</text>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 460" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">狭くなった冠動脈のカテーテル治療（バルーンとステント）</title>
+  <desc id="d">狭くなった冠動脈を、胸を開かずにカテーテルで治療する方法の一例を示した模式図。①カテーテルでバルーンとステントを狭い部分まで進める。②バルーンを膨らませて、ステントを広げる。③バルーンをしぼませて抜くと、ステントが残り、血管が広がったままになる。</desc>
+  <style>
+    .wall{fill:none;stroke:currentColor;stroke-width:2.4}
+    .plq{fill:currentColor;opacity:.28}
+    .cath{fill:none;stroke:currentColor;stroke-width:2;opacity:.7}
+    .stent{fill:none;stroke:currentColor;stroke-width:1.6}
+    .bal{fill:currentColor;opacity:.14;stroke:currentColor;stroke-width:1.4}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:13.5px;opacity:.9}
+  </style>
+  <text class="sm" x="16" y="20">↓ は手順の順番（治療法の一例・模式）</text>
+  <text class="lab" x="16" y="46">① カテーテルで、バルーンとステントを</text>
+  <text class="lab" x="40" y="66">狭い部分まで進める</text>
+  <path class="wall" d="M20 84 H380 M20 136 H380"/>
+  <path class="plq" d="M150 84 Q200 104 250 84 Z M150 136 Q200 116 250 136 Z"/>
+  <path class="cath" d="M20 110 H170"/>
+  <rect class="bal" x="170" y="104" width="64" height="12" rx="6"/>
+  <path class="stent" d="M172 104 L180 116 L188 104 L196 116 L204 104 L212 116 L220 104 L228 116"/>
+  <text class="lab" x="190" y="164">↓</text>
+  <text class="lab" x="16" y="196">② バルーンを膨らませて、ステントを広げる</text>
+  <path class="wall" d="M20 214 H380 M20 270 H380"/>
+  <path class="plq" d="M150 214 Q200 220 250 214 Z M150 270 Q200 264 250 270 Z"/>
+  <path class="cath" d="M20 242 H160"/>
+  <rect class="bal" x="160" y="220" width="84" height="44" rx="20"/>
+  <path class="stent" d="M162 220 L172 264 L182 220 L192 264 L202 220 L212 264 L222 220 L232 264 L242 220"/>
+  <text class="lab" x="190" y="298">↓</text>
+  <text class="lab" x="16" y="330">③ バルーンをしぼませて抜くと、</text>
+  <text class="lab" x="40" y="350">ステントが残り、血管が広がったままになる</text>
+  <path class="wall" d="M20 368 H380 M20 424 H380"/>
+  <path class="plq" d="M150 368 Q200 373 250 368 Z M150 424 Q200 419 250 424 Z"/>
+  <path class="stent" d="M156 372 L166 420 L176 372 L186 420 L196 372 L206 420 L216 372 L226 420 L236 372 L246 420"/>
+  <text class="sm" x="16" y="452">胸を開かずに、血管の中から広げる治療</text>
+</svg>

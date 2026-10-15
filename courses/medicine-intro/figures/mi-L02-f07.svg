@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 474" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">冠動脈が狭くなる・途絶える：狭心症と心筋梗塞</title>
+  <desc id="d">上は狭心症である。冠動脈が狭くなると、心筋が一時的に血液不足になり、締めつけられる胸痛の発作が起こる。下は心筋梗塞である。冠動脈の血流が途絶えるなどして心筋が虚血になり、壊死する。矢印は、原因から結果への流れを表す。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:1.6}
+    .key{fill:currentColor;fill-opacity:.10;stroke:currentColor;stroke-width:2}
+    .ves{fill:none;stroke:currentColor;stroke-width:2.2}
+    .plug{fill:currentColor;fill-opacity:.55;stroke:none}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .hd{fill:currentColor}
+    .h{fill:currentColor;font-size:16px;font-weight:bold}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <!-- 狭心症 -->
+  <text class="h" x="16" y="22">狭心症</text>
+  <!-- 狭くなった血管（中央がくびれる） -->
+  <path class="ves" d="M16 44 H120 C150 44 156 56 186 56 H214 C244 56 250 44 280 44 H384"/>
+  <path class="ves" d="M16 84 H120 C150 84 156 72 186 72 H214 C244 72 250 84 280 84 H384"/>
+  <text class="sm" x="16" y="108">冠動脈が狭くなる</text>
+  <path class="ln" d="M132 114 V130"/>
+  <path class="hd" d="M126 128 L132 140 L138 128 Z"/>
+  <rect class="box" x="16" y="142" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="165">心筋が一時的に血液不足になる</text>
+  <path class="ln" d="M132 176 V192"/>
+  <path class="hd" d="M126 190 L132 202 L138 190 Z"/>
+  <rect class="box" x="16" y="204" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="227">締めつけられる胸痛の発作</text>
+
+  <!-- 区切り -->
+  <path class="ln" d="M16 258 H384" stroke-opacity=".35"/>
+
+  <!-- 心筋梗塞 -->
+  <text class="h" x="16" y="284">心筋梗塞</text>
+  <!-- 途絶えた血管（中央をふさぐ） -->
+  <path class="ves" d="M16 304 H384"/>
+  <path class="ves" d="M16 344 H384"/>
+  <rect class="plug" x="180" y="305" width="40" height="38"/>
+  <text class="sm" x="16" y="368">冠動脈の血流が途絶えるなど</text>
+  <path class="ln" d="M132 374 V390"/>
+  <path class="hd" d="M126 388 L132 400 L138 388 Z"/>
+  <rect class="key" x="16" y="402" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="425">心筋が虚血になり、壊死する</text>
+
+  <text class="sm" x="16" y="464">矢印は、原因から結果への流れを表す</text>
+</svg>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 450" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">心臓の4つの部屋と血液の流れ</title>
+  <desc id="d">正面から見た心臓の模式図で、図の左が体の右側にあたる。右心房・右心室・左心房・左心室の4つの部屋と4つの弁、および肺循環と体循環で血液が流れる向きを示す。線の種類で、酸素の多い血液と少ない血液を描き分けている。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:2}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:12.5px;opacity:.85}
+    .poor{fill:none;stroke:currentColor;stroke-width:2.2;stroke-dasharray:7 5}
+    .rich{fill:none;stroke:currentColor;stroke-width:2.6}
+    .valve{fill:currentColor}
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+  <text class="sm" x="20" y="24">正面から見た図：図の左＝体の右側</text>
+  <!-- 肺 -->
+  <rect class="box" x="250" y="44" width="140" height="44" rx="22"/><text class="lab" x="312" y="72">肺</text>
+  <!-- 4室 -->
+  <rect class="box" x="130" y="130" width="150" height="80" rx="10"/><text class="lab" x="175" y="176">右心房</text>
+  <rect class="box" x="130" y="232" width="150" height="110" rx="10"/><text class="lab" x="175" y="292">右心室</text>
+  <rect class="box" x="360" y="130" width="150" height="80" rx="10"/><text class="lab" x="405" y="176">左心房</text>
+  <rect class="box" x="360" y="232" width="150" height="110" rx="10"/><text class="lab" x="405" y="292">左心室</text>
+  <!-- 房室弁（心房と心室の間） -->
+  <rect class="valve" x="185" y="217" width="40" height="8" rx="2"/><text class="sm" x="132" y="228">三尖弁</text>
+  <rect class="valve" x="415" y="217" width="40" height="8" rx="2"/><text class="sm" x="468" y="228">僧帽弁</text>
+  <!-- 肺動脈：右心室の出口（肺動脈弁）から肺へ -->
+  <rect class="valve" x="282" y="246" width="8" height="26" rx="2"/>
+  <path class="poor" d="M290 258 C312 258 312 140 300 90" marker-end="url(#a)"/>
+  <text class="sm" x="296" y="292">肺動脈弁</text>
+  <text class="sm" x="212" y="112">肺動脈</text>
+  <!-- 肺静脈：肺から左心房へ -->
+  <path class="rich" d="M352 88 C350 104 380 112 400 128" marker-end="url(#a)"/>
+  <text class="sm" x="384" y="112">肺静脈</text>
+  <!-- 大動脈：左心室の出口（大動脈弁）から全身へ -->
+  <rect class="valve" x="510" y="270" width="8" height="26" rx="2"/>
+  <text class="sm" x="526" y="266">大動脈弁</text>
+  <path class="rich" d="M518 283 C590 300 590 404 392 410" marker-end="url(#a)"/>
+  <text class="sm" x="560" y="350">大動脈</text>
+  <!-- 全身 -->
+  <rect class="box" x="250" y="388" width="140" height="44" rx="22"/><text class="lab" x="296" y="416">全身</text>
+  <!-- 大静脈：全身から右心房へ -->
+  <path class="poor" d="M250 410 C60 410 70 180 126 170" marker-end="url(#a)"/>
+  <text class="sm" x="40" y="320">大静脈</text>
+  <!-- 凡例 -->
+  <line class="rich" x1="360" y1="22" x2="396" y2="22"/><text class="sm" x="402" y="26">酸素の多い血液（動脈血）</text>
+  <line class="poor" x1="360" y1="40" x2="396" y2="40"/><text class="sm" x="402" y="44">酸素の少ない血液（静脈血）</text>
+  <text class="sm" x="20" y="446">※実際の静脈血は暗い赤色</text>
+</svg>

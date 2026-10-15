@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">ICFの構成要素と相互作用</title>
+  <desc id="d">健康状態、心身機能・身体構造、活動、参加は双方向に影響し合い、背景因子である環境因子と個人因子が各要素に影響する。心身機能・身体構造、活動、参加の否定的な側面は、それぞれ機能障害、活動制限、参加制約である。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:2}
+    .lab{fill:currentColor;font-size:15px}
+    .hd{fill:currentColor;font-size:15px;font-weight:bold}
+    .sm{fill:currentColor;font-size:12.5px;opacity:.85}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .dash{fill:none;stroke:currentColor;stroke-width:1.8;stroke-dasharray:6 4}
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+  <rect class="box" x="210" y="20" width="220" height="56" rx="8"/>
+  <text class="lab" x="320" y="46" text-anchor="middle">健康状態</text>
+  <text class="sm" x="320" y="64" text-anchor="middle">（変調または病気）</text>
+  <rect class="box" x="20" y="150" width="180" height="64" rx="8"/>
+  <text class="lab" x="110" y="180" text-anchor="middle">心身機能・身体構造</text>
+  <text class="sm" x="110" y="198" text-anchor="middle">否定的側面：機能障害</text>
+  <rect class="box" x="240" y="150" width="160" height="64" rx="8"/>
+  <text class="lab" x="320" y="180" text-anchor="middle">活動</text>
+  <text class="sm" x="320" y="198" text-anchor="middle">否定的側面：活動制限</text>
+  <rect class="box" x="440" y="150" width="180" height="64" rx="8"/>
+  <text class="lab" x="530" y="180" text-anchor="middle">参加</text>
+  <text class="sm" x="530" y="198" text-anchor="middle">否定的側面：参加制約</text>
+  <rect class="box" x="110" y="300" width="180" height="50" rx="8"/>
+  <text class="lab" x="200" y="330" text-anchor="middle">環境因子</text>
+  <rect class="box" x="350" y="300" width="180" height="50" rx="8"/>
+  <text class="lab" x="440" y="330" text-anchor="middle">個人因子</text>
+  <path class="ln" d="M300 76 L130 150" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M320 76 L320 150" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M340 76 L510 150" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M200 182 L240 182" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M400 182 L440 182" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M110 256 L530 256"/>
+  <path class="ln" d="M110 256 L110 214" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M320 256 L320 214" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M530 256 L530 214" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M200 300 L200 256" marker-end="url(#a)" marker-start="url(#a)"/>
+  <path class="ln" d="M440 300 L440 256" marker-end="url(#a)" marker-start="url(#a)"/>
+  <text class="sm" x="320" y="388" text-anchor="middle">背景因子（環境因子・個人因子）</text>
+  <text class="sm" x="20" y="412">配布資料スライド33の図をもとに作成</text>
+</svg>

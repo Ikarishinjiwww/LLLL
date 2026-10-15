@@ -1,0 +1,20 @@
+{
+ "schema": "rx-dist-manifest/1",
+ "built": "2026-10-15",
+ "files": {
+  "content.json": "d79b0a951813d0865964d0a999da1715d741d83b4a460616f8116608457be50e",
+  "course.json": "f1d6aae1803732263215c2382fa0c85049a24d22707eea5cc6f51cd372c4907b",
+  "quiz.enc.json": "d7d4ab78a83d1988ad369c3d49c62e7a446e6005637aaa87c34794b81c22828a",
+  "images/md-L01-i01.jpg": "ecb3f3536ada090a1f6d7f3892dd52a3d7443bcf2e8efc0bada41b2d0e2a3c8c",
+  "images/md-L01-i02.jpg": "6e86be2fbfeb43429b65f5fb7c43dafeb8ab8536fecfffbf4c1f2e857bf7b944",
+  "images/md-L01-i03.jpg": "42ccc257900909d7d3ee577103a159da962535c2376a04fe2ff29516ce55122e",
+  "images/md-L02-i01.jpg": "0fcdc3c26947c732f1598e9921cda39584bf16c646f6c50188c1f0eee00851f3",
+  "images/md-L02-i02.jpg": "08614dc0bd3bb33acba9e66dcf39db31146113ac18028b7ae381ed5c21e2fbdf",
+  "figures/md-L01-f01.svg": "f43971746d42bac16aae5084bd90547b93f73dd7567d2b1b9c8899bbe97a58df",
+  "figures/md-L02-f01.svg": "f00c736fd7940d9a4483c0d4bdff14cbed4055471b7506e43031c38203b4fad2",
+  "figures/md-L02-f02.svg": "9d5394913b80e90a78043278013d6a0a846236b140d8f0f58b86bc7c2d632134",
+  "figures/md-L02-f03b.svg": "93a0a13a58ef769b3aa7f1e8c009d3f1e04e56908092dc6e5c4f1aedb3f99963",
+  "figures/md-L03-f01b.svg": "b2e08f8b0fde41291aeddd9431abb8af100828d21dbe2c9edc8c95f765a19d99",
+  "figures/md-L03-f02.svg": "b5f72ff89aab3a761fde6a9facac5b069f723d0f843a5288f2a8a61ed7d722b6"
+ }
+}

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">高血圧が臓器に及ぼす影響</title>
+  <desc id="d">高血圧は自覚症状に乏しいが、心臓と動脈に大きな負担をかけ、長く続くと動脈硬化が起こりやすくなる。また、心筋梗塞、脳卒中（脳梗塞・脳出血）、腎不全などのリスクを高める。症状が現れるのは、臓器障害が進んでからのことがある。破線の枠内は別の場面である。血圧が急に上がり、手足の麻痺などがみられる場合は、脳卒中を疑い、面接を中断してすぐに救急車を呼ぶ。実線の矢印は原因から結果への流れ、破線の枠内の矢印はとるべき対応を表す。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:1.6}
+    .key{fill:currentColor;fill-opacity:.10;stroke:currentColor;stroke-width:2}
+    .dash{fill:none;stroke:currentColor;stroke-width:1.6;stroke-dasharray:5 4}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .lnd{fill:none;stroke:currentColor;stroke-width:1.8;stroke-dasharray:4 3}
+    .hd{fill:currentColor}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <rect class="key" x="16" y="16" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="39">高血圧（自覚症状に乏しい）</text>
+
+  <!-- 左：負担と動脈硬化 -->
+  <path class="ln" d="M100 50 V70"/><path class="hd" d="M94 68 L100 80 L106 68 Z"/>
+  <rect class="box" x="16" y="82" width="176" height="56" rx="6"/>
+  <text class="sm" x="26" y="105">心臓と動脈に</text>
+  <text class="sm" x="26" y="127">大きな負担がかかる</text>
+  <path class="ln" d="M100 138 V158"/><path class="hd" d="M94 156 L100 168 L106 156 Z"/>
+  <rect class="box" x="16" y="170" width="176" height="56" rx="6"/>
+  <text class="sm" x="26" y="193">長く続くと、動脈硬化が</text>
+  <text class="sm" x="26" y="215">起こりやすい</text>
+
+  <!-- 右：病気のリスク -->
+  <path class="ln" d="M296 50 V146"/><path class="hd" d="M290 144 L296 156 L302 144 Z"/>
+  <text class="sm" x="304" y="96">リスクを</text>
+  <text class="sm" x="304" y="116">高める</text>
+  <rect class="box" x="208" y="158" width="176" height="80" rx="6"/>
+  <text class="sm" x="218" y="182">心筋梗塞・脳卒中</text>
+  <text class="sm" x="218" y="204">（脳梗塞・脳出血）・</text>
+  <text class="sm" x="218" y="226">腎不全など</text>
+
+  <text class="sm" x="16" y="268">症状が出るのは、臓器障害が</text>
+  <text class="sm" x="16" y="288">進んでからのことがある</text>
+
+  <!-- 別の場面：急な上昇 -->
+  <rect class="dash" x="16" y="310" width="368" height="128" rx="6"/>
+  <text class="lab" x="28" y="334">血圧が急に上がり、</text>
+  <text class="lab" x="28" y="356">手足の麻痺などがある</text>
+  <path class="lnd" d="M200 364 V378"/><path class="hd" d="M194 376 L200 388 L206 376 Z"/>
+  <text class="lab" x="28" y="408">脳卒中を疑い、面接を中断して</text>
+  <text class="lab" x="28" y="430">すぐに救急車を呼ぶ</text>
+
+  <text class="sm" x="16" y="470">実線の矢印は原因から結果への流れ、</text>
+  <text class="sm" x="16" y="490">破線の枠内の矢印はとるべき対応を表す</text>
+</svg>

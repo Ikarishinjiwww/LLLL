@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">精神科病院の在院患者：入院形態と在院期間（2022年度）</title>
+  <desc id="d">2022年度の在院患者258,920人を、入院形態別と在院期間別に示す。医療保護入院と任意入院がほぼ同数で、措置入院はごく少ない。在院期間は1年以上が160,309人で、1年未満より多い。</desc>
+  <style>
+    .lab{fill:currentColor;font-size:14px}
+    .hd{fill:currentColor;font-size:15px;font-weight:bold}
+    .sm{fill:currentColor;font-size:12px;opacity:.85}
+    .bar{fill:currentColor;opacity:.22;stroke:currentColor;stroke-width:1.2}
+    .barL{fill:currentColor;opacity:.45;stroke:currentColor;stroke-width:1.2}
+    .ink{fill:none;stroke:currentColor;stroke-width:1.4}
+  </style>
+  <text class="hd" x="20" y="28">入院形態（総数 258,920人）</text>
+  <text class="lab" x="140" y="59" text-anchor="end">医療保護入院</text>
+  <rect class="bar" x="150" y="44" width="373" height="20"/>
+  <text class="sm" x="531" y="59">130,490人</text>
+  <text class="lab" x="140" y="91" text-anchor="end">任意入院</text>
+  <rect class="bar" x="150" y="76" width="358" height="20"/>
+  <text class="sm" x="516" y="91">125,459人</text>
+  <text class="lab" x="140" y="123" text-anchor="end">措置入院</text>
+  <rect class="bar" x="150" y="108" width="4" height="20"/>
+  <text class="sm" x="162" y="123">1,546人</text>
+  <text class="hd" x="20" y="168">在院期間（総数 258,920人）</text>
+  <text class="lab" x="140" y="199" text-anchor="end">1年未満</text>
+  <rect class="bar" x="150" y="184" width="282" height="20"/>
+  <text class="sm" x="440" y="199">98,610人</text>
+  <text class="lab" x="140" y="231" text-anchor="end">1年以上5年未満</text>
+  <rect class="barL" x="150" y="216" width="232" height="20"/>
+  <text class="sm" x="390" y="231">81,251人</text>
+  <text class="lab" x="140" y="263" text-anchor="end">5年以上10年未満</text>
+  <rect class="barL" x="150" y="248" width="99" height="20"/>
+  <text class="sm" x="257" y="263">34,646人</text>
+  <text class="lab" x="140" y="295" text-anchor="end">10年以上</text>
+  <rect class="barL" x="150" y="280" width="127" height="20"/>
+  <text class="sm" x="285" y="295">44,412人</text>
+  <path class="ink" d="M560 215 L568 215 L568 309 L560 309"/>
+  <text class="sm" x="574" y="258">1年以上</text>
+  <text class="sm" x="574" y="274">160,309人</text>
+  <text class="sm" x="20" y="354">※総数と掲載した内訳の和には、入院形態で1,425人、在院期間で1人の差がある（数値は配布資料による）。</text>
+  <text class="sm" x="20" y="384">出典：精神保健福祉資料（630調査）2022年度、配布資料スライド16・19</text>
+</svg>

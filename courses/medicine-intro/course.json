@@ -1,0 +1,12 @@
+{
+ "schema": "rx-content/1",
+ "course": "medicine-intro",
+ "title": "医学総論",
+ "lectures": [
+  "mi-L01",
+  "mi-L02",
+  "mi-L03"
+ ],
+ "contract": "rx-content/1",
+ "built": "2026-10-15"
+}

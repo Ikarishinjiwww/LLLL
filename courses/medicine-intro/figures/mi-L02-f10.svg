@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 470" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">胃の壁の傷：びらんと潰瘍</title>
+  <desc id="d">胃の壁の断面である。びらんは粘膜の浅い傷で、潰瘍は粘膜筋板を越える深い傷である。粘膜筋板は、粘膜のいちばん深い部分にある。潰瘍が血管を傷つけると、出血することがある。胃や十二指腸など上部消化管からの出血では、黒いタール状の便がみられることが多い。矢印は、原因から結果への流れを表す。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:1.6}
+    .muc{fill:currentColor;fill-opacity:.10;stroke:currentColor;stroke-width:1.4}
+    .mm{fill:currentColor;fill-opacity:.50;stroke:none}
+    .sub{fill:none;stroke:currentColor;stroke-width:1.4}
+    .ves{fill:currentColor;fill-opacity:.30;stroke:currentColor;stroke-width:1.4}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .lead{fill:none;stroke:currentColor;stroke-width:1.2}
+    .hd{fill:currentColor}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <text class="sm" x="16" y="22">胃の内側</text>
+  <!-- 粘膜（粘膜筋板を含む）：びらんは浅い切れ込み、潰瘍は粘膜筋板を越える -->
+  <path class="muc" d="M16 40 H76 L92 66 L108 40 H212 L222 104 H254 L264 40 H300 V104 H16 Z"/>
+  <!-- 粘膜筋板＝粘膜のいちばん深い帯（潰瘍の所で途切れる） -->
+  <rect class="mm" x="16" y="96" width="205" height="8"/>
+  <rect class="mm" x="255" y="96" width="45" height="8"/>
+  <!-- 粘膜の下の層 -->
+  <path class="sub" d="M16 104 H222 M254 104 H300 M16 180 H300"/>
+  <path class="ln" d="M222 104 L232 136 H244 L254 104"/>
+  <!-- 血管（潰瘍の底に接する） -->
+  <ellipse class="ves" cx="238" cy="146" rx="22" ry="10"/>
+
+  <!-- ラベルと引き出し線 -->
+  <path class="lead" d="M304 40 H312 V104 H304"/>
+  <text class="sm" x="318" y="62">粘膜</text>
+  <path class="lead" d="M300 100 L318 122"/>
+  <text class="sm" x="318" y="134">粘膜筋板</text>
+  <path class="lead" d="M216 148 L142 170"/>
+  <text class="sm" x="108" y="176">血管</text>
+  <text class="sm" x="16" y="212">粘膜筋板は、粘膜の最も深い部分にある</text>
+
+  <text class="lab" x="64" y="250">びらん</text>
+  <text class="sm" x="16" y="272">粘膜の浅い傷</text>
+  <text class="lab" x="222" y="250">潰瘍</text>
+  <text class="sm" x="176" y="272">粘膜筋板を越える深い傷</text>
+
+  <path class="ln" d="M238 282 V298"/><path class="hd" d="M232 296 L238 308 L244 296 Z"/>
+  <rect class="box" x="16" y="310" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="333">血管を傷つけると、出血することがある</text>
+  <path class="ln" d="M238 344 V360"/><path class="hd" d="M232 358 L238 370 L244 358 Z"/>
+  <rect class="box" x="16" y="372" width="368" height="56" rx="6"/>
+  <text class="sm" x="28" y="394">上部消化管（胃・十二指腸など）からの出血では、</text>
+  <text class="sm" x="28" y="416">黒いタール状の便がみられることが多い</text>
+
+  <text class="sm" x="16" y="456">矢印は、原因から結果への流れを表す</text>
+</svg>

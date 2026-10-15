@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 604" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">甲状腺ホルモンと代謝：亢進症と低下症</title>
+  <desc id="d">上は甲状腺機能亢進症の代表であるバセドウ病である。甲状腺を刺激する自己抗体のためにホルモンが多くなりすぎ、代謝が上がって体の働きが速くなる。その結果、暑がりで汗が多くなり、食べても痩せやすくなる。動悸、手のふるえ、焦燥、不眠もみられる。眼球突出は一部の人にみられる。下は甲状腺機能低下症である。ホルモンが足りないと代謝が下がり、寒がりになり、体重が増えやすく、脈が遅くなる。動作の緩慢、もの忘れ、抑うつもみられる。矢印は、原因から結果への流れを表す。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:1.6}
+    .key{fill:currentColor;fill-opacity:.10;stroke:currentColor;stroke-width:2}
+    .dash{fill:none;stroke:currentColor;stroke-width:1.6;stroke-dasharray:5 4}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .hd{fill:currentColor}
+    .h{fill:currentColor;font-size:16px;font-weight:bold}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <!-- 亢進症 -->
+  <text class="h" x="16" y="22">亢進症（バセドウ病）</text>
+  <rect class="box" x="16" y="34" width="232" height="34" rx="6"/>
+  <text class="lab" x="28" y="57">甲状腺を刺激する自己抗体</text>
+  <!-- 眼球突出（独立した旁注。因果の矢印は引かない） -->
+  <rect class="dash" x="256" y="34" width="128" height="94" rx="6"/>
+  <text class="sm" x="264" y="56">バセドウ病では、</text>
+  <text class="sm" x="264" y="76">眼球突出が</text>
+  <text class="sm" x="264" y="96">みられる</text>
+  <text class="sm" x="264" y="116">ことがある</text>
+
+  <path class="ln" d="M132 68 V86"/>
+  <path class="hd" d="M126 84 L132 96 L138 84 Z"/>
+  <rect class="box" x="16" y="98" width="232" height="34" rx="6"/>
+  <text class="lab" x="28" y="121">ホルモンが多すぎる</text>
+
+  <path class="ln" d="M132 132 V150"/>
+  <path class="hd" d="M126 148 L132 160 L138 148 Z"/>
+  <rect class="key" x="16" y="162" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="185">代謝↑：体の働きが速くなる</text>
+
+  <path class="ln" d="M76 196 V216"/><path class="hd" d="M70 214 L76 226 L82 214 Z"/>
+  <path class="ln" d="M200 196 V216"/><path class="hd" d="M194 214 L200 226 L206 214 Z"/>
+  <path class="ln" d="M324 196 V216"/><path class="hd" d="M318 214 L324 226 L330 214 Z"/>
+  <rect class="box" x="16" y="228" width="120" height="72" rx="6"/>
+  <text class="sm" x="26" y="250">暑がり・</text>
+  <text class="sm" x="26" y="270">汗が多い・</text>
+  <text class="sm" x="26" y="290">食べても痩せやすい</text>
+  <rect class="box" x="146" y="228" width="108" height="72" rx="6"/>
+  <text class="sm" x="186" y="270">動悸</text>
+  <rect class="box" x="264" y="228" width="120" height="72" rx="6"/>
+  <text class="sm" x="274" y="250">手のふるえ・</text>
+  <text class="sm" x="274" y="270">焦燥・不眠</text>
+
+  <!-- 区切り -->
+  <path class="ln" d="M16 322 H384" stroke-opacity=".35"/>
+
+  <!-- 低下症 -->
+  <text class="h" x="16" y="350">低下症</text>
+  <rect class="box" x="16" y="362" width="232" height="34" rx="6"/>
+  <text class="lab" x="28" y="385">ホルモンが足りない</text>
+
+  <path class="ln" d="M132 396 V414"/>
+  <path class="hd" d="M126 412 L132 424 L138 412 Z"/>
+  <rect class="key" x="16" y="426" width="368" height="34" rx="6"/>
+  <text class="lab" x="28" y="449">代謝↓</text>
+
+  <path class="ln" d="M76 460 V480"/><path class="hd" d="M70 478 L76 490 L82 478 Z"/>
+  <path class="ln" d="M200 460 V480"/><path class="hd" d="M194 478 L200 490 L206 478 Z"/>
+  <path class="ln" d="M324 460 V480"/><path class="hd" d="M318 478 L324 490 L330 478 Z"/>
+  <rect class="box" x="16" y="492" width="120" height="72" rx="6"/>
+  <text class="sm" x="26" y="524">寒がり・</text>
+  <text class="sm" x="26" y="544">体重が増えやすい</text>
+  <rect class="box" x="146" y="492" width="108" height="72" rx="6"/>
+  <text class="sm" x="160" y="534">脈が遅い</text>
+  <rect class="box" x="264" y="492" width="120" height="72" rx="6"/>
+  <text class="sm" x="274" y="514">動作が緩慢・</text>
+  <text class="sm" x="274" y="534">もの忘れ・</text>
+  <text class="sm" x="274" y="554">抑うつ</text>
+
+  <text class="sm" x="16" y="592">矢印は、原因から結果への流れを表す</text>
+</svg>

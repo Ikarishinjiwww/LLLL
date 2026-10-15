@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 470" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">典型的な経過で見分ける：うつ病・双極Ⅰ型・双極Ⅱ型・気分循環性障害</title>
+  <desc id="d">典型的な経過として、4本の気分の波を並べた図。うつ病は基準線より下のうつの波だけ。双極Ⅰ型は躁の水準を超える山と深いうつの谷（うつの谷はⅠ型の診断に必須ではない）。双極Ⅱ型は躁の水準に届かない軽躁の山と深いうつの谷。気分循環性障害は、どちらの水準にも届かない小さな波が長く続く（成人で2年以上）。</desc>
+  <style>
+    .ink{fill:none;stroke:currentColor;stroke-width:2.2}
+    .base{fill:none;stroke:currentColor;stroke-width:1.2;opacity:.6}
+    .lvl{fill:none;stroke:currentColor;stroke-width:1;stroke-dasharray:5 4;opacity:.55}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:12px;opacity:.85}
+  </style>
+  <text class="sm" x="20" y="20">典型的な経過の例。破線：上は躁病、下は抑うつエピソードの水準　実線：ふだんの気分</text>
+  <!-- うつ病 -->
+  <text class="lab" x="20" y="88">うつ病</text>
+  <text class="sm" x="20" y="106">（単極性）</text>
+  <path class="lvl" d="M170 50 L620 50"/><path class="base" d="M170 80 L620 80"/><path class="lvl" d="M170 110 L620 110"/>
+  <path class="ink" d="M170 80 L230 80 Q260 164 290 80 L450 80 Q480 164 510 80 L620 80"/>
+  <text class="sm" x="296" y="104">うつ</text><text class="sm" x="516" y="104">うつ</text>
+  <!-- 双極Ⅰ型 -->
+  <text class="lab" x="20" y="193">双極Ⅰ型</text>
+  <path class="lvl" d="M170 155 L620 155"/><path class="base" d="M170 185 L620 185"/><path class="lvl" d="M170 215 L620 215"/>
+  <path class="ink" d="M170 185 L220 185 Q245 101 270 185 L350 185 Q380 271 410 185 L500 185 Q525 101 550 185 L620 185"/>
+  <text class="sm" x="276" y="173">躁</text><text class="sm" x="416" y="207">うつ</text><text class="sm" x="556" y="173">躁</text>
+  <!-- 双極Ⅱ型 -->
+  <text class="lab" x="20" y="298">双極Ⅱ型</text>
+  <path class="lvl" d="M170 260 L620 260"/><path class="base" d="M170 290 L620 290"/><path class="lvl" d="M170 320 L620 320"/>
+  <path class="ink" d="M170 290 L220 290 Q245 258 270 290 L350 290 Q380 376 410 290 L500 290 Q525 258 550 290 L620 290"/>
+  <text class="sm" x="275" y="279">軽躁</text><text class="sm" x="416" y="312">うつ</text><text class="sm" x="555" y="279">軽躁</text>
+  <!-- 気分循環性障害 -->
+  <text class="lab" x="20" y="403">気分循環性</text>
+  <text class="lab" x="20" y="421">障害</text>
+  <path class="lvl" d="M170 365 L620 365"/><path class="base" d="M170 395 L620 395"/><path class="lvl" d="M170 425 L620 425"/>
+  <path class="ink" d="M170 395 Q185 380 200 395 Q215 410 230 395 Q245 380 260 395 Q275 410 290 395 Q305 380 320 395 Q335 410 350 395 Q365 380 380 395 Q395 410 410 395 Q425 380 440 395 Q455 410 470 395 Q485 380 500 395 Q515 410 530 395 Q545 380 560 395 Q575 410 590 395 Q605 380 620 395"/>
+  <text class="sm" x="250" y="444">どちらの水準にも届かない小さな波が長く続く（成人で2年以上）</text>
+  <path class="base" d="M170 462 L620 462"/>
+  <text class="sm" x="580" y="458">時間 →</text>
+</svg>

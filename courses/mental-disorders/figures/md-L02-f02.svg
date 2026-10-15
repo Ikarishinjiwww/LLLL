@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 372" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">統合失調症の典型的な経過</title>
+  <desc id="d">統合失調症の経過の一例を、横軸を時間、縦軸を症状の強さとして示した模式図。病前期の後に前駆期が続き、症状が少しずつ現れる。症状期には増悪と改善をくり返す。慢性期（残遺期）には、陰性症状や認知機能障害が残りやすい。DSM-5のC基準では、障害の徴候が6か月以上続くことが必要で、この6か月には前駆期・残遺期も数える。そのうち1か月以上は、A基準を満たす活動期の症状が必要である（治療が成功した場合は1か月より短くてもよい）。</desc>
+  <style>
+    .ink{fill:none;stroke:currentColor;stroke-width:2.6}
+    .base{fill:none;stroke:currentColor;stroke-width:1.2;opacity:.55}
+    .sep{fill:none;stroke:currentColor;stroke-width:1;stroke-dasharray:4 4;opacity:.45}
+    .band{fill:currentColor;opacity:.08}
+    .lab{fill:currentColor;font-size:16px}
+    .sm{fill:currentColor;font-size:13.5px;opacity:.9}
+  </style>
+  <text class="sm" x="20" y="20">典型的な経過の例（各時期の長さの比は実際とは異なる）</text>
+  <text class="sm" x="20" y="40">縦：症状の強さ　横：時間（→ は時間の流れ）</text>
+  <rect class="band" x="170" y="56" width="130" height="146"/>
+  <text class="sm" x="214" y="74">活動期</text>
+  <path class="sep" d="M100 56 V202 M170 56 V202 M300 56 V202"/>
+  <path class="base" d="M20 202 H372"/>
+  <path class="base" d="M372 196 L384 202 L372 208"/>
+  <path class="ink" d="M20 196 H100 Q140 192 170 168 Q186 84 202 92 Q216 100 226 150 Q238 160 248 150 Q262 82 276 96 Q290 112 300 162 Q330 168 380 168"/>
+  <text class="lab" x="30" y="226">病前期</text>
+  <text class="lab" x="108" y="226">前駆期</text>
+  <text class="lab" x="210" y="226">症状期</text>
+  <text class="sm" x="180" y="244">（増悪と改善）</text>
+  <text class="lab" x="312" y="226">慢性期</text>
+  <text class="sm" x="304" y="244">（残遺期）</text>
+  <path class="ink" d="M100 262 V274 M100 268 H380 M380 262 V274" style="stroke-width:1.6"/>
+  <text class="sm" x="20" y="294">DSM-5のC基準：この範囲で、障害の徴候が6か月以上</text>
+  <text class="sm" x="20" y="313">（前駆期・残遺期も数える。うち活動期の症状は1か月以上）</text>
+  <text class="sm" x="20" y="332">※治療が成功した場合、活動期は1か月より短くてもよい</text>
+  <text class="sm" x="20" y="358">慢性期には、陰性症状・認知機能障害が残りやすい</text>
+</svg>

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 270" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">消化管の順序</title>
+  <desc id="d">口腔から肛門まで、消化管の各部を順に並べた図。上は講義の区分で、胃と小腸のあいだに十二指腸を置く。下は解剖学の区分で、十二指腸・空腸・回腸をまとめて小腸とする。</desc>
+  <style>
+    .node{fill:none;stroke:currentColor;stroke-width:1.8}
+    .lab{fill:currentColor;font-size:14px}
+    .sm{fill:currentColor;font-size:12.5px;opacity:.85}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.6}
+  </style>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+  <text class="sm" x="10" y="24">講義の区分：胃 → 十二指腸 → 小腸（空腸・回腸）</text>
+  <path class="ln" d="M382 66 V54 H510 V66"/>
+  <text class="lab" x="398" y="48">小腸（講義の区分）</text>
+  <g>
+    <rect class="node" x="10" y="74" width="56" height="34" rx="8"/><text class="lab" x="21" y="96">口腔</text>
+    <rect class="node" x="82" y="74" width="56" height="34" rx="8"/><text class="lab" x="93" y="96">咽頭</text>
+    <rect class="node" x="154" y="74" width="56" height="34" rx="8"/><text class="lab" x="165" y="96">食道</text>
+    <rect class="node" x="226" y="74" width="44" height="34" rx="8"/><text class="lab" x="240" y="96">胃</text>
+    <rect class="node" x="286" y="74" width="80" height="34" rx="8"/><text class="lab" x="295" y="96">十二指腸</text>
+    <rect class="node" x="382" y="74" width="56" height="34" rx="8"/><text class="lab" x="393" y="96">空腸</text>
+    <rect class="node" x="454" y="74" width="56" height="34" rx="8"/><text class="lab" x="465" y="96">回腸</text>
+    <rect class="node" x="526" y="74" width="56" height="34" rx="8"/><text class="lab" x="537" y="96">大腸</text>
+    <text class="lab" x="596" y="96">肛門</text>
+    <path class="ln" d="M66 91 H80" marker-end="url(#a)"/><path class="ln" d="M138 91 H152" marker-end="url(#a)"/>
+    <path class="ln" d="M210 91 H224" marker-end="url(#a)"/><path class="ln" d="M270 91 H284" marker-end="url(#a)"/>
+    <path class="ln" d="M366 91 H380" marker-end="url(#a)"/><path class="ln" d="M438 91 H452" marker-end="url(#a)"/>
+    <path class="ln" d="M510 91 H524" marker-end="url(#a)"/><path class="ln" d="M582 91 H594" marker-end="url(#a)"/>
+  </g>
+  <path class="ln" d="M286 116 V128 H510 V116"/>
+  <text class="lab" x="300" y="148">小腸（解剖学の区分）</text>
+  <text class="sm" x="10" y="186">解剖学の区分：胃 → 小腸（十二指腸・空腸・回腸）</text>
+  <text class="sm" x="10" y="210">大腸＝盲腸・上行結腸・横行結腸・下行結腸・S状結腸・直腸</text>
+  <text class="sm" x="10" y="246">この講義の試験では、講義の区分で答える</text>
+</svg>

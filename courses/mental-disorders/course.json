@@ -1,0 +1,12 @@
+{
+ "schema": "rx-content/1",
+ "course": "mental-disorders",
+ "title": "精神疾患とその治療",
+ "lectures": [
+  "md-L01",
+  "md-L02",
+  "md-L03"
+ ],
+ "contract": "rx-content/1",
+ "built": "2026-10-15"
+}

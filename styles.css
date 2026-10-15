@@ -1,0 +1,2260 @@
+:root{
+  --jp:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic','PingFang SC','Microsoft YaHei',sans-serif;
+  --ui:'Nunito',var(--jp); --mono:'Space Mono',ui-monospace,monospace; --disp:'Zen Maru Gothic',var(--jp);
+  /* 浅浅粉粉 · 长读不刺眼 */
+  --paper:#FCF7FA; --card:#FFFFFF; --card2:#FEFAFC; --ink:#3B333A; --soft:#76606D; --faint:#C6B4C0;
+  --line:#F3E7EF; --line2:#FAF1F7; --track:#EAD9E1; /* 进度空轨: 比 line 深, 任何底可见(治 pink-on-pink) */
+  --accent:#E4A0BC; --accent-wash:#FBEEF4; --accent-deep:#BC7A9A; --accent-deeper:#9E6683;
+  /* 少女粉 · 仅 logo 单独使用(既定: 此粉只给 logo, 不铺到别处) */
+  --pink-2:#EC8EB6;
+  --accent-ink:#9A5F7D;  /* 白文字の下地/小さい文字色として 4.5:1 を満たす濃さ。--accent-deep は装飾用で薄すぎる */
+  --glow-rgb:214,140,178; --cta-rgb:199,123,160;  /* 影・グローも皮膚化(課ごとに差し替わる) */
+  --fig-ink:#4A3B44; --fig-muted:#977E8D; --fig-grid:#F0E2EA; --fig-alt:#7E9AB8;  /* 図(路径A SVG)の配色 */
+  --hair:#EBD0DF; --sep:#CBB6C3; --theme:#E4A0BC;
+  --ok:#5C8A6C; --ok-wash:#E9F1EB; --ok-line:#C8E0CF; --ok-deep:#3F6E4F;
+  --no:#C25E48; --no-wash:#FBE7E1; --no-line:#F0CDC2; --no-deep:#9E4631;
+  --ref-wash:#FBEAF1; --shadow:0 1px 2px rgba(var(--glow-rgb),.05),0 10px 30px rgba(var(--glow-rgb),.08); --shadow-sm:0 1px 2px rgba(var(--glow-rgb),.05),0 4px 14px rgba(var(--glow-rgb),.06);
+  --cpad:24px; /* 内容水平 padding。断点で上書き(phone 16) */
+  /* 圆角刻度(16 種散乱→4 档統一) */
+  --r-1:8px; --r-2:12px; --r-3:16px; --r-4:20px; --r-pill:999px;
+  /* 液態玻璃(Apple 質感; @supports フォールバック付き) */
+  --glass:rgba(252,247,250,.72); --glass-line:rgba(var(--cta-rgb),.14); --glass-blur:saturate(1.5) blur(20px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{margin:0}
+body{font-family:var(--ui);color:var(--ink);background:var(--paper);line-height:1.6;-webkit-font-smoothing:antialiased;padding-top:var(--topbar-h,52px)} /* padding-top: fixed 顶栏脱流, 内容整体下推一个顶栏高度; --topbar-h 由 JS 实测写入(见 boot 前 IIFE), 52px 为 JS 跑前的回退值 */
+button{font:inherit;cursor:pointer;color:inherit} /* UA 既定（WebKit 11px）に落ちない：字号は親か各部品が決める */
+:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;box-shadow:0 0 0 2px var(--card);border-radius:var(--r-1)} /* 環は --accent-ink（どの皮膚でも 3:1 以上）＋内側に卡片色の縁（色付きの面の上でも環が沈まない） */
+h1[tabindex="-1"]:focus,h2[tabindex="-1"]:focus{outline:none;box-shadow:none} /* 画面遷移で焦点を受けるだけの見出し（操作対象ではない） */
+.jp{font-family:var(--jp)}
+.mono{font-family:var(--mono)}
+.hide{display:none!important}
+
+.topbar{position:fixed;top:0;left:0;right:0;z-index:20;background:var(--glass);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 6px 22px rgba(80,40,55,.07)} /* 完整玻璃栈: 顶缘 specular 高光 + 底部分离影(单一上方光源) */
+.topbar{padding-top:env(safe-area-inset-top,0px)} /* viewport-fit=cover：主屏模式では状態バーの下まで広がる。高さは index.html の ResizeObserver が実測して --topbar-h に入れる（S8 V-01・V-02） */
+.topbar::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.04;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")} /* 微 noise 去塑料感 */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .topbar{background:var(--paper);border-bottom-color:var(--line)} .topbar::after{display:none} }
+body.tb-scrolled .topbar{background:var(--paper);-webkit-backdrop-filter:none;backdrop-filter:none;border-bottom-color:var(--line)} body.tb-scrolled .topbar::after{display:none} /* V-07 B：スクロール後は実色（本文が透けて叠字しない）。頂点では従来のガラス */
+/* 玻璃非対応: 实色 fallback(去 noise) */
+/* ↑ sticky→fixed 根治顶栏闪。真机定位: 顶栏 sticky 处吸顶态(滚下去后)时, #view 任何重渲(回流)都会让浏览器重算吸顶层位置 → 顶栏空一帧 (不需有滚动变化, innerHTML 重渲的回流即触发)。fixed 不参与滚动流、无吸顶↔自然位状态机, 回流动不了它。代价: 脱流后需给内容补 padding-top = 顶栏高度 (见 body 的 var(--topbar-h), 由 JS ResizeObserver 实测, 见 boot 前 IIFE)。历经 backdrop-filter/translateZ/keepScroll 三招均未触及 sticky 机制故全无效 */
+.tb-in{max-width:var(--cmax,1120px);margin:0 auto;padding:8px var(--cpad);grid-template-columns:1fr auto 1fr}
+.tb-l{justify-self:start;display:flex;align-items:center;gap:8px;min-width:0}
+.tb-r{justify-self:end;display:flex;align-items:center;gap:8px;min-width:0}
+.brand{display:inline-flex;align-items:center;min-height:44px;color:var(--pink-2);background:none;border:none;cursor:pointer} /* logo 也是可点(回首页), hit 区 44 高 */
+.brand .brandmark{height:18px;width:auto;display:block}
+.tb-sp{flex:1}
+.tb-btn{font-size:12.5px;font-weight:600;border-radius:var(--r-1);padding:6px 11px;min-width:44px;height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center} /* 44pt 触摸(min-width 补齐) */
+@media(hover:hover){.tb-btn:hover{border-color:var(--accent)}}
+.lang{position:relative;display:flex;min-height:44px;box-sizing:border-box;font-size:12px} /* 44pt 触摸(min-height 让内含 44 按钮撑开) */
+.lang-thumb{position:absolute;transition:transform var(--t-2,240ms) var(--ease,cubic-bezier(.33,1,.68,1));z-index:0;pointer-events:none}
+.lang[data-lang="zh"] .lang-thumb{transform:translateX(100%)}
+.lang button{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:6px 11px;background:none;border:none;font-weight:600;transition:color var(--t-1,130ms)}
+
+.wrap{max-width:var(--cmax);margin:0 auto;padding:22px var(--cpad) 80px}
+.runner{display:grid;grid-template-columns:64px 1fr;gap:0;max-width:760px;margin:0 auto;background:var(--card);border:1px solid var(--line);overflow:hidden;box-shadow:var(--shadow)}
+.rail{padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.rk{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--faint);margin-bottom:6px;writing-mode:vertical-rl;text-orientation:upright}
+.tab{width:40px;padding:6px 0;text-align:center;border-radius:var(--r-1);font-size:12.5px;color:var(--soft);font-weight:600;border:none;background:none}
+.tab.on{color:#fff}
+.tab .done{display:block;font-size:8px;color:var(--ok);margin-top:1px}
+.tab.on .done{color:var(--track)}
+.tab.clickable{cursor:pointer}
+@media(hover:hover){.tab.clickable:hover:not(.on){background:var(--accent-wash);color:var(--accent-ink)}}
+.rbody{padding:18px 22px 24px;min-width:0}
+
+.qhd{display:flex;justify-content:space-between;gap:12px}
+.qhd-l{display:flex;align-items:flex-start;gap:10px;min-width:0} /* 戻る を上端揃えに → 右上の ホーム と同じ高さ */
+.qback{font-family:var(--jp);font-size:12px;font-weight:600;color:var(--soft);background:var(--card);border:1px solid var(--line);border-radius:var(--r-1);padding:5px 11px;min-height:44px;display:inline-flex;align-items:center;cursor:pointer;flex:none}
+@media(hover:hover){.qback:hover{border-color:var(--accent);color:var(--accent-ink)}}
+.qhd .crs{font-size:11.5px;color:var(--soft);font-weight:600}
+.qhd .crs b{display:block;color:var(--ink);font-size:14px;font-weight:700;margin-top:2px}
+.qnum{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;color:var(--soft);flex-wrap:wrap}
+.qnum .n{color:var(--accent)}
+.qnum .mode{font-family:var(--ui);font-size:11px;border-radius:var(--r-pill)}
+.qnum .prog{margin-left:auto}
+.qtimer{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-weight:700;font-size:12.5px;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--accent-wash);border-radius:var(--r-pill);padding:3px 11px;flex:none}
+.qtimer .qt-ic{display:inline-flex}.qtimer .qt-ic svg{width:13px;height:13px;display:block}
+.qtext{font-family:var(--jp);font-size:16px;line-height:1.85;font-weight:500;margin-bottom:16px;letter-spacing:.01em;white-space:pre-wrap}
+
+.opts{display:flex;flex-direction:column;gap:9px}
+.opt{display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:1.5px solid var(--line);padding:13px 13px;font-family:var(--jp);font-size:14.5px;color:var(--ink);transition:border-color .12s,background .12s}
+@media(hover:hover){.opt:hover:not(:disabled){border-color:var(--accent)}}
+.opt:disabled{cursor:default}
+.opt .mk{flex:none;border-radius:50%;display:grid;place-items:center}
+.opt.ok{border-color:var(--ok-line);background:var(--ok-wash)}
+.opt.ok .mk{border-color:var(--ok)}
+.opt.no{border-color:var(--no-line);background:var(--no-wash)}
+.opt.no .mk{border-color:var(--no)}
+.opt .lbl{margin-left:auto;flex:none;white-space:nowrap;font-family:var(--ui);font-size:12px;font-weight:700;letter-spacing:.04em} /* 長い選択肢でもラベルを縦に潰さない（本文の側が折り返す） */
+.opt.ok .lbl{color:var(--ok-deep)} .opt.no .lbl{color:var(--no-deep)}
+
+/* reveal layer */
+.reveal{margin-top:4px}
+/* 可见终态写在基础样式，动画只描述起点（backwards）：动画被关掉时内容照常可见 */
+.reveal.anim{animation:rise .26s ease backwards}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+@keyframes revealfade{from{opacity:0}}
+.revcap{display:flex;align-items:center;gap:10px;margin:18px 0 6px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);text-transform:uppercase}
+.revcap::before,.revcap::after{content:"";height:1px;background:var(--line);flex:1}
+.crumb{font-family:var(--mono);font-size:11px;color:var(--soft);display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:12px 0}
+.crumb b{font-family:var(--jp);color:var(--accent-ink);font-weight:700}
+.crumb .jp2{font-family:var(--jp)} .crumb .sep{color:var(--sep)}
+.tags{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.tag{font-size:11px;color:var(--soft);border:1px solid var(--line);border-radius:var(--r-1);padding:2px 9px;background:var(--card2);font-family:var(--jp)}
+.tag.kind{background:var(--accent-wash);border-color:var(--hair);color:var(--accent-ink);font-weight:600}
+.expl{background:var(--accent-wash);padding:13px 15px;margin-bottom:12px}
+.expl .et{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--accent-ink);text-transform:uppercase;margin-bottom:6px}
+.expl p{margin:0;font-family:var(--jp);font-size:13.5px;line-height:1.82;color:var(--ink)}
+.more{margin-top:9px;font-size:12px;color:var(--accent-ink);font-weight:600;background:none;border:none;padding:13px 0;margin-bottom:-13px;min-height:44px;margin-top:-4px} /* 見た目は小さく、命中区は 44px（U-59） */
+.more::before{content:"▸ ";font-size:11px}
+.more.open::before{content:"▾ "}
+.longx{margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
+.trail{background:var(--ref-wash);border:1px solid var(--line);border-radius:var(--r-2);padding:12px 15px}
+.trail .tt{font-family:var(--mono);font-size:11px;letter-spacing:.09em;color:var(--accent-ink);text-transform:uppercase;margin-bottom:9px}
+.trail .step{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:4px 0}
+.trail .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.trail .cn{font-family:var(--jp);font-weight:500;color:var(--ink)}
+.trail .cn.dis{color:var(--faint);text-decoration:line-through}
+.trail .og{font-family:var(--mono);font-size:11px;color:var(--soft);margin-left:auto}
+
+.ta-wrap{margin-bottom:14px}
+textarea.answer{width:100%;min-height:120px;background:var(--card2);border:1.5px solid var(--line);border-radius:var(--r-2);
+  padding:12px 13px;font-family:var(--jp);font-size:14px;line-height:1.8;color:var(--ink);resize:vertical}
+textarea.answer:focus{outline:none;border-color:var(--accent)}
+.ta-ro{background:var(--card2);border:1px solid var(--line);border-radius:var(--r-2);padding:12px 13px;margin-bottom:14px}
+.ta-ro .tl{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--soft);text-transform:uppercase;margin-bottom:7px}
+.ta-ro p{margin:0;font-family:var(--jp);font-size:13px;line-height:1.78;color:var(--ink);white-space:pre-wrap}
+.model{background:var(--ok-wash);border:1px solid var(--ok-line);border-radius:var(--r-2);padding:12px 15px;margin-bottom:13px}
+.model .et{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--ok-deep);text-transform:uppercase;margin-bottom:6px}
+.model p{margin:0;font-family:var(--jp);font-size:13px;line-height:1.8;color:var(--ink)}
+.rubt{font-size:11.5px;color:var(--soft);font-weight:600;margin-bottom:8px;font-family:var(--jp)}
+.rb{display:flex;align-items:flex-start;gap:11px;width:100%;text-align:left;background:var(--card2);border:1.5px solid var(--line);border-radius:var(--r-2);padding:11px 13px;margin-bottom:7px;color:var(--ink)}
+.rb .ck{flex:none;width:21px;height:21px;border-radius:var(--r-1);border:1.5px solid var(--line);display:grid;place-items:center;font-size:12px;color:var(--soft);margin-top:1px}
+.rb.hit{border-color:var(--ok-line);background:var(--ok-wash)} .rb.hit .ck{background:var(--ok);border-color:var(--ok);color:#fff}
+.rb .rt{font-family:var(--jp);font-size:13px;line-height:1.7}
+.rb .rb-st{display:inline-block;margin-top:4px;font-family:var(--mono);font-size:11px;color:var(--soft)}
+.rb.hit .rb-st{color:var(--ok-deep)}
+.scoreline{display:flex;align-items:center;gap:10px;margin:14px 0 4px;font-family:var(--jp);font-size:13px;color:var(--soft)}
+.scoreline b{font-family:var(--mono);font-size:20px;color:var(--accent-ink)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-3);padding:20px;box-shadow:var(--shadow)}
+/* 全站可点控件的命中区不低于 44px：这是触控下限，不是留白。视觉小于 44px 的控件以 min-width/min-height 或负 margin 补足命中区。 */
+.btn{font-family:var(--ui);font-size:14px;font-weight:700;border:none;border-radius:var(--r-2);padding:12px 18px;min-height:44px;box-sizing:border-box;color:#fff;transition:transform .12s var(--curve),background .15s} /* 44pt(基类, 覆盖 .btn.sm 等全部衍生) */
+.btn.ghost{border:1.5px solid var(--line)}
+.btn.sm{font-size:12.5px;padding:8px 13px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.muted{color:var(--soft);font-size:13px;line-height:1.75}
+.chip{font-family:var(--ui);font-size:13px;border:1.5px solid var(--line);background:var(--card);color:var(--soft);border-radius:var(--r-pill);padding:7px 14px;font-weight:600;min-height:44px;display:inline-flex;align-items:center}
+@media(hover:hover){.chip:hover{border-color:var(--accent);color:var(--accent-ink)}}
+.chip .c{font-family:var(--mono);font-size:11px;color:var(--accent);margin-left:6px}
+.chip.on{color:#fff}.chip.on .c{color:var(--track)}
+
+.hero{margin-bottom:20px}
+.hero .kick{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.hero h1{font-size:23px;font-weight:700;margin:8px 0 0;letter-spacing:.01em}
+.hero .sub{font-family:var(--jp);color:var(--soft);font-size:13.5px;margin-top:7px}
+.acts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:18px}
+.act{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-2);padding:16px 17px;box-shadow:var(--shadow)}
+@media(hover:hover){.act:hover{border-color:var(--accent);transform:translateY(-1px)}}
+.act .ic{font-size:19px;line-height:1}
+.act .t{font-weight:700;font-size:15px;font-family:var(--jp)}
+.act .d{font-family:var(--jp);font-size:12px;color:var(--soft);line-height:1.6}
+.act.primary{color:#fff}
+.act.primary .d{color:var(--track)}
+.act.cont{border-color:var(--accent-wash);background:var(--accent-wash)}
+.hint{display:flex;align-items:flex-start;gap:11px;background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-2);padding:12px 14px;margin-bottom:16px;font-family:var(--jp);font-size:12.5px;color:var(--accent-ink);line-height:1.7}
+.hint button{margin-left:auto;flex:none;background:none;border:none;color:var(--accent-ink);font-weight:700;font-size:16px;line-height:1}
+
+.listrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r-2);padding:12px 14px;margin-bottom:8px;color:var(--ink)}
+@media(hover:hover){.listrow:hover{border-color:var(--accent);background:var(--card2)}}
+.listrow .lead{font-family:var(--mono);font-size:12px;font-weight:700;flex:none;min-width:38px}
+.listrow .main{font-family:var(--jp);font-size:13.5px;min-width:0}
+.listrow .main small{display:block;color:var(--soft);font-size:11.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:520px}
+.listrow .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--soft);flex:none}
+.barbg{height:7px;background:var(--track);box-shadow:inset 0 0 0 1px rgba(var(--glow-rgb),.05);border-radius:var(--r-pill);overflow:hidden;flex:1;min-width:60px}
+.barfg{height:100%;background:var(--accent);border-radius:var(--r-pill)}
+
+.sechd{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.sechd h2{font-size:18px;font-weight:700;margin:0;font-family:var(--jp)}
+.back{font-size:12.5px;background:none;border:none}
+@media(hover:hover) and (pointer:fine){.back:hover{color:var(--accent-ink)}}
+.subtabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+
+.bigscore{display:flex;margin-bottom:6px}
+.bigscore .pct{line-height:1}
+.statgrid{gap:10px;margin:16px 0}
+.statbox{background:var(--card2);border:1px solid var(--line);border-radius:var(--r-2);padding:12px;text-align:center}
+.statbox .n{font-size:22px;color:var(--ink)}
+.statbox .l{font-family:var(--jp);font-size:11px;color:var(--soft);margin-top:4px}
+.weakwrap{margin:16px 0}
+.weakrow{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.weakrow .nm{font-family:var(--jp);font-size:13px;color:var(--ink);font-weight:600;background:none;border:none;text-align:left;padding:0}
+@media(hover:hover) and (pointer:fine){.weakrow .nm:hover{text-decoration:underline}}
+.aibox{background:var(--ref-wash);border:1px solid var(--line);padding:15px;margin:16px 0}
+.aibox .et{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--accent-ink);text-transform:uppercase;margin-bottom:8px}
+.aibox p{font-family:var(--jp);font-size:12.5px;line-height:1.78;color:var(--ink);margin:0 0 10px}
+.promptbox{background:var(--card);border:1px dashed var(--line);border-radius:var(--r-1);padding:11px 13px;font-family:var(--jp);font-size:12px;line-height:1.7;color:var(--ink);white-space:pre-wrap;margin-bottom:9px}
+.rest{font-family:var(--jp);font-size:12.5px;color:var(--soft);text-align:center;margin:14px 0;font-style:italic}
+
+.modal{position:fixed;inset:0;z-index:50;background:rgba(51,39,45,.3);display:grid;place-items:center;padding:18px}
+.modal-in{position:relative;background:rgba(255,255,255,.86);-webkit-backdrop-filter:saturate(1.5) blur(30px);backdrop-filter:saturate(1.5) blur(30px);border:.5px solid rgba(255,255,255,.6);border-radius:var(--r-4);max-width:560px;width:100%;max-height:86vh;overflow:auto;padding:22px;box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 24px 60px rgba(80,40,55,.22)} /* 完整玻璃栈 sheet: + 顶缘 specular 高光(scroll 容器故不叠 noise, 强 blur30+深影已足) */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .modal-in{background:var(--card)} }
+.modal-in h3{margin:0 0 12px;font-size:17px;font-family:var(--jp)}
+.modal-x{float:right;background:none;border:none;font-size:20px;color:var(--soft);line-height:1;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;margin:-8px -8px 0 0} /* 44pt 触摸(负 margin 抵消, 不挤标题) */
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;font-family:var(--jp)}
+.kv .v{font-family:var(--mono);color:var(--accent-ink)}
+.checkline{display:flex;align-items:center;gap:9px;font-family:var(--jp);font-size:12.5px;color:var(--ink);margin:12px 0;min-height:44px;cursor:pointer} /* 复选框整行(label)44pt 命中区 */
+
+.devbtn{position:fixed;right:14px;z-index:40;background:#33272D;color:#fff;border:none;border-radius:var(--r-pill);font-family:var(--mono);font-size:11px;font-weight:700;padding:9px 13px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.devpanel{position:fixed;inset:0;z-index:60;background:rgba(20,12,16,.55);display:grid;place-items:end stretch}
+.dev-in{background:#fff;max-height:90vh;overflow:auto;border-top-left-radius:18px;border-top-right-radius:18px;padding:20px;font-size:12.5px}
+.dev-in h3{margin:0 0 4px;font-family:var(--mono);font-size:14px}
+.dev-sec{border:1px solid var(--line);border-radius:var(--r-2);padding:12px 14px;margin:12px 0}
+.dev-sec h4{margin:0 0 9px;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--soft)}
+.devtable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.devtable th,.devtable td{border-bottom:1px solid var(--line);padding:5px 7px;text-align:left}
+.devtable td.flag{color:var(--no-deep);font-weight:700;font-family:var(--jp)}
+.devbad{color:var(--no-deep);font-weight:700}.devwarn{color:#9a6b1e}.devok{color:var(--ok-deep)}
+.pill2{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:var(--r-pill);border:1px solid var(--line);margin:2px}
+
+/* 顶栏内侧与内容同 --cmax → 面一。narrow=880 / wide(shell)=1120 / tablet=980 */
+body{--cmax:880px}
+body.wide-view{--cmax:1120px}
+@media(max-width:1040px){ body.wide-view{--cmax:980px} }
+
+.home-grid{display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
+.glance{background:var(--card);border:1px solid var(--line);border-radius:var(--r-3);padding:16px 18px;box-shadow:var(--shadow)}
+.glance h3{margin:0 0 12px;font-size:13px;font-family:var(--jp);font-weight:700;color:var(--ink)}
+.glance .gstat{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.glance .gstat b{font-family:var(--mono);font-size:30px;color:var(--accent-ink);line-height:1}
+.glance .gstat span{font-family:var(--jp);font-size:12px;color:var(--soft)}
+.glance .glabel{font-family:var(--jp);font-size:11.5px;color:var(--soft);margin:12px 0 7px;font-weight:600}
+.glance .gweak{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.glance .gweak button{font-family:var(--jp);font-size:12.5px;color:var(--ink);font-weight:600;background:none;border:none;text-align:left;padding:0;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(hover:hover) and (pointer:fine){.glance .gweak button:hover{text-decoration:underline}}
+.glance .gweak .gc{font-family:var(--mono);font-size:11px;color:var(--soft);margin-left:auto;flex:none}
+.glance .gnone{font-family:var(--jp);font-size:12px;color:var(--faint);line-height:1.7}
+.glance .gcont{width:100%;margin-top:4px}
+
+.manual2{display:flex;flex-direction:column;gap:14px}
+.mnav,.mdetail{min-width:0}
+.mnav .card,.mdetail .card{margin:0}
+.mempty{background:var(--card);border:1px dashed var(--line);border-radius:var(--r-3);padding:34px 22px;text-align:center;color:var(--faint);font-family:var(--jp);font-size:13px;line-height:1.7}
+.mback{font-size:12.5px;color:var(--soft);background:none;border:none;font-weight:600;margin-bottom:10px}
+@media(hover:hover) and (pointer:fine){.mback:hover{color:var(--accent-ink)}}
+.mback::before{content:"‹ "}
+.listrow.sel{border-color:var(--accent);background:var(--accent-wash)}
+
+.qhome{font-size:12px;font-weight:600;color:var(--soft);background:var(--card);border:1px solid var(--line);border-radius:var(--r-1);padding:5px 11px;min-height:44px;display:inline-flex;align-items:center;flex:none}
+.qhome::before{content:"‹ "}
+@media(hover:hover){.qhome:hover{border-color:var(--accent);color:var(--accent-ink)}}
+
+.exwrap{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.exblock{border-radius:var(--r-2);padding:12px 15px}
+.exblock .exhd{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px;font-family:var(--ui)}
+.exblock .exhd::after{content:"";flex:1;height:1px}
+.exblock p{margin:0;font-family:var(--jp);font-size:13.5px;line-height:1.82;color:var(--ink)}
+.exblock.short{background:var(--accent-wash)}
+.exblock.short .exhd{color:var(--accent-ink)} .exblock.short .exhd::after{background:var(--hair)}
+.exblock.long{background:var(--card2);border:1px solid var(--line)}
+.exblock.long .exhd{color:var(--soft)} .exblock.long .exhd::after{background:var(--line)}
+.excol{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--q-dur) var(--curve)}
+.excol[data-open="true"]{grid-template-rows:1fr}
+.excol>.excol-in{overflow:hidden;min-height:0}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,12px);background:var(--ink);color:#fff;font-family:var(--jp);font-size:13px;padding:11px 18px;border-radius:var(--r-2);box-shadow:0 10px 30px rgba(0,0,0,.2);z-index:9999;opacity:0;transition:opacity .26s,transform .26s;max-width:86%;text-align:center}
+.toast{bottom:calc(26px + env(safe-area-inset-bottom,0px))} /* 主屏模式の Home 指示条を避ける（S8 V-01 と同じ原因） */
+.toast.in{opacity:.97;transform:translate(-50%,0)}
+@media (prefers-reduced-motion: reduce){ .excol{transition:none} .toast{transition:opacity .2s} }
+.exblock.long p{font-size:13px}
+.exblock.model{background:var(--ok-wash);border:1px solid var(--ok-line)}
+.exblock.model .exhd{color:var(--ok-deep)} .exblock.model .exhd::after{background:var(--ok-line)}
+.exmore{align-self:flex-start;font-size:12px;color:var(--accent-ink);font-weight:600;background:none;border:none;padding:0}
+.exmore::before{content:"▸ ";font-size:11px} .exmore.open::before{content:"▾ "}
+.gcard .gexpl-tog{margin-top:12px} .gcard .gexcol{margin-top:8px}
+.wl-list{padding:4px 6px}
+.wl-row{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;border-top:1px solid var(--line);padding:12px 8px;cursor:pointer;font:inherit;transition:background .12s var(--curve)}
+.wl-row:first-child{border-top:none}
+@media(hover:hover) and (pointer:fine){.wl-row:hover{background:var(--accent-wash)}}
+.wl-kai{flex:none;font-size:11px;color:var(--accent-ink);background:var(--accent-wash);border-radius:var(--r-1);padding:2px 7px}
+.wl-q{flex:1;min-width:0;font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl-n{flex:none;font-size:11px;font-weight:700;color:var(--no-deep);background:var(--no-wash);border-radius:var(--r-pill);padding:2px 9px}
+.exsec{margin:0}
+.exsec + .exsec{margin-top:.8em}
+.exseclabel{font-weight:700;color:var(--accent-ink);margin-right:.15em}
+.exblock.long .exseclabel{color:var(--accent-ink)}
+.exblock.model .exseclabel{color:var(--ok-deep)}
+/* マーカー双色高亮: 半透明荧光底衬(covers 字下半); 粉=本课重点(跟随 --accent) / 黄=你的弱项(薄弱画像联动) */
+mark.hl{background-color:transparent;background-repeat:no-repeat;color:inherit;font-weight:600;padding:0 1px;border-radius:1px}
+mark.hl-key{background-image:linear-gradient(transparent 52%, color-mix(in srgb, var(--accent) 60%, transparent) 52%)}
+mark.hl-weak{background-image:linear-gradient(transparent 52%, rgba(244,205,88,.55) 52%)}
+
+/* rest pop ― transient, never blocks input */
+.restpop{position:fixed;inset:0;z-index:45;display:grid;place-items:center;pointer-events:none;padding:20px}
+.restpop .rp{background:var(--card);border:1px solid var(--line);border-radius:var(--r-3);box-shadow:0 18px 50px rgba(80,40,55,.18);padding:20px 26px;display:flex;flex-direction:column;align-items:center;gap:11px;max-width:300px;text-align:center}
+.restpop .rp .rpt{font-family:var(--jp);font-size:13.5px;color:var(--ink);line-height:1.7}
+.restpop .rp .rpic{color:var(--accent-deep)} /* currentColor 图标取主题 accent */
+.restpop.anim .rp{opacity:0;animation:restfade 2.8s ease forwards}
+@keyframes restfade{0%{opacity:0;transform:translateY(8px)}12%{opacity:1;transform:none}78%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-4px)}}
+
+/* 【】 inline labels: unglue from body text */
+.qtext .qlabel,.rt .qlabel{display:inline-block;background:var(--accent-wash);color:var(--accent-ink);font-weight:600;font-size:.84em;padding:0 7px;border-radius:var(--r-1);margin:0 .45em 2px 0;vertical-align:baseline}
+
+.fbk{margin-bottom:12px;font-size:13px;font-weight:600}
+.fbk .jp{font-family:var(--jp)}
+.fbk.ok{border-color:var(--ok-line)}
+.fbk.no{border-color:var(--no-line)}
+.fbk.hi{border-color:var(--hair)}
+
+.verchip{display:inline-flex;align-items:center;margin-top:11px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-4);padding:3px 11px}
+.updblk{margin-bottom:16px}
+.updblk:last-child{margin-bottom:0}
+.updv{display:flex;align-items:baseline;gap:9px;margin-bottom:7px}
+.updv b{font-family:var(--mono);font-size:14px;color:var(--accent-ink)}
+.updv .updd{font-family:var(--mono);font-size:11px;color:var(--soft)}
+.updul{margin:0;padding-left:18px}
+.updul li{font-family:var(--jp);font-size:12.5px;line-height:1.7;color:var(--ink);margin-bottom:3px}
+
+.act .ic{color:var(--accent-deep)}
+.act.primary .ic{color:#fff}
+.act .ic svg{width:21px;height:21px;display:block}
+
+/* runner rail: indicators only, not clickable */
+.rail .tab{cursor:default}
+
+@media(min-width:980px){
+  .home-grid{grid-template-columns:minmax(0,1.7fr) minmax(250px,1fr)}
+  .glance{position:sticky;top:60px}
+  .manual2{flex-direction:row;align-items:flex-start}
+  .manual2 .mnav{flex:0 0 300px;position:sticky;top:60px;max-height:calc(100vh - 78px);overflow:auto}
+  .manual2 .mdetail{flex:1}
+}
+@media(max-width:979px){
+  .manual2.show-nav .mdetail{display:none}
+  .manual2.show-detail .mnav{display:none}
+  .manual2 .mdetail.m-fade,.manual2 .mnav.m-fade{ animation:mPanelFade 340ms var(--curve) both; } /* 列表↔详情入场淡入; 桌面两栏并存(>=980)无切换故不触发 */
+}
+@keyframes mPanelFade{ from{opacity:0} to{opacity:1} }
+@media(max-width:600px){
+  /* 去左rail(诊断: mobile 左 rail 占宽, 题干每行仅~15字): rail 左竖列 → 顶部横向章滑条, body 全宽, 题干行长回升 */
+  .runner{grid-template-columns:1fr}
+  .runner:not(.no-rail) .rail{flex-direction:row;align-items:center;border-right:none;border-bottom:1px solid var(--line);padding:8px 12px;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .runner:not(.no-rail) .rail::-webkit-scrollbar{display:none}
+  .rail .rk{writing-mode:horizontal-tb;text-orientation:mixed;margin:0 4px 0 0;flex:none}
+  .rail .tab{flex:none;width:auto;min-width:32px;min-height:34px;padding:4px 8px;display:inline-flex;align-items:center;justify-content:center}
+  .rail .tab .done{display:inline;margin:0 0 0 3px}
+  .rbody{padding:14px 14px 18px} .runner.exam-answer .examstrip{padding-left:14px;padding-right:14px}
+  .statgrid{grid-template-columns:1fr} .acts{grid-template-columns:1fr}
+  .hero h1{font-size:20px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+  @media(hover:hover) and (pointer:fine){.act:hover{transform:none}}
+  .restpop.anim .rp{opacity:1;animation:none}
+  .reveal.anim{animation:revealfade .14s ease-out backwards!important}
+}
+
+/* sakura contrast: accent 浅(填充/高亮)、accent-deep 用于白字按钮与强调文字（后定义胜出） */
+.btn{background:var(--cta-bg,var(--accent-ink))} @media(hover:hover) and (pointer:fine){.btn:hover{background-image:linear-gradient(rgba(0,0,0,.14),rgba(0,0,0,.14))}}
+.btn.ghost{background:var(--card);color:var(--ink)} @media(hover:hover) and (pointer:fine){.btn.ghost:hover{border-color:var(--accent-deep);color:var(--accent-ink)}}
+.act.primary{background:var(--cta-bg,var(--accent-ink));border-color:var(--accent-ink)}
+.chip.on{background:var(--cta-bg,var(--accent-ink));border-color:var(--accent-ink)}
+.tab.on{background:var(--cta-bg,var(--accent-ink))}
+.qnum .n,.chip .c{color:var(--accent-ink)}
+/* 日/中 激活背景由 .lang-thumb 承载(滑动) */
+
+/* lang icon mobile clip fix + press feedback */
+.lang{flex:0 0 auto}
+.lang button:active{opacity:.75}
+.tb-btn{white-space:nowrap;transition:transform .1s,border-color .12s}
+.tb-btn:active{transform:scale(.95)}
+.tb-ic{display:inline-grid;place-items:center;padding:0 9px;line-height:0}
+.tb-ic svg{width:18px;height:18px;display:block}
+#verBadge{cursor:pointer;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--accent-wash);border-radius:var(--r-1);padding:0 13px;height:30px;box-sizing:border-box;display:inline-flex;align-items:center;transition:transform .1s}
+#verBadge:active{transform:scale(.95)}
+@media(max-width:600px){
+  #setBtn,#ioBtn,#helpBtn{padding:7px 8px}
+  :root{--cpad:16px}
+}
+
+.firsthint{display:flex;align-items:center;gap:11px;padding:11px 14px;margin-bottom:16px;font-family:var(--jp);font-size:12.5px;line-height:1.7}
+.firsthint button{margin-left:auto;flex:none;background:none;border:none;color:var(--soft);font-weight:700;font-size:16px;line-height:1;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;margin-top:-6px;margin-right:-8px} /* 44pt 触摸(负 margin 抵消视觉留白, 不撑大 banner) */
+@media(hover:hover){.firsthint button:hover{color:var(--accent-ink)}}
+
+.searchbar{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);margin-bottom:18px;cursor:text}
+button.searchbar{width:100%;text-align:left;font:inherit;color:inherit;-webkit-appearance:none;appearance:none} /* button 化に伴う UA 差分の打ち消し (見た目は従来の擬似検索枠のまま) */
+.searchbar .svgwrap svg{width:17px;height:17px;color:var(--faint)}
+.searchbar .sbph{color:var(--soft);font-size:13px}
+
+.dashhero{display:grid;grid-template-columns:1.5fr .95fr;gap:20px;align-items:stretch}
+.hwrap{padding:4px 2px}
+.kicker{font-family:var(--ui);font-size:11px;letter-spacing:.05em;color:var(--accent-ink);font-weight:800}
+.greet{font-family:var(--disp);font-size:26px;font-weight:900;margin:6px 0 4px;letter-spacing:.01em}
+.lead{color:var(--soft);font-size:13.5px;max-width:30em;margin-bottom:15px;line-height:1.7}
+.cta-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cta{font-family:var(--jp);font-weight:800;font-size:14.5px;color:#fff;background:var(--cta-bg,var(--accent-ink));border:none;border-radius:var(--r-2);padding:13px 22px;cursor:pointer;transition:transform .1s,box-shadow .15s}
+.cta:active{transform:translateY(1px)}
+.cta .sub{display:block;font-size:11px;font-weight:600;opacity:.85;margin-top:1px}
+.cta-link{font-weight:700;font-size:13px;color:var(--accent-ink);background:none;border:none;cursor:pointer}
+@media(hover:hover) and (pointer:fine){.cta-link:hover{text-decoration:underline}}
+
+.statcap{background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--accent-wash) 30%,#fff));border:1px solid var(--line);border-radius:var(--r-3);padding:15px 17px;display:flex;flex-direction:column;gap:11px;box-shadow:var(--shadow-sm)}
+.cdown{display:flex;align-items:center;gap:11px;background:var(--accent-wash);border:1px solid color-mix(in srgb,var(--accent) 30%,#fff);border-radius:var(--r-2);padding:10px 12px}
+.cdown .cdi{display:grid;place-items:center;width:30px;height:30px;border-radius:var(--r-1);background:var(--card);color:var(--accent-deep);flex:none}
+.cdown .cdi svg{width:17px;height:17px}
+.cdtxt{min-width:0;flex:1}
+.cd-main{font-family:var(--disp);font-weight:900;font-size:16px;color:var(--accent-ink);line-height:1.15}
+.cd-main b{font-size:22px}
+.cd-main.cd-set{font-size:13px;cursor:pointer}
+.cd-sub{font-size:11px;color:var(--soft);margin-top:1px}
+.cd-edit{margin-left:auto;flex:none;font-size:11px;color:var(--accent-ink);font-weight:700;background:none;border:none;text-decoration:underline;cursor:pointer}
+.scrow{display:flex;align-items:center;gap:13px}
+.scrow .sclbl{font-size:11.5px;color:var(--soft)} .scrow .sclbl b{display:block;color:var(--ink);font-size:13px;font-weight:800;margin-top:1px}
+.sdiv{height:1px;background:var(--line)}
+.wktop{font-size:11px;color:var(--soft);margin-bottom:2px}
+.wkchip{font-family:var(--jp);font-weight:700;font-size:12px;color:var(--accent-ink);background:var(--accent-wash);border:1px solid color-mix(in srgb,var(--accent) 35%,#fff);border-radius:var(--r-1);padding:5px 10px;margin:3px 5px 0 0;cursor:pointer;min-height:44px;display:inline-flex;align-items:center}
+@media(hover:hover){.wkchip:hover{background:color-mix(in srgb,var(--accent) 22%,#fff)}}
+
+.dashrow{display:grid;grid-template-columns:1.5fr .95fr;gap:20px;margin-top:20px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-3);padding:17px 18px;box-shadow:var(--shadow-sm)}
+.panel h3{margin:0 0 3px;font-size:14px;font-weight:800}
+.panel .psub{color:var(--soft);font-size:11.5px;margin-bottom:13px;line-height:1.6}
+
+.kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.ktile{text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r-2);padding:11px;cursor:pointer;transition:transform .12s,border-color .12s,box-shadow .12s}
+@media(hover:hover){.ktile:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-sm)}}
+.ktile.todo{background:var(--paper);border-style:dashed}
+@media(hover:hover) and (pointer:fine){.ktile.todo:hover{transform:none}}
+.ktop{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px}
+.kno{font-weight:800;font-size:12.5px;color:var(--ink)}
+.kacc{font-family:var(--ui);font-weight:800;font-size:11px;color:var(--ok-deep);background:var(--ok-wash);border-radius:var(--r-1);padding:1px 6px;flex:none}
+.kacc.todo{color:var(--faint);background:var(--card);border:1px solid var(--line)}
+.ktheme{font-size:11px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px}
+.kbar{height:5px;background:var(--track);box-shadow:inset 0 0 0 1px rgba(var(--glow-rgb),.05);border-radius:var(--r-pill);overflow:hidden}
+.kfill{height:100%;background:var(--accent);border-radius:var(--r-pill)}
+
+.chrow{display:grid;grid-template-columns:minmax(72px,auto) 1fr 40px;gap:9px;align-items:center;margin:9px 0;font-size:12px}
+.chn{color:var(--ink)} .chbar{height:8px;background:var(--track);box-shadow:inset 0 0 0 1px rgba(var(--glow-rgb),.05);border-radius:var(--r-pill);overflow:hidden}
+.chfill{height:100%;border-radius:var(--r-pill)} .chfill.todo{background:var(--faint)}
+.chv{text-align:right;color:var(--ink);font-family:var(--ui);font-weight:800} .chv.todo{color:var(--faint);font-size:11px}
+.weekwrap{margin-top:14px;padding-top:13px;border-top:1px dashed var(--line)}
+.weekhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.weekhead .wh{font-size:11.5px;color:var(--soft)} .weekhead .wn{font-family:var(--disp);font-weight:900;font-size:15px;color:var(--accent-ink)}
+.weekbars{display:flex;align-items:flex-end;gap:6px;height:44px}
+.wbar{flex:1;background:var(--accent);border-radius:5px 5px 3px 3px;min-height:8px}
+.weekfoot{font-size:11px;color:var(--soft);margin-top:7px}
+
+.funcrow{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;grid-auto-rows:1fr;margin-top:20px}
+.card2{text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r-3);padding:16px 17px;display:flex;flex-direction:column;gap:6px;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .12s,border-color .12s}
+@media(hover:hover){.card2:hover{border-color:var(--accent);transform:translateY(-1px)}}
+.card2 .cic{width:38px;height:38px;border-radius:var(--r-2);background:var(--accent-wash);color:var(--accent-deep);display:grid;place-items:center;margin-bottom:2px}
+.card2 .cic svg{width:20px;height:20px}
+.card2 .ctitle{font-weight:800;font-size:14.5px;color:var(--ink)}
+.card2 .cdesc{color:var(--soft);font-size:12px;line-height:1.55}
+.svgwrap{display:inline-flex;line-height:0}
+
+.hero1b{display:grid;grid-template-columns:1fr 300px;align-items:start}
+.hero1b .h1l{grid-column:1;grid-row:1;min-width:0;display:flex;flex-direction:column}
+.hero1b .hsw{grid-column:1;grid-row:2;margin-top:0}
+.hero1b .h1r{grid-column:2;grid-row:1 / span 2;width:100%;display:flex;flex-direction:column}
+.kick1b{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.greet1b{font-family:var(--disp);font-weight:900;letter-spacing:.01em;color:var(--ink)}
+.kao{white-space:nowrap;font-family:var(--kao)}/* 颜文字整体不换行: 防 CJK 逐字断行把颜文字劈成两半(问候等) */
+.lead1b{font-family:var(--jp);color:var(--soft);font-size:13.5px;line-height:1.75;max-width:30em}
+.hsw{position:relative;display:flex}
+.hsw-thumb{position:absolute;transition:transform .34s var(--curve);z-index:0;pointer-events:none}
+.hsw-b{position:relative;z-index:1;flex:1;display:flex;align-items:center;gap:11px;border:none;background:transparent;color:var(--soft);cursor:pointer;text-align:left;transition:color .24s var(--curve)}
+.hsw-b .swic{display:grid;place-items:center;width:34px;height:34px;border-radius:var(--r-2);background:var(--accent-wash);color:var(--accent-deep);flex:none;transition:background .24s,color .24s}
+.hsw-b .swic svg{width:18px;height:18px}
+.hsw-b .swt{min-width:0}
+.hsw-b .swt b{display:block;font-family:var(--disp);font-weight:900;font-size:16px;line-height:1.1}
+.hsw-b .swt small{display:block;font-family:var(--jp);font-size:11px;margin-top:2px;opacity:.85}
+.hometab{transition:opacity .24s var(--curve),transform .24s var(--curve)}
+.hometab.hometab-out{opacity:0;transform:translateY(8px);transition-duration:.15s} /* 退場は入場より短く; 入場は柔らかく上浮+淡入 */
+.stc{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:var(--r-3);padding:12px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow-sm)}
+.stc-cd{display:flex;align-items:center;gap:11px;background:var(--accent-wash);border:1px solid #F3D3E0;border-radius:var(--r-2);padding:11px 13px}
+.stc-cd .cdt{display:grid;place-items:center;width:34px;height:34px;border-radius:var(--r-2);background:var(--card);color:var(--accent-ink);flex:none}
+.stc-cd .cdt svg{width:18px;height:18px}
+.stc-cd .cdm{min-width:0;flex:1}
+.stc-cd .cdmain{font-family:var(--disp);font-weight:900;font-size:15px;color:var(--accent-ink);line-height:1.15}
+.stc-cd .cdmain b{font-size:22px}
+.stc-cd .cdsub{font-family:var(--jp);font-size:11px;color:var(--soft);margin-top:2px;line-height:1.45}
+.stc-cd .cde{display:grid;place-items:center;width:44px;height:44px;background:var(--card);border:1px solid #F3D3E0;border-radius:var(--r-1);color:var(--accent-ink);cursor:pointer;flex:none} /* 图标仅 14px，命中区按触控下限给足 44px */
+.stc-cd .cde svg{width:14px;height:14px}
+.stc-pr{background:var(--card2);border:1px solid var(--line);border-radius:var(--r-2);padding:11px 13px}
+.stc-pr .prh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+.stc-pr .prh .prl{font-family:var(--jp);font-size:12px;color:var(--ink);font-weight:700}
+.stc-pr .prh .prn{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--accent-ink)}
+.stc-pr .prbar{height:9px;background:var(--track);box-shadow:inset 0 0 0 1px rgba(var(--glow-rgb),.06);border-radius:var(--r-pill);overflow:hidden}
+.stc-pr .prbar i{display:block;height:100%;border-radius:var(--r-pill)}
+.stc-pr .prf{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:6px}
+.stc-pr .prf .prp{font-family:var(--mono);font-size:11px;color:var(--soft)}
+.stc-pr .prf .prr{font-family:var(--jp);font-size:11px;color:var(--soft)}
+.flag{position:relative;overflow:hidden;border-radius:var(--r-4);box-shadow:var(--shadow);margin-bottom:12px}
+.flag .deco{position:absolute;top:-46px;right:-34px;pointer-events:none}
+.flag .fin{position:relative;display:flex;gap:22px;align-items:center}
+.flag .fl{flex:1;min-width:0}
+.flag .fhd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.flag .fic{display:grid;place-items:center;width:46px;height:46px;border-radius:var(--r-2);background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;box-shadow:0 6px 14px rgba(var(--cta-rgb),.3);flex:none}
+.flag .fic svg{width:24px;height:24px}
+.flag .fpill{font-family:var(--mono);text-transform:uppercase}
+.flag .fti{color:var(--ink);margin-bottom:5px}
+.flag .fde{font-family:var(--jp)}
+.flag .fr{flex:none;width:198px;display:flex;flex-direction:column;gap:9px;align-items:flex-start}
+.flag .fcta{display:inline-flex;align-items:center;justify-content:center;gap:8px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-deep));border:none;padding:13px 20px;cursor:pointer}
+.flag .fchip{text-align:center;font-family:var(--jp);font-weight:700;border-radius:var(--r-pill);min-height:44px;box-sizing:border-box;display:flex;align-items:center;justify-content:center} /* 视觉是文字链，命中区高 44px（触控下限） */
+.resbar{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--hair);border-radius:var(--r-2);padding:11px 13px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.resbar .ric{display:grid;place-items:center;width:32px;height:32px;border-radius:var(--r-1);background:var(--accent-wash);color:var(--accent-deep);flex:none}
+.resbar .ric svg{width:17px;height:17px}
+.resbar .rm{flex:1;min-width:0}
+.resbar .rm .rt{font-family:var(--jp);font-weight:700;font-size:13px;color:var(--ink)}
+.resbar .rm .rs{font-family:var(--jp);font-size:11px;color:var(--soft);margin-top:1px}
+.resbar .rgo{font-family:var(--jp);font-weight:800;font-size:12.5px;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-2);padding:9px 14px;cursor:pointer;white-space:nowrap;flex:none}
+.spanel{border-radius:var(--r-3)}
+.spanel .sph{display:flex;align-items:baseline;gap:9px;margin-bottom:2px}
+.spanel .sph b{font-family:var(--disp);font-weight:900;font-size:15px;color:var(--ink)}
+.spanel .sph small{font-family:var(--jp);font-size:11px;color:var(--soft)}
+.spanel .splede{font-family:var(--jp);font-size:11.5px;color:var(--soft);margin-bottom:13px}
+.rtiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.rtile{display:flex;text-align:left;cursor:pointer;color:var(--ink)}
+.rtile .rtic{display:grid;place-items:center;border-radius:var(--r-2);flex:none}
+.rtile .rtic svg{width:17px;height:17px}
+.rtile .rtx{flex:1;min-width:0}
+.rtile .rtx b{display:block;font-family:var(--jp);font-weight:700;font-size:13.5px}
+.rtile .rtx small{display:block;font-family:var(--jp);font-size:11px;color:var(--soft);margin-top:1px}
+.rmaphd{display:flex;align-items:center;gap:8px;padding-top:13px;border-top:1px dashed var(--line)}
+.rmaphd .mhic{display:grid;place-items:center;width:26px;height:26px;border-radius:var(--r-1);background:var(--accent-wash);color:var(--accent-deep);flex:none}
+.rmaphd .mhic svg{width:15px;height:15px}
+.rmaphd b{font-size:13px;color:var(--ink)}
+.rmaphd small{font-family:var(--jp);font-size:11px;color:var(--soft)}
+.rmap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.rmap .kt{text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-2);padding:10px 11px;cursor:pointer;display:flex;flex-direction:column;gap:7px}
+.rmap .kt .kh{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.rmap .kt .kn{font-family:var(--disp);font-weight:900;font-size:13px;color:var(--ink)}
+.rmap .kt .kb{font-family:var(--ui);font-weight:800;font-size:12px;border:1px solid var(--line);border-radius:var(--r-1);padding:1px 6px}
+.rmap .kt .kb.todo{color:var(--soft);background:#fff}
+.rmap .kt .kb.done{color:var(--ok-deep);background:var(--ok-wash)}
+.rmap .kt .ktt{font-family:var(--jp);font-size:11px;color:var(--soft);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden} /* 1行 nowrap 截断 → 2 行 clamp, 回タイトル完整可辨 */
+.rmap .kt .ktb{height:5px;background:var(--track);box-shadow:inset 0 0 0 1px rgba(var(--glow-rgb),.05);border-radius:var(--r-pill);overflow:hidden}
+.rmapgroups{display:flex;flex-direction:column;gap:15px}
+.rchap .rchaphd{display:flex;align-items:center;gap:9px;margin:0 0 9px}
+.rchap .rchapname{font-family:var(--jp);font-size:12px;font-weight:800;color:var(--accent-deeper);white-space:nowrap}
+.rchap .rchaprange{font-family:var(--mono);font-size:11px;color:var(--soft);white-space:nowrap}
+.rchap .rchaphd::after{content:"";flex:1;height:1px;background:var(--line)}
+.rmap .kt .ktopic{font-family:var(--jp);font-size:11px;color:var(--soft);line-height:1.35;margin-top:-3px;display:-webkit-box;-webkit-line-clamp:1;line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.rmap .kt .ktb i{display:block;height:100%;background:var(--accent);border-radius:var(--r-pill)}
+@media(hover:hover){.rtile:hover,.rmap .kt:hover{border-color:var(--accent)}}
+.subrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:14px}
+.subcard{text-align:left;padding:15px 16px;cursor:pointer;display:flex;align-items:center;gap:13px}
+.subcard .scic{display:grid;place-items:center;width:40px;height:40px;flex:none}
+.subcard .scic svg{width:20px;height:20px}
+.subcard .sctx b{display:block;font-family:var(--jp);font-weight:800;font-size:14px;color:var(--ink)}
+.subcard .sctx small{display:block;font-family:var(--jp);font-size:11.5px;color:var(--soft);line-height:1.5;margin-top:1px}
+@media(hover:hover){.subcard:hover{border-color:var(--accent)}}
+.lookgrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px}
+.lookh{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:9px}
+.chrow2{display:grid;grid-template-columns:minmax(64px,auto) 1fr 32px;gap:9px;align-items:center;margin:9px 0}
+.chrow2 .chn{font-family:var(--jp);font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chrow2 .chb i{display:block;height:100%}
+.chrow2 .chv{font-size:11.5px;text-align:right}
+.weekrow{display:flex;align-items:flex-end;gap:6px;height:46px;margin-bottom:6px}
+.weekrow i{flex:1;background:var(--accent);border-radius:5px 5px 3px 3px;min-height:8px}
+.weekn{font-family:var(--jp);font-size:11px;color:var(--soft)}
+.weekn b{font-family:var(--mono);color:var(--accent-ink)}
+.lookdiv{height:1px;background:var(--line);margin:12px 0}
+.weakrow2{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:center;margin:6px 0}
+.weakrow2 button{font-family:var(--jp);font-size:12px;color:var(--ink);font-weight:600;background:none;border:none;text-align:left;padding:0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.weakrow2 .wv{font-family:var(--ui);font-weight:800;font-size:11.5px;text-align:right;color:var(--no-deep)}
+.bridge{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.bridge .btx{font-family:var(--jp);font-size:11.5px;color:var(--soft);line-height:1.6;flex:1;min-width:180px}
+.bridge .bgo{font-family:var(--jp);font-weight:800;font-size:12px;color:#fff;background:var(--cta-bg,var(--accent-ink));border:none;border-radius:var(--r-2);padding:9px 14px;min-height:44px;box-sizing:border-box;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.bridge .bgo svg{width:13px;height:13px}
+
+body.reader-view{--cmax:980px}
+body.reader-view .topbar{border-bottom:none} /* TopBar とパンくずを 1 本に融合 */
+.rdr{background:var(--paper);min-height:60vh}
+.rdr-hd{position:sticky;top:var(--topbar-h,52px);z-index:6;background:var(--paper);border-bottom:1px solid var(--line)}
+.rdr-crumb{padding:6px 0 9px;display:flex;align-items:center;gap:10px} /* .wrap が既に cmax+cpad → 二重内縮を避け TopBar と面一 */
+.rdr-back{font-family:var(--jp);font-size:12.5px;color:var(--soft);background:none;border:none;font-weight:700;cursor:pointer;min-height:44px;display:inline-flex;align-items:center} /* 视觉是小字，命中区高 44px（触控下限） */
+.rdr-kai{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-1);padding:2px 8px}
+.rdr-pg{font-family:var(--mono);font-size:11px;color:var(--soft);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rdr-tools{margin-left:auto;display:flex;gap:8px;flex:none}
+.rdr-aa{font-family:var(--disp);font-weight:900;font-size:12px;color:var(--soft);background:var(--card);border:1px solid var(--line);border-radius:var(--r-1);padding:4px 9px;cursor:pointer;min-width:44px;min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center} /* 视觉小钮，命中区补到 44px 见方（触控下限） */
+.rdr-bm{display:grid;place-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r-1);padding:5px 8px;color:var(--accent-ink);cursor:pointer;min-width:44px;min-height:44px;box-sizing:border-box} /* 视觉小钮，命中区补到 44px 见方（触控下限） */
+.rdr-bm svg{width:15px;height:15px}
+.rdr-bm.on svg{fill:var(--accent)}
+.rdr-fs-wrap{position:relative}
+.rdr-fs-pop{position:absolute;top:calc(100% + 8px);right:0;display:none;align-items:center;gap:10px;background:var(--glass);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border:1px solid var(--glass-line);border-radius:var(--r-2);padding:9px 14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.6),var(--shadow);z-index:30;white-space:nowrap} /* 完整玻璃栈: + 顶缘 specular 高光 */
+.rdr-fs-pop::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.04;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .rdr-fs-pop{background:var(--card);border-color:var(--line)} }
+.rdr-fs-wrap.open .rdr-fs-pop{display:flex}
+.rdr-fs-mini{font-family:var(--jp);font-size:12px;color:var(--soft);font-weight:700;flex:none}
+.rdr-fs-big{font-family:var(--jp);font-size:19px;color:var(--ink);font-weight:700;flex:none}
+.rdr-fs-range{-webkit-appearance:none;appearance:none;width:118px;height:4px;border-radius:var(--r-pill);background:var(--line);outline:none;cursor:pointer;flex:none}
+.rdr-fs-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent-deep);border:2px solid var(--card);box-shadow:var(--shadow-sm);cursor:pointer}
+.rdr-fs-range::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent-deep);border:2px solid var(--card);cursor:pointer}
+.rdr-fs-range::-moz-range-track{background:var(--line);height:4px;border-radius:var(--r-pill)}
+.rdr-row{display:flex;gap:26px;padding:18px 0 44px;align-items:flex-start}
+.rdr-toc{position:sticky;top:calc(var(--topbar-h,52px) + 56px);flex:0 0 234px;align-self:flex-start}
+.rdr-toc .tl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:2px 0 9px 2px}
+.rdr-toc .ti{display:flex;gap:9px;align-items:center;width:100%;text-align:left;border:none;cursor:pointer;background:none;border-radius:var(--r-1);padding:8px 10px;min-height:44px;box-sizing:border-box;margin-bottom:2px;color:var(--soft)}
+.rdr-toc .ti .sn{font-family:var(--mono);font-size:11px;font-weight:700;flex:none}
+.rdr-toc .ti .st{font-family:var(--jp);font-size:12px;font-weight:500;line-height:1.4}
+.rdr-toc .ti.on{background:var(--accent-wash);color:var(--accent-ink)}
+@media(hover:hover){.rdr-toc .ti:not(.on):hover{background:var(--line2)}}
+.rdr-main{flex:1;min-width:0;max-width:662px}
+.rdr-chips{display:none}
+.rdr-kick{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.rdr-title{font-size:28px;color:var(--ink);margin:8px 0}
+.rdr-meta{display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-family:var(--jp);font-size:11.5px;color:var(--soft);margin-bottom:16px}
+.rdr-meta b{font-family:var(--mono);font-weight:700;color:var(--accent-ink)}
+.rdr-meta .dot{color:var(--sep)}
+.rdr-lede{font-family:var(--jp);font-size:calc(15px * var(--rdr-fs,1));padding:15px 17px;background:linear-gradient(180deg,var(--accent-wash),var(--card2));border:1px solid var(--hair);border-radius:var(--r-2)}
+.rdr-lede .pl{display:inline-block;font-family:var(--ui);font-weight:800;font-size:11px;letter-spacing:.06em;color:#fff;background:var(--cta-bg,var(--accent-ink));border-radius:var(--r-1);padding:2px 9px;margin:0 8px 3px 0;vertical-align:middle}
+.rdr-flow{margin-top:16px;background:var(--card);border:1px solid var(--line)}
+.rdr-flow .fl{font-weight:700;padding:6px 8px 8px}
+.rdr-flow .fr{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;border-radius:var(--r-2);padding:10px 8px;cursor:pointer;color:var(--ink)}
+.rdr-flow .fr .id{font-size:11px;font-weight:700;flex:none}
+.rdr-flow .fr .tx{flex:1;min-width:0}
+.rdr-flow .fr .tx b{display:block;font-family:var(--jp);font-weight:700;font-size:13px;color:var(--ink)}
+.rdr-flow .fr .tx small{display:block;font-family:var(--jp);font-size:11px;color:var(--soft);margin-top:1px}
+.rdr-flow .fr .cnt{font-family:var(--mono);font-size:11px;color:var(--soft);flex:none}
+.rdr-flow .fr .ch{font-family:var(--mono);font-size:14px;color:var(--faint);flex:none}
+@media(hover:hover){.rdr-flow .fr:hover{background:var(--accent-wash)}}
+.rdr-sec{scroll-margin-top:64px}
+.rdr-sh .sn{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-1);padding:3px 9px;flex:none}
+.rdr-sh h2{color:var(--ink);margin:0}
+.rdr-p{font-family:var(--jp);font-size:calc(16px * var(--rdr-fs,1));color:var(--ink)}
+.rfig{background:var(--card)}
+.rfig-cap .tag{font-family:var(--mono);font-weight:700;border-radius:var(--r-1);flex:none}
+.rfig-desc{font-family:var(--jp)}
+.rfig-ph{padding:20px;text-align:center;font-family:var(--jp);font-size:12px;color:var(--faint);background:var(--card2);border:1px dashed var(--line);border-radius:var(--r-2)}
+.rtab{border:1px solid var(--line);border-radius:var(--r-2);overflow:hidden}
+.rtab .tr{display:grid;border-top:1px solid var(--line);background:#fff}
+.rtab .tr:first-child{border-top:none;background:var(--accent-wash)}
+.rtab .tr:nth-child(odd):not(:first-child){background:var(--card2)}
+.rtab .td{padding:10px 12px;font-family:var(--jp);font-size:calc(13px * var(--rdr-fs,1));line-height:1.6;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.rtab .td:first-child{font-weight:700}
+.rtab .tr:first-child .td{padding:9px 12px;font-size:calc(11px * var(--rdr-fs,1));color:var(--accent-ink)}
+.rtab .td + .td{border-left:1px solid var(--line)}
+.rtab .tr:first-child .td + .td{border-left-color:var(--hair)}
+.rvenn{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.rvenn .vp{flex:1;min-width:170px;max-width:250px}
+.rvenn .vp svg{display:block;width:100%}
+.rvenn .vcap{text-align:center;font-family:var(--jp);font-size:11.5px;font-weight:700;color:var(--ink);margin-top:2px}
+.rvenn .vnote{text-align:center;font-family:var(--jp);font-size:11px;color:var(--soft);margin-top:1px}
+.rbb{position:relative;margin:2px 0 2px 2px}
+.rbb .spine{position:absolute;left:9px;top:16px;bottom:16px;width:2px;background:var(--hair)}
+.rbb .bn{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:4px 0}
+.rbb .bead{flex:none;width:20px;display:flex;justify-content:center}
+.rbb .bead i{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px #fff}
+.rbb .bn.end .bead i{width:12px;height:12px;background:var(--accent-deep);box-shadow:0 0 0 3px #fff,0 0 0 4px var(--hair)}
+.rbb .pill{background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-2);padding:7px 13px;font-family:var(--jp);font-weight:700;font-size:calc(13px * var(--rdr-fs,1));color:var(--accent-ink)}
+.rbb .bn.end .pill{background:var(--cta-bg,var(--accent-ink));border-color:var(--accent-ink);color:#fff}
+.rflow{align-items:center} /* 垂直流: 长标签在小屏横排会崩(箭头孤行), 统一竖排 + ↓ 连接 */
+.rflow .fp{width:100%;max-width:400px;box-sizing:border-box;font-family:var(--jp)}
+.rflow .fp.last{background:var(--cta-bg,var(--accent-ink));border-color:var(--accent-ink);color:#fff}
+.rflow .fsep{font-family:var(--mono);color:var(--faint);font-size:15px;line-height:1;padding:4px 0}
+.rladder{display:flex;flex-direction:column;gap:6px}
+.rladder .lrung{display:flex;align-items:center;gap:10px;background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-1);padding:8px 12px}
+.rladder .lv{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);flex:none}
+.rladder .ll{font-family:var(--jp);font-size:calc(12.5px * var(--rdr-fs,1));color:var(--ink)}
+.rcyret{width:100%;max-width:400px;box-sizing:border-box;text-align:center;font-family:var(--jp);font-size:12px;color:var(--soft);background:var(--card2);border:1px dashed var(--sep);border-radius:var(--r-2);padding:9px 14px}
+.rco .pl{display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-1);padding:2px 9px;margin-bottom:10px}
+.rco .pl svg{width:12px;height:12px}
+.rco-yougo{background:var(--accent-wash);border-color:var(--hair)} .rco-yougo .pl{background:var(--cta-bg,var(--accent-ink))}
+.rco-jirei{background:var(--card2);border-color:var(--line)} .rco-jirei .pl{background:var(--accent-deeper)}
+.rco-chuui{background:var(--no-wash);border-color:var(--no-line)} .rco-chuui .pl{background:var(--no-deep)}
+.rco-youten{background:var(--ok-wash);border-color:var(--ok-line)} .rco-youten .pl{background:var(--ok-deep)}
+.rco .term{font-family:var(--jp);color:var(--accent-ink)}
+.rco .def{font-family:var(--jp);color:var(--ink);margin-top:3px}
+.rco .it{padding:9px 0} .rco .it:first-child{padding-top:2px} .rco .it+.it{border-top:1px dashed var(--hair)}
+.rco .tx{font-family:var(--jp);font-size:calc(14px * var(--rdr-fs,1));line-height:1.82;color:var(--ink);margin:0}
+.rxref{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--jp);font-size:11.5px;color:var(--soft);margin:14px 0}
+.rxchip{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:var(--jp);font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--card);border:1px solid var(--hair);border-radius:var(--r-pill);padding:4px 10px;cursor:pointer}
+.rxchip svg{width:12px;height:12px;flex:none}
+.rxchip .lb{font-family:var(--ui);font-size:11px;font-weight:800;color:var(--soft);background:var(--accent-wash);border-radius:var(--r-1);padding:1px 5px}
+.rprac{margin:18px 0 6px}
+.rprac-h{margin-bottom:9px}
+.rprac-h .pl{letter-spacing:.05em;background:var(--accent-wash);border-radius:var(--r-1);padding:3px 9px}
+.rprac-h .cnt{font-weight:700}
+.rprac-ids{gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.rprac-ids .qid{font-family:var(--mono);font-size:11px;color:var(--soft);background:var(--card2);border:1px solid var(--line);border-radius:var(--r-1);padding:3px 7px}
+.rprac-ids .qid.more{color:var(--faint)}
+.rprac-cta{width:100%;cursor:pointer;box-shadow:0 5px 14px rgba(var(--cta-rgb),.24)}
+.rdr-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:662px;margin:22px 0 0;padding-top:18px;border-top:1px solid var(--line)}
+.rdr-pager button{font-size:13px;border-radius:var(--r-2);cursor:pointer;min-height:44px;box-sizing:border-box}
+.rdr-pager button:disabled{opacity:.35;cursor:default}
+.rdr-pager button.rdr-pg-kai{border-color:var(--hair)} /* 回境界: 隣の回へ跳ぶボタンは淡い強調 */
+.rdr-dots{display:flex;gap:6px;align-items:center}
+.rdr-in-fwd{animation:rdrInF .26s var(--curve)}
+.rdr-in-back{animation:rdrInB .26s var(--curve)}
+@keyframes rdrInF{from{transform:translateX(var(--shift))}to{transform:none}}
+@keyframes rdrInB{from{transform:translateX(calc(-1 * var(--shift)))}to{transform:none}}
+.ridx{display:flex;flex-direction:column;gap:8px}
+.ridx-row{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r-2);padding:14px 16px;cursor:pointer;box-shadow:var(--shadow-sm)}
+.ridx-kai{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-1);padding:4px 9px;flex:none}
+.ridx-tx{flex:1;min-width:0}
+.ridx-tx b{display:block;font-family:var(--jp);font-weight:700;font-size:14px;color:var(--ink)}
+.ridx-tx small{display:block;font-family:var(--jp);font-size:11px;color:var(--soft);margin-top:1px}
+.ridx-ch{font-family:var(--mono);font-size:15px;color:var(--faint);flex:none}
+@media(hover:hover){.ridx-row:hover{border-color:var(--accent)}}
+.bmsub{font-family:var(--jp);font-size:12px;font-weight:700;color:var(--soft);margin:2px 2px 8px}
+.fchip-btn{cursor:pointer;transition:border-color .12s,color .12s}
+@media(hover:hover){.fchip-btn:hover{border-color:var(--accent);color:var(--accent-ink)}}
+@media(max-width:860px){
+  .rdr-toc{display:none}
+  .rdr-chips{display:flex;gap:7px;overflow-x:auto;position:sticky;top:calc(var(--topbar-h,52px) + 47px);z-index:5;background:var(--paper);padding:10px 0 9px;margin-bottom:4px}
+  .rdr-chips button{flex:none;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--soft);background:none;border:1px solid var(--line);border-radius:var(--r-pill);padding:5px 11px;min-height:44px;box-sizing:border-box}
+  .rdr-chips button.on{background:var(--accent-wash);color:var(--accent-ink)}
+  .rdr-title{font-size:24px}
+  .rdr-main,.rdr-pager{max-width:calc(38em + 46px)} /* 1 行約 38 字（iPad 縦で 49 字になっていた） */
+}
+@media(max-width:860px){
+  .hero1b{grid-template-columns:1fr}
+  .hero1b .h1l{grid-row:1} .hero1b .h1r{grid-column:1;grid-row:2} .hero1b .hsw{grid-column:1;grid-row:3}
+  .flag .fin{flex-direction:column;gap:15px;align-items:stretch} .flag .fr{width:100%}
+  .rtiles,.subrow{grid-template-columns:1fr} .rmap{grid-template-columns:repeat(2,minmax(0,1fr))} .lookgrid{grid-template-columns:1fr}
+  .greet1b{font-size:24px}
+}
+
+@media(max-width:860px){ .dashhero,.dashrow{grid-template-columns:1fr} .kgrid{grid-template-columns:repeat(3,1fr)} .funcrow{grid-template-columns:repeat(2,1fr)} }
+@media(max-width:520px){ .funcrow{grid-template-columns:1fr} .kgrid{grid-template-columns:repeat(2,1fr)} .h2pad{padding:18px 16px 22px} .greet{font-size:23px} }
+
+.weakviz{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:6px 0 4px}
+.wv-donut{flex:none}
+.wv-rank{flex:1;min-width:200px}
+.rkrow{display:grid;grid-template-columns:1fr 90px auto;gap:9px;align-items:center;margin:6px 0;font-size:12.5px}
+.rk-n{font-family:var(--jp);color:var(--accent-ink);font-weight:600;background:none;border:none;text-align:left;padding:0;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(hover:hover) and (pointer:fine){.rk-n:hover{text-decoration:underline}}
+.rk-bar{height:7px;background:var(--line2);border-radius:var(--r-pill);overflow:hidden}
+.rk-fill{height:100%;background:var(--no);border-radius:var(--r-pill)}
+.rk-v{color:var(--soft);font-family:var(--ui);white-space:nowrap;text-align:right} .rk-v b{color:var(--ink)}
+
+.flashwrap{max-width:520px;margin:0 auto}
+.fc-marks{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.fcm{font-family:var(--jp);font-size:13px;font-weight:700;padding:8px 18px;min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-pill);border:1.5px solid var(--line);background:var(--card);color:var(--soft);cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.fcm-learned.on{background:var(--ok-wash);border-color:var(--ok-line);color:var(--ok-deep)}
+.fcm-weak.on{background:var(--accent-wash);border-color:var(--hair);color:var(--accent-ink)}
+@media(hover:hover){.fcm:hover{border-color:var(--accent-deep)}}
+.fc-hide.on{background:var(--accent-wash);border-color:var(--hair);color:var(--accent-ink)}
+.fc-og-link{display:block;margin:18px auto 0;width:fit-content;max-width:100%;background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-pill);padding:9px 18px;font-family:var(--jp);font-size:12px;font-weight:700;color:var(--accent-ink);cursor:pointer;text-align:center;transition:border-color var(--t-1,130ms)} /* 定義→資料集 追溯(居中胶囊·唯一CTA) */
+@media(hover:hover){.fc-og-link:hover{border-color:var(--accent-deep)}}
+.flipstage{ position:relative; }
+.flipstage.fc-next{ animation:fcNext var(--q-dur) var(--curve) both; }
+.flipstage.fc-prev{ animation:fcPrev var(--q-dur) var(--curve) both; }
+@keyframes fcNext{ from{transform:translateX(var(--shift))} to{transform:none} }
+@keyframes fcPrev{ from{transform:translateX(calc(-1 * var(--shift)))} to{transform:none} }
+.flip3d{ perspective:1200px; cursor:pointer; }
+@media(hover:hover) and (pointer:fine){.flip3d:hover .flip-face{ box-shadow:0 14px 36px rgba(var(--glow-rgb),.12); }}
+.flip-inner{ position:relative; min-height:230px; transform-style:preserve-3d; transition:transform var(--flip-dur) var(--curve-lift); }
+.flip3d.flipped .flip-inner{ transform:rotateY(180deg); }
+.flip3d.flip-instant .flip-inner{ transition:none; }
+.flip-face{ position:absolute; inset:0; -webkit-backface-visibility:hidden; backface-visibility:hidden; border:1px solid var(--line); border-radius:var(--r-4); display:flex; flex-direction:column; justify-content:center; box-shadow:var(--shadow); background:var(--card); }
+.fc-pad{ width:100%; box-sizing:border-box; padding:26px; text-align:center; } /* 内容包裹层: 量测它的 offsetHeight 撑容器高度 (绕开面板 flex 居中时内容向上下对称溢出、scrollHeight 漏算顶部的问题) */
+.flip-back{ transform:rotateY(180deg); background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--accent-wash) 35%,#fff)); }
+/* Apple 式点按反馈: iOS 需 boot 前的 touchstart 监听才会触发 :active (否则手机端点按无反馈); 统一快速 scale 下压 */
+.flipstage{ transition:transform .12s var(--curve); }
+.btn:active{ transform:scale(.96); }
+.ktile:active{ transform:scale(.97); }
+.card2:active{ transform:scale(.985); }
+.flipstage:active{ transform:scale(.97); }
+/* 按压语法: 用 pointer 驱动的 .is-pressed(见 boot 处委托) 取代不可靠的 iOS :active。press = scale 下压 + wash 加深(整体压深, 文字仍可读)。press-in 快(60ms)以便快速点按也可见, 松开即回。 */
+.is-pressed{ transition:transform .06s ease-out, filter .06s ease-out; }
+.fc-q{font-family:var(--disp);font-size:24px;font-weight:900;color:var(--ink)}
+.fc-hint{font-size:11.5px;color:var(--faint);margin-top:14px}
+.fc-term{font-family:var(--disp);font-size:17px;font-weight:900;color:var(--accent-ink);margin-bottom:10px}
+.fc-def{font-family:var(--jp);font-size:14.5px;line-height:1.85;color:var(--ink);text-align:left}
+.fc-og{font-family:var(--mono);font-size:11px;color:var(--soft);margin-top:12px}
+.fc-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
+.fc-count{font-family:var(--ui);font-weight:800;font-size:13px;color:var(--soft)}
+
+.searchrow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-2);padding:4px 12px;margin-bottom:14px}
+.searchrow .svgwrap svg{width:18px;height:18px;color:var(--faint)}
+.searchrow:focus-within,.nh-search:focus-within,.mcSearch:focus-within{outline:2px solid var(--accent-ink);outline-offset:2px} /* 入力欄は outline を消している：外枠で焦点を示す */
+.searchinput::placeholder{color:var(--soft)}
+.searchinput{flex:1 1 0;min-width:0;width:100%;border:none;outline:none;font-family:var(--jp);font-size:14px;padding:10px 0;background:none;color:var(--ink)}
+.searchout .srhd{font-family:var(--jp);font-size:11.5px;font-weight:700;color:var(--accent-ink);margin-bottom:7px}
+.searchout .gnone{padding:10px 0}
+
+.setblk{padding:14px 0;border-bottom:1px dashed var(--line)} .setblk:last-child{border:none}
+.setlbl{font-weight:800;font-size:14px;margin-bottom:3px}
+.sethelp{font-size:12px;color:var(--soft);margin-bottom:10px;line-height:1.6}
+.setseg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r-2);overflow:hidden}
+.segbtn{font-family:var(--jp);font-weight:700;font-size:13px;color:var(--soft);background:var(--card);border:none;padding:9px 16px;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.segbtn.on{background:var(--cta-bg,var(--accent-ink));color:#fff}
+.dateinput{font-family:var(--ui);font-size:14px;border:1px solid var(--line);border-radius:var(--r-2);padding:8px 12px;color:var(--ink);background:var(--card)}
+
+.qnav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}
+.qnav.lefthand{flex-direction:row-reverse}
+.qnav .nbtn{font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;transition:transform .1s,border-color .12s}
+.qnav .nbtn:active{transform:scale(.97)}
+.qnav .nbtn.prev{color:var(--soft)} @media(hover:hover) and (pointer:fine){.qnav .nbtn.prev:hover{border-color:var(--accent);color:var(--accent-ink)}}
+.qnav .nbtn.next{background:var(--cta-bg,var(--accent-ink));color:#fff;border-color:var(--accent-ink)}
+@media(hover:hover) and (pointer:fine){.qnav .nbtn.next:hover{background-image:linear-gradient(rgba(0,0,0,.14),rgba(0,0,0,.14))}}
+.qnav .nbtn.spacer{visibility:hidden}
+.qdots{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;overflow:hidden}
+.qdots i{width:6px;height:6px;border-radius:50%;background:var(--line);flex:none;transition:width .15s,background .15s}
+.qdots i.on{background:var(--accent-deep);width:18px;border-radius:var(--r-pill)}
+.qdots i.seen{background:color-mix(in srgb,var(--accent) 55%,#fff)}
+@media(max-width:600px){ .qnav .nbtn{padding:10px 13px;font-size:13px} .qdots i{width:5px;height:5px} }
+
+.helpsec{padding:13px 0;border-bottom:1px dashed var(--line)} .helpsec:last-of-type{border:none}
+.helpsec h4{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:13.5px;font-weight:800;font-family:var(--jp)}
+.helpsec h4 .hc{width:24px;height:24px;border-radius:var(--r-1);background:var(--accent-wash);color:var(--accent-deep);display:grid;place-items:center;flex:none}
+.helpsec h4 .hc svg{width:14px;height:14px}
+.helpsec p{margin:0;color:var(--soft);font-size:12.5px;line-height:1.75;font-family:var(--jp)}
+.kbd{font-family:var(--ui);font-weight:800;font-size:11px;background:var(--paper);border:1px solid var(--line);border-bottom-width:2px;border-radius:var(--r-1);padding:1px 6px;color:var(--ink)}
+
+.bmstar{display:inline-flex;align-items:center;gap:6px;font-family:var(--jp);font-size:12px;font-weight:700;color:var(--soft);background:var(--card);border:1px solid var(--line);border-radius:var(--r-2);padding:7px 12px;cursor:pointer;transition:border-color .12s,color .12s}
+.bmstar svg{width:15px;height:15px;fill:none}
+.bmstar.on{color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent) 40%,#fff);background:var(--accent-wash)}
+.bmstar.on svg{fill:var(--accent)}
+
+/* polish: smoother view + reveal transitions (continue the '选答案/解说' feel) */
+#view{animation:viewfade .22s ease}
+@keyframes viewfade{from{opacity:.5}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){ #view{animation:none} .flip-inner,.ktile,.card2,.cta,.qnav .nbtn,.btn,.flipstage{transition:none!important} .nav-enter-fwd,.nav-enter-back,.nav-leave-fwd,.nav-leave-back,.flipstage.fc-next,.flipstage.fc-prev,.mnav.m-fade,.mdetail.m-fade,.langslide{animation:none!important} }
+
+.wgrp{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)}
+.wgrp:last-child{border:none}
+.wgrp-n{font-family:var(--jp);font-weight:600;font-size:13.5px;color:var(--accent-ink);background:none;border:none;text-align:left;padding:0;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(hover:hover) and (pointer:fine){.wgrp-n:hover{text-decoration:underline}}
+.wgrp-c{font-family:var(--mono);font-size:11px;color:var(--soft);white-space:nowrap}
+.wgrp-go{flex:none}
+.examtime{font-family:var(--jp);font-size:12.5px;color:var(--soft);background:var(--card2);border:1px solid var(--line);border-radius:var(--r-1);padding:8px 12px;margin:4px 0 2px}
+
+/* motion: 入场为主; reduced-motion 由全局 *{animation:none} 兜底 */
+:root{
+  /* 运动语言「温柔·安静·引导」: 一把尺子(4档) + 两条缓动 + 一个位移。 */
+  --t-1:130ms; --t-2:200ms; --t-3:300ms;      /* 微 / 基准 / 沉稳 (桌面既定=更快, 触屏で上書き) */
+  --ease:cubic-bezier(.33,1,.68,1);            /* 进·常规: 温和减速, 无回弹 */
+  --ease-out:cubic-bezier(.4,0,.7,1);          /* 退: 加速离场 */
+  --shift:6px;                                  /* 唯一方向位移(桌面, 控えめ); 触屏/模考/reduced で縮小・0; 入場は不透明=白閃なし */
+  --k:1;                                        /* 旧倍率退役(=1) */
+  /* 旧名→新値(移行互換; --curve-lift=ease → overshoot 廃止) */
+  --nav-dur:var(--t-2); --q-dur:var(--t-1); --flip-dur:var(--t-3);
+  --sheet-dur:var(--t-2); --sheet-out-m:var(--t-1); --sheet-out-d:var(--t-1);
+  --curve:var(--ease); --curve-pop:var(--ease-out); --curve-lift:var(--ease);
+}
+body[data-mode="exam"]{ --t-2:200ms; --shift:0px; } /* 模考降噪: 更快 + 纯淡入(位移0) */
+@media(pointer:coarse){ :root{ --shift:5px; --t-1:170ms; --t-2:260ms; --t-3:340ms; } } /* 真机(触屏)既定: 位移更小 + 更「物理」(略长); 桌面=快·移动=物理感, 设备分档 */
+/* 页面导航: 离场层机构(旧屏 fixed 钉住+在上淡出)在 setView(JS) 内; 位移/曲线/时长 已一元化到上方运动语言 token。reduced-motion/就地重绘 走 setView 非方向分支。*/
+/* DirShift = opacity + 一个身位(--shift)方向位移。删压暗(navDim)+视差(scale) — 真机显脏的主因 */
+.nav-enter-fwd{ animation:navEnterFwd var(--nav-dur) var(--ease) both; }
+.nav-enter-back{ animation:navEnterBack var(--nav-dur) var(--ease) both; }
+@keyframes navEnterFwd{ from{transform:translateX(var(--shift))} to{transform:none} }
+@keyframes navEnterBack{ from{transform:translateX(calc(-1 * var(--shift)))} to{transform:none} }
+.nav-leave-fwd,.nav-leave-back{ z-index:10; pointer-events:none; }
+.nav-leave-fwd{ animation:navLeaveFwd calc(var(--nav-dur) * .6) var(--ease-out) forwards; }
+.nav-leave-back{ animation:navLeaveBack calc(var(--nav-dur) * .6) var(--ease-out) forwards; }
+@keyframes navLeaveFwd{ from{opacity:1;transform:none} to{opacity:0;transform:translateX(calc(-.6 * var(--shift)))} }
+@keyframes navLeaveBack{ from{opacity:1;transform:none} to{opacity:0;transform:translateX(calc(.6 * var(--shift)))} }
+/* qbody 帧内题切换 (局部内容, 比导航更轻更快; 仅 goNext/goPrev, 答题/揭示就地不触发) */
+.rbody.qstep-next{ animation:qStepN var(--q-dur) var(--ease) both; }
+.rbody.qstep-prev{ animation:qStepP var(--q-dur) var(--ease) both; }
+@keyframes qStepN{ from{transform:translateX(var(--shift))} to{transform:none} }
+@keyframes qStepP{ from{transform:translateX(calc(-1 * var(--shift)))} to{transform:none} }
+/* 模考は --shift:0 で自動的に純フェード(横滑ゼロ) → qStepExam 特例は不要に */
+/* sheet/modal 入场 (桌面缩放掀起; 手机自下升起) */
+.modal{ animation:sheetOverlay var(--sheet-dur) var(--curve) both; }
+.modal-in{ animation:sheetCardD var(--sheet-dur) var(--curve-lift) both; }
+@keyframes sheetOverlay{ from{opacity:0} to{opacity:1} }
+@keyframes sheetCardD{ from{opacity:0;transform:scale(.94)} to{opacity:1;transform:none} }
+/* settle / nudge (练习专属即时反馈; 模考由 JS 门控不置 _pulse) */
+.opt.settle{ animation:settle .34s var(--curve); }
+.opt.nudge{ animation:nudge .42s var(--curve-pop); }
+@keyframes settle{ 0%{transform:none}40%{transform:scale(1.012)}100%{transform:none} }
+@keyframes nudge{ 0%,100%{transform:none}20%{transform:translateX(-2px)}45%{transform:translateX(1.5px)}70%{transform:translateX(-1px)} }
+/* bloom (练习结果径向; 模考结果安静呈现, 不置 _bloom) */
+.bigscore.bloom{ position:relative; }
+.bigscore.bloom::before{ content:'';position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:radial-gradient(circle, var(--accent-wash) 0%, rgba(var(--glow-rgb),0) 70%);transform:scale(.4);opacity:0;animation:bloom 1.1s var(--curve) forwards;pointer-events:none;z-index:0; }
+.bigscore.bloom>*{ position:relative; z-index:1; }
+@keyframes bloom{ 0%{opacity:0;transform:scale(.4)}30%{opacity:.7}100%{opacity:0;transform:scale(1.5)} }
+.langslide{ animation:langSlide .46s cubic-bezier(.22,1,.36,1) both } /* 言語切替=瞬時原子入替(全体フェード廃止→空白閃なし) + 解说块のみスライドイン(問題文/選択肢は不動) */
+@keyframes langSlide{ from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+/* sheet/modal 退场 (桌面缩放淡出; 手机下滑。延迟移除, 见 closeModal + 兜底超时) */
+.modal.closing{ animation:sheetOverlayOut var(--sheet-out-d) var(--curve-pop) forwards; }
+.modal.closing .modal-in{ animation:sheetCardOutD var(--sheet-out-d) var(--curve-pop) forwards; }
+@keyframes sheetOverlayOut{ from{opacity:1} to{opacity:0} }
+@keyframes sheetCardOutD{ from{opacity:1;transform:none} to{opacity:0;transform:scale(.96)} }
+@media(max-width:600px){
+  .modal.closing .modal-in{ animation:sheetCardOutM var(--sheet-out-m) var(--curve-pop) forwards; }
+  @keyframes sheetCardOutM{ from{opacity:1;transform:none} to{opacity:0;transform:translateY(100%)} }
+}
+@media(max-width:600px){ /* 手机: sheet 自屏外升起 */
+  @keyframes sheetCardD{ from{opacity:0;transform:translateY(100%)} to{opacity:1;transform:none} }
+}
+.exam-answer .qhd{margin-bottom:10px;position:relative}
+.exam-answer .qtimer{position:absolute;left:50%;top:1px;transform:translateX(-50%);margin-left:0}
+.runner.exam-answer{display:block} /* 盲答页不用左轨: 题号轨与 rbody 全宽纵向堆叠, 不再被塞进 64px grid 左栏致逐行换行撑高卡片 */
+.runner.no-rail{display:block} /* 手册発の演習: 回レールを外し全幅(戻るが真の左上に来る) */
+.examstrip{display:flex;flex-wrap:nowrap;overflow-x:auto;padding:16px 22px 12px;margin:0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.examstrip::-webkit-scrollbar{display:none} /* 現在題は自動中央寄せ; 下端のピンク色スクロールバー(粉色条)を隠す */
+.estrip-pad{flex:none;width:0}
+.echip{flex:none;width:44px;height:44px;border:1.5px solid var(--line);background:var(--card2);color:var(--soft);font-family:var(--mono);font-size:12px;font-weight:700;display:grid;place-items:center;cursor:pointer;position:relative;transition:border-color .18s,background .18s} /* 题号钮 44px 见方＝触控下限，不是留白 */
+.echip.done{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink)}
+.echip.is-unc::after{content:'?';position:absolute;top:-5px;right:-4px;width:14px;height:14px;border-radius:50%;background:var(--no);color:#fff;font-size:11px;line-height:14px;display:grid;place-items:center}
+.opt.sel{border-color:var(--accent-ink);background:var(--accent-wash);box-shadow:inset 0 0 0 1px var(--accent-ink)} /* 選んだ肢は濃い二重枠：悬停（枠の色だけ）と見分けがつく（U-84） */
+.opt.sel .mk{border-color:var(--accent)}
+.unc{display:inline-flex;align-items:center;gap:8px;margin-top:14px;min-height:44px;box-sizing:border-box;background:var(--card2);border:1.5px solid var(--line);padding:8px 13px;color:var(--soft);font-family:var(--jp);font-size:13px;cursor:pointer;transition:border-color .18s,background .18s,color .18s}
+.unc .mk{flex:none;width:18px;height:18px;border-radius:var(--r-1);border:1.5px solid var(--line);display:grid;place-items:center;font-size:11px;color:#fff;font-weight:700}
+.unc.on{border-color:var(--no-line);background:var(--no-wash);color:var(--no-deep)}
+.unc.on .mk{background:var(--no);border-color:var(--no)}
+.examnav{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.examnav .btn{flex:1;min-width:88px;text-align:center}
+.chkline{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--line)}
+.chkline .cl-l{font-size:13px;color:var(--ink);flex:none;min-width:9.5em}
+.chkline .cl-n{font-family:var(--mono);font-size:12.5px;color:var(--soft)}
+.chkline.warn .cl-l{color:var(--no-deep)}
+p.jp.warn,.warn{color:var(--no-deep)}
+.grading .gcard{background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-2);padding:16px 16px 18px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.gqnum{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.gqnum .n{font-family:var(--mono);font-weight:700;color:var(--accent-ink);font-size:13px}
+.gqnum .mode{font-family:var(--jp);font-size:11px;color:var(--soft);background:var(--line2);border-radius:var(--r-1);padding:2px 8px}
+.opts.grading{margin-top:6px}
+.opts.grading .opt{cursor:default}
+.gnote{margin-top:8px;font-size:12px}
+.gres{margin-top:10px;font-family:var(--jp);font-size:13px;font-weight:700;display:inline-block;padding:3px 12px;border-radius:var(--r-1)}
+.gres.ok{color:var(--ok-deep);background:var(--ok-wash)}
+.gres.no{color:var(--no-deep);background:var(--no-wash)}
+.scoreline .lvl{font-weight:700;padding:2px 10px;border-radius:var(--r-1);font-size:12.5px}
+.scoreline .lvl.full{color:var(--ok-deep);background:var(--ok-wash)}
+.scoreline .lvl.part{color:var(--accent-ink);background:var(--accent-wash)}
+.scoreline .lvl.none{color:var(--no-deep);background:var(--no-wash)}
+.gradefoot{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--paper);border-top:1.5px solid var(--line);padding:14px 2px;margin-top:6px}
+.gprog{font-family:var(--jp);font-size:13px;color:var(--soft)}
+.gradefoot .btn:disabled{cursor:not-allowed}
+.gzone{margin:0 0 22px}
+.gzhd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 0 12px;font-family:var(--jp)}
+.gzhd .gzt{font-size:14px;font-weight:700;color:var(--ink)}
+.gzhd .gzp{font-size:12.5px;color:var(--soft)}
+.gzhd .gzs{font-size:13px;font-weight:700;color:var(--ok-deep)}
+.gzlock{background:var(--card2);border:1px dashed var(--line);border-radius:var(--r-2);padding:15px 16px;font-family:var(--jp)}
+.gzlock .gzt{display:block;font-size:13.5px;font-weight:700;color:var(--soft);margin-bottom:6px}
+.gzlock .gzlh{margin:0;font-size:12.5px;line-height:1.7;color:var(--soft)}
+
+.hubacts{display:flex;gap:10px;margin-top:14px;padding-top:13px;border-top:1px dashed var(--line)}
+.hubacts .btn{flex:1}
+.hubacts .btn.sm{font-size:12.5px;padding:10px 14px}
+/* ホーム画面に追加: 一回限り軽バナー */
+.a2hsbar{display:flex;align-items:center;gap:11px;background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-2);padding:10px 12px 10px 13px;margin-bottom:16px}
+.a2hsbar-ic{display:grid;place-items:center;width:30px;height:30px;border-radius:var(--r-1);background:var(--card);color:var(--accent-deep);flex:none}
+.a2hsbar-ic svg{width:17px;height:17px}
+.a2hsbar-t{flex:1;min-width:0;font-size:12.5px;color:var(--accent-ink);line-height:1.5}
+.a2hsbar-act{display:flex;align-items:center;gap:4px;flex:none}
+.a2hsbar-go{font-family:var(--jp);font-weight:800;font-size:12px;color:#fff;background:var(--cta-bg,var(--accent-ink));border:none;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.a2hsbar-x{font-size:18px;line-height:1;color:var(--soft);background:none;border:none;padding:2px 6px;cursor:pointer;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.a2hs-intro{font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:14px}
+.a2hs-steps{display:flex;flex-direction:column;gap:11px}
+.a2hs-step{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-2);padding:12px 14px}
+.a2hs-num{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:var(--r-pill);background:var(--cta-bg,var(--accent-ink));color:#fff;font-family:var(--mono);font-weight:700;font-size:12px}
+.a2hs-ic{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:var(--r-2);background:var(--accent-wash);color:var(--accent-deep)}
+.a2hs-ic svg{width:20px;height:20px}
+.a2hs-tx{flex:1;min-width:0;font-size:13px;color:var(--ink);line-height:1.6}
+.a2hs-prev{display:flex;align-items:center;gap:13px;margin-top:16px;padding-top:15px;border-top:1px dashed var(--line)}
+.a2hs-prev-ic{flex:none;width:52px;height:52px;border-radius:var(--r-2);box-shadow:var(--shadow-sm)}
+.a2hs-prev-t{font-size:12.5px;color:var(--soft);line-height:1.6}
+
+/* 桜のアトリエ 皮肤（配色暂定，未定案）。承字 token 一律做易読性調整: deep/deeper/soft/faint 加深, 淡雅留在 fill/wash 层, 不重蹈全局压深压灰。
+   这些 token 的现值只在此处（开头 :root 里被覆盖的旧值已清除）；改配色改这里。各课皮肤由 course-manifest 的 skin 在运行时覆盖。 */
+:root{
+  --paper:#FDF9FB; --card2:#FEFAFC;
+  --faint:#B9A2B1; /* --soft はここで再定義しない（開頭 :root の #76606D が生きる：重複定義が #866D7A で上書きしていた＝复查 U-02） */
+  --line:#F5E5ED; --line2:#FBF3F8; --track:#F0DEE7;
+  --accent:#F8C6D8; --accent-wash:#FDF3F8;
+  --accent-deep:#D189AE; --accent-deeper:#C9799F;
+  --pink-2:#F6B9D1;
+  --hair:#F4D9E5; --sep:#D8BFCC; --theme:#F8C6D8;
+  --glass:rgba(253,248,251,.74); --glass-line:rgba(var(--cta-rgb),.14);
+  --shadow:0 1px 2px rgba(var(--glow-rgb),.05),0 10px 30px rgba(var(--glow-rgb),.10);
+  --shadow-sm:0 1px 2px rgba(var(--glow-rgb),.05),0 4px 14px rgba(var(--glow-rgb),.07);
+  /* 颜文字专用栈(特别对应): 颜文字整体钉在广覆盖字体链上, 不随所在文脉字体(丸ゴ等)缺字形而破相 */
+  --kao:'Noto Sans JP','Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+}
+.btn,.cta{font-family:var(--disp);font-weight:700;border-radius:var(--r-pill)}
+.hubacts .btn.sm{border-radius:var(--r-pill)}
+.cta{box-shadow:0 6px 16px rgba(var(--cta-rgb),.26)}
+@media(hover:hover) and (pointer:fine){.cta:hover{box-shadow:0 8px 20px rgba(var(--cta-rgb),.32)}}
+.card,.panel,.statcap,.stc,.act,.flag{border-radius:var(--r-4)}
+.opt{background:var(--card)}
+.opt .mk{border-color:transparent}
+.expl{border-radius:var(--r-3)}
+/* 白字面の可読性: グラデ面→実色 deep（淡端の白字が読めない問題の根治; fcta/fic 同罪同修） */
+.hsw-thumb,.lang-thumb,.flag .fic{background:var(--accent-deep)} .flag .fcta{background:var(--cta-bg,var(--accent-ink))} /* CTA の白字は --accent-ink の上で 4.5:1（S6 U-02） */
+@media(hover:hover){.flag .fcta:hover{background-image:linear-gradient(rgba(0,0,0,.14),rgba(0,0,0,.14))}}
+.stc-pr .prbar i{background:var(--accent)}
+/* 見出しラベル: 淡 accent の小字ラベルは deep へ（可読性） */
+.kick1b,.hero .kick{color:var(--accent-ink)}
+.listrow .lead{color:var(--accent-ink)}
+.stc-cd{border-color:var(--hair)}
+.stc-cd .cde{border-color:var(--hair)}
+/* 対話体の非主入口・浮動窓; 広告的にしない: 無動画・無バッジ・静かな一枚 */
+.buddyFloat{position:fixed;right:16px;z-index:30;width:52px;height:52px;border-radius:50%;background:var(--card);border:1.5px solid var(--accent);color:var(--accent-deep);font-family:var(--disp);font-weight:900;font-size:20px;display:grid;place-items:center;box-shadow:0 8px 24px rgba(var(--cta-rgb),.22);cursor:pointer;transition:transform .12s var(--curve)}
+.buddyFloat:active{transform:scale(.94)}
+body[data-mode="exam"] .buddyFloat{display:none}
+html[data-shape="rx"] .buddyFloat{display:none} /* 新课不接浮动 talk 窗（其数据结构只属旧课） */
+.devbtn{bottom:80px}
+.buddyDim{position:fixed;inset:0;z-index:44;opacity:0;pointer-events:none;transition:opacity var(--t-2,200ms) ease}
+.buddyDim.on{opacity:1;pointer-events:auto}
+.buddyChat{position:fixed;z-index:45;max-width:430px;border-left:1px solid var(--line);display:flex;flex-direction:column}
+@media(max-width:520px){.buddyChat{max-width:100%;border-left:none}}
+.mcHead{flex:none;display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--glass);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
+.mcAva{width:36px;height:36px;border-radius:50%;background:var(--accent-wash);border:1.5px solid var(--accent);display:grid;place-items:center;font-family:var(--disp);font-weight:900;font-size:16px;color:var(--accent-deep);flex:none}
+.mcTt b{display:block;font-family:var(--disp);font-weight:700;font-size:14.5px;color:var(--accent-ink);line-height:1.2}
+.mcTt small{font-size:11px;color:var(--soft)}
+.mcX{margin-left:auto;min-width:44px;min-height:44px;display:grid;place-items:center;color:var(--soft);background:none;border:none;cursor:pointer;font-size:16px}
+.mcBody{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:10px}
+.mcRow{display:flex;gap:8px;align-items:flex-end}
+.mcRow .mcAva{width:28px;height:28px;font-size:13px}
+.mcRow.me{justify-content:flex-end}
+.mcBub{max-width:80%;padding:10px 14px;font-family:var(--jp);font-size:13.5px;line-height:1.75;background:var(--card);border:1px solid var(--line);border-radius:16px 16px 16px 6px;animation:mcIn .2s var(--curve) both}
+.mcRow.me .mcBub{background:var(--accent-wash);border-radius:16px 16px 6px 16px}
+@keyframes mcIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.mcBub{animation:none}.buddyChat,.buddyDim{transition:none}}
+.mcCard{max-width:88%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;font-family:var(--jp)}
+.mcCard .kv{font-size:12.5px}
+.mcChips{flex:none;display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px 14px;border-top:1px dashed var(--line)}
+.mcChip{min-height:44px;padding:0 16px;border-radius:var(--r-pill);background:var(--card);border:1.5px solid var(--accent);color:var(--accent-ink);font-family:var(--jp);font-size:13px;font-weight:600;display:inline-flex;align-items:center;cursor:pointer;transition:transform .12s var(--curve)}
+.mcChip:active{transform:scale(.96)}
+.mcChip.ghost{border-color:var(--line);color:var(--soft)}
+
+/* 做题中の随时ブックマーク星（qnum 行内・44pt 命中・行高は負マージン相殺） */
+.qbm{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin:-14px -6px;border:none;background:none;color:var(--faint);cursor:pointer;border-radius:var(--r-pill);transition:color .12s}
+.qbm svg{width:17px;height:17px;fill:none}
+.qbm.on{color:var(--accent-deep)}
+.qbm.on svg{fill:var(--accent)}
+@media(hover:hover){.qbm:hover{color:var(--accent-deep)}}
+/* デスクトップ: 設問面をやや広く（左右の余白過多を圧縮; 読み幅は 1.85 行高で担保） */
+@media(min-width:1100px){
+  .runner{max-width:880px}
+  .rbody{padding:22px 30px 28px}
+}
+
+body::before{content:'';position:fixed;top:0;left:0;right:0;height:300px;pointer-events:none;z-index:0;
+  background:radial-gradient(480px 260px at 85% -80px,rgba(var(--glow-rgb),.13),transparent 70%)}
+#view{position:relative;z-index:1}
+.home2{background:none;border:none;box-shadow:none;border-radius:0;overflow:visible}
+.h2pad{padding:6px 2px 30px}
+.kick1b{display:none}
+.greet1b{font-size:23px;line-height:1.5;margin:8px 0 0}
+.greetsub{display:inline-flex;align-items:center;flex-wrap:wrap;min-height:44px;margin:0 0 4px;padding:0;border:none;background:none;
+  color:var(--soft);font-size:12.5px;cursor:pointer;text-align:left;line-height:1.7}
+.greetsub b{color:var(--accent-ink);font-family:var(--ui);font-weight:700;margin:0 2px}
+.hero1b{gap:6px 20px;margin-bottom:12px}
+.hsw{border-radius:var(--r-pill);background:var(--accent-wash);border:none;box-shadow:none;padding:4px;gap:4px;margin-top:8px}
+.hsw-thumb{border-radius:var(--r-pill);background:var(--card);box-shadow:0 2px 10px rgba(var(--cta-rgb),.18);top:4px;left:4px;width:calc(50% - 6px);height:calc(100% - 8px)}
+.hsw[data-active="review"] .hsw-thumb{transform:translateX(calc(100% + 4px))}
+.hsw-b{border-radius:var(--r-pill);justify-content:center;padding:8px 12px}
+.hsw[data-active="exam"] .hsw-b[data-tab="exam"],.hsw[data-active="review"] .hsw-b[data-tab="review"]{color:var(--accent-ink)}
+.hsw[data-active="exam"] .hsw-b[data-tab="exam"] .swic,.hsw[data-active="review"] .hsw-b[data-tab="review"] .swic{background:var(--accent-wash);color:var(--accent-deep)}
+.flag{background:var(--card);border:1px solid var(--line);padding:22px 20px 18px}
+.flag .fpill{display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border-radius:var(--r-pill);padding:4px 12px;letter-spacing:.04em;border:none}
+.flag .fti{font-family:var(--disp);font-weight:900;font-size:22px;margin:10px 0 6px}
+.flag .fde{color:var(--soft);font-size:13px;line-height:1.75;margin-bottom:16px;max-width:36em}
+.flag .fcta{width:100%;min-height:50px;border-radius:var(--r-pill);font-family:var(--disp);font-weight:700;font-size:15.5px;box-shadow:0 8px 22px rgba(var(--cta-rgb),.20)}
+.flag .ffoot{display:flex;justify-content:center;margin-top:10px}
+.flag .fchip{width:auto;background:none;border:none;color:var(--soft);font-size:12.5px;padding:0 10px}
+@media(hover:hover){.flag .fchip-btn:hover{color:var(--accent-ink);text-decoration:underline}}
+.subrow{gap:12px;margin-top:12px}
+.subcard{border-radius:var(--r-3);border:1px solid var(--line);background:var(--card)}
+.subcard .scic{background:var(--accent-wash);color:var(--accent-deep);border-radius:var(--r-pill)}
+.spanel{background:none;border:none;box-shadow:none;padding:0;margin-top:26px}
+.sph{margin:0 2px 2px}
+.sph b{font-family:var(--disp);font-weight:700;font-size:15px}
+.sph small{display:block;color:var(--soft);font-size:12px;margin-top:1px;margin-left:0}
+.splede{color:var(--soft);font-size:12px;margin:2px 2px 12px}
+.rtiles{gap:12px;margin-bottom:6px}
+.rtile{flex-direction:column;align-items:flex-start;gap:8px;min-height:96px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:none}
+.rtile .rtic{background:none;color:var(--accent-deep);width:auto;height:auto}
+.rmaphd{margin:24px 2px 10px}
+.rmaphd b{font-family:var(--disp);font-weight:700}
+.rchaphd .rchapname{font-family:var(--disp);font-weight:700}
+.kt{background:var(--card);border:1px solid var(--line);border-radius:var(--r-3);box-shadow:none}
+.kt .kb{border-radius:var(--r-pill)}
+.lookgrid{background:var(--card);border:1px solid var(--line);border-radius:var(--r-4);padding:18px;box-shadow:var(--shadow-sm)}
+.chrow2 .chb{height:8px;border-radius:var(--r-pill);background:var(--accent-wash);overflow:hidden;box-shadow:none}
+.chrow2 .chb i{background:var(--accent);border-radius:var(--r-pill)}
+.chrow2 .chv{font-family:var(--ui);font-weight:800;color:var(--accent-deep)}
+.bridge{background:var(--accent-wash);border:none;border-radius:var(--r-3)}
+.careline1b{margin:30px 6px 4px;text-align:center;color:var(--soft);font-size:12.5px}
+.firsthint{background:var(--accent-wash);border:1px solid var(--hair);border-left:1px solid var(--hair);border-radius:var(--r-3);color:var(--accent-ink);box-shadow:none}
+.searchbar{border-radius:var(--r-pill);padding:12px 18px}
+.runner{border-radius:var(--r-4)}
+.rail{background:none;border-right:1px dashed var(--line)}
+.rail .tab{width:34px;height:34px;padding:0;border-radius:var(--r-pill);display:grid;place-items:center}
+.rail .tab .done{display:none}
+.qnum .n{font-family:var(--ui);font-weight:800;font-size:13px}
+.qnum .mode{background:var(--accent-wash);border:none;color:var(--accent-ink);font-weight:700;padding:3px 11px}
+.opt{border-radius:var(--r-3)}
+.opt .mk{width:25px;height:25px;background:var(--accent-wash);border:none;color:var(--accent-ink);font-family:var(--ui);font-weight:800;font-size:11.5px}
+.opt.sel .mk{background:var(--cta-bg,var(--accent-ink));color:#fff}
+.opt.ok .mk{background:var(--ok);color:#fff}
+.opt.no .mk{background:var(--no);color:#fff}
+.fbk{border:none;border-radius:var(--r-3);padding:12px 16px;font-family:var(--jp)}
+.fbk.ok{background:var(--ok-wash);color:var(--ok-deep)}
+.fbk.hi{background:var(--ok-wash);color:var(--ok-deep)}
+.fbk.no{background:var(--accent-wash);color:var(--accent-ink)}
+.done1{justify-content:center}
+.done1 h2{font-family:var(--disp);font-weight:900;font-size:20px}
+.donekao{text-align:center;font-size:24px;margin:2px 0 0}
+.bigscore{flex-direction:column;align-items:center;gap:2px;margin:6px 0 12px}
+.bigscore .pct{font-family:var(--ui);font-weight:800;font-size:52px;color:var(--accent-ink)}
+.bigscore .frac{font-family:var(--jp);font-size:13px;color:var(--soft)}
+.statgrid .statbox{background:var(--card2);border-radius:var(--r-3)}
+.statbox .n{font-family:var(--ui);font-weight:800}
+
+.tb-in{display:flex;align-items:center;justify-content:space-between;gap:7px}
+.brand{justify-self:auto;padding:0 4px 0 2px}
+.tb-r{margin-left:auto}
+/* 見本の色感を大面で守る: 濃色は文字級の小さな場所だけ */
+.chfill{background:var(--accent)}
+.qnum .n,.chip .c,.stc-pr .prh .prn,.chrow2 .chv,.kv .v{color:var(--accent-deeper)}
+.buddyChat{top:auto;left:auto;right:16px;width:min(400px,calc(100vw - 32px));height:min(600px,calc(100vh - 130px));border:1px solid var(--line);border-radius:24px;overflow:hidden;background:var(--paper);box-shadow:0 24px 70px rgba(80,40,55,.22);transform:translateY(14px) scale(.97);transform-origin:100% 100%;opacity:0;pointer-events:none;transition:transform var(--t-2,200ms) var(--curve),opacity var(--t-2,200ms) ease}
+.buddyChat{height:min(600px,calc(100dvh - 130px))} /* Safari のツールバーが出ている間も収まる（mobile-native M-2） */
+.buddyChat.on{transform:none;opacity:1;pointer-events:auto}
+@media(max-width:520px){.buddyChat{right:12px;bottom:80px;width:calc(100vw - 24px);height:min(560px,calc(100vh - 150px))}} @media(max-width:520px){.buddyChat{height:min(560px,calc(100dvh - 150px))}}
+.buddyDim{background:rgba(59,51,58,.16)}
+@media(prefers-reduced-motion:reduce){.buddyChat{transition:none}}
+/* 進捗カード: hero 右列の stretch を解除（中身ぶんの高さだけに; 空腔をなくす） */
+.hero1b .h1r{align-self:start}
+.hero1b .h1r .stc{flex:0 0 auto;justify-content:flex-start}
+
+.tb-btn{background:none;border:none;box-shadow:none;color:var(--soft)}
+@media(hover:hover){.tb-btn:hover{border:none;background:var(--accent-wash);color:var(--accent-ink)}}
+.lang{border:none;background:var(--accent-wash);border-radius:var(--r-pill);padding:3px;overflow:visible}
+.lang-thumb{top:3px;left:3px;width:calc(50% - 3px);height:calc(100% - 6px);border-radius:var(--r-pill);background:var(--card);box-shadow:0 2px 8px rgba(var(--cta-rgb),.20)}
+.lang button{color:var(--soft);border-radius:var(--r-pill)}
+.lang button.on{color:var(--accent-ink)}
+.rdr-main{background:var(--card);border:1px solid var(--line);border-radius:var(--r-4);box-shadow:var(--shadow-sm)}
+.rdr-title{font-family:var(--disp);font-weight:900;line-height:1.45}
+.rdr-lede{line-height:1.85;color:var(--soft)}
+.rdr-sh{font-family:var(--disp);font-weight:700;align-items:center;gap:8px}
+.rdr-sh::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.rdr-p{line-height:1.8}
+.rfig-cap{color:var(--faint)}
+.rco-yougo,.rco-youten,.rco-jirei,.rco-chuui{border-radius:18px}
+.rdr-back,.rdr-aa,.rdr-bm{border:none;background:none;box-shadow:none}
+@media(hover:hover){.rdr-back:hover,.rdr-aa:hover,.rdr-bm:hover{background:var(--accent-wash)}}
+.encore{margin:12px auto 0;max-width:340px;background:var(--accent-wash);border-radius:var(--r-3);padding:10px 16px;color:var(--accent-ink);font-size:13px;text-align:center;font-family:var(--jp)}
+.weakchips1{display:flex;flex-wrap:wrap;gap:8px}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr)}
+.racts1{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.racts1 .btn{width:100%}
+.aibox{border-radius:var(--r-3)}
+
+.qbar{height:6px;border-radius:999px;background:var(--accent-wash);overflow:hidden;margin:-4px 0 14px}
+.qbar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.qmode{display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border-radius:999px;padding:3px 11px;margin-right:8px;letter-spacing:.04em}
+.qnav .nbtn{border-radius:999px;font-family:var(--disp);font-weight:700;padding:12px 22px;min-height:48px}
+@media(hover:hover){.qnav .nbtn:hover{border-color:var(--accent);color:var(--accent-ink)}}
+.rdr-chips button{width:auto;min-width:44px;height:40px;border-radius:999px;padding:0 14px;font-family:var(--ui);font-weight:700;font-size:12px;background:var(--card);border:1px solid var(--line);color:var(--soft)}
+.rdr-chips button.on{background:var(--accent-wash);border-color:var(--accent);color:var(--accent-ink)}
+.rdr-sh{display:block;line-height:1.55}
+.rdr-sh::before{display:inline-block;margin-right:8px;vertical-align:middle}
+.rdr-back,.rdr-kick{white-space:nowrap}
+.rdr-flow{border-radius:18px;box-shadow:none;padding:14px}
+.rdr-flow .fl{font-family:var(--disp);font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--accent-ink)}
+.rdr-flow .fr .id{min-width:24px;height:24px;display:grid;place-items:center;border-radius:999px;border:1px solid var(--hair);background:var(--accent-wash);color:var(--accent-ink);font-family:var(--ui);padding:0 6px}
+.rdr-pager button{font-family:var(--jp);font-weight:700}
+@media(hover:hover){}
+.rfig{box-shadow:none}
+
+.rfig{border:1px solid var(--line);border-radius:18px}
+.rfig-cap{display:flex;align-items:center;gap:7px;margin-bottom:12px}
+.rfig-cap .tag{font-size:11px;color:var(--faint);border:none;background:none;padding:0;letter-spacing:.06em}
+.rfig-cap .tt{font-family:var(--disp);font-weight:700;font-size:calc(13px * var(--rdr-fs,1));color:var(--accent-ink)}
+.rflow{counter-reset:rstep;display:flex;flex-direction:column;gap:0}
+.rflow .fsep{display:none}
+.rflow .fp{counter-increment:rstep;display:flex;align-items:flex-start;position:relative;background:none;border:none;box-shadow:none;margin:0;color:var(--ink);font-size:calc(13px * var(--rdr-fs,1));line-height:1.7;text-align:left;border-radius:0;font-weight:500}
+.rflow .fp::before{content:counter(rstep);flex:none;width:24px;height:24px;border-radius:50%;
+  background:var(--accent-wash);border:1px solid var(--hair);color:var(--accent-deep);
+  font-family:var(--ui);font-weight:700;font-size:11.5px;display:grid;place-items:center;position:relative;z-index:1}
+.rflow .fp::after{content:'';position:absolute;left:11px;top:32px;bottom:-8px;width:2px;background:var(--accent-wash)}
+.rflow .fp.last::after{display:none}
+.rfig-desc{font-size:calc(12px * var(--rdr-fs,1));color:var(--faint);line-height:1.6;margin-top:10px}
+.rco{background:var(--accent-wash);border:none;border-radius:18px}
+.rco .pl{font-family:var(--disp);font-weight:700;font-size:11.5px;color:var(--accent-ink);letter-spacing:.06em}
+.rco .term{font-weight:700;font-size:calc(14.5px * var(--rdr-fs,1))}
+.rco .def{font-size:calc(14.5px * var(--rdr-fs,1));line-height:1.78}
+.rprac{border:1.5px solid var(--line);border-radius:18px;background:var(--card)}
+.rprac-h .pl{font-family:var(--disp);font-weight:700;font-size:13px;color:var(--ink)}
+.rprac-ids{display:none}
+.rprac-cta{font-family:var(--disp);font-weight:700}
+/* 節見出し: secId ピルは記事内では隠す(上部メタに既出) */
+.rdr-sh .sn{display:none}
+.rdr-sh h2{display:inline;font-family:var(--disp);font-weight:700;font-size:17px;line-height:1.55}
+/* 残存旧皮の圧制 */
+.rflow .fp.last,.rdr-main .rflow .fp.last{background:none;color:var(--ink);border:none;font-weight:500}
+.rflow .fp.last::before{background:var(--accent-wash);color:var(--accent-deep);border:1px solid var(--hair)}
+.rco .pl,.rdr-main .rco .pl{background:none;border:none;padding:0;color:var(--accent-ink);box-shadow:none}
+.rco .pl svg{display:none}
+.rdr-main .rdr-chips button{width:auto;height:40px;min-width:44px;min-height:44px;aspect-ratio:auto;border-radius:999px;padding:0 14px;font-family:var(--ui);font-weight:700;font-size:12px;background:var(--card);border:1px solid var(--line);color:var(--soft)}
+.rdr-main .rdr-chips button.on{background:var(--accent-wash);border-color:var(--accent);color:var(--accent-ink)}
+
+.mcTyping{display:inline-flex;gap:4px;padding:4px 2px}
+.mcTyping i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:mcTp 1s ease-in-out infinite}
+.mcTyping i:nth-child(2){animation-delay:.15s}.mcTyping i:nth-child(3){animation-delay:.3s}
+@keyframes mcTp{0%,60%,100%{opacity:.35;transform:none}30%{opacity:1;transform:translateY(-2px)}}
+@media(prefers-reduced-motion:reduce){.mcTyping i{animation:none}}
+.mcQ{max-width:92%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;animation:mcIn .2s var(--curve) both}
+.mcQ .qh{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.mcQ .pl2{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-wash);border-radius:999px;padding:3px 10px;font-family:var(--jp)}
+.mcQ .pl2.alt{background:var(--paper);color:var(--soft)}
+.mcQ .qt{font-family:var(--jp);font-size:14px;line-height:1.8;font-weight:600}
+.mcOpts{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.mcOpt{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;min-height:48px;padding:10px 12px;border-radius:14px;background:var(--paper);border:1.5px solid var(--line);font-family:var(--jp);font-size:13px;line-height:1.65;transition:border-color .12s,background .12s,opacity .13s;cursor:pointer}
+.mcOpt .abc{flex:none;width:23px;height:23px;border-radius:50%;margin-top:1px;display:grid;place-items:center;font-family:var(--ui);font-weight:800;font-size:11px;background:var(--accent-wash);color:var(--accent-ink)}
+.mcOpt.sel{border-color:var(--accent);background:var(--accent-wash)}.mcOpt.sel .abc{background:var(--accent);color:#fff}
+.mcOpt.ok{border-color:var(--ok-line);background:var(--ok-wash)}.mcOpt.ok .abc{background:var(--ok);color:#fff}
+.mcOpt.ng{border-color:var(--no-line);background:var(--no-wash)}.mcOpt.ng .abc{background:var(--no);color:#fff}
+.mcOpt.dim{opacity:.5}.mcOpt:disabled{cursor:default}
+.mcOpt .tg{margin-left:auto;flex:none;align-self:center;font-size:11px;font-weight:700}
+.mcOpt.ok .tg{color:var(--ok-deep)}.mcOpt.ng .tg{color:var(--no-deep)}
+.mcEx{font-family:var(--jp);font-size:12.5px;line-height:1.8}
+.mcMore{display:inline-flex;align-items:center;min-height:44px;color:var(--accent-ink);font-family:var(--disp);font-weight:700;font-size:12px;background:none;border:none;cursor:pointer;padding:0 2px}
+.mcLong{display:none;font-family:var(--jp);font-size:12px;line-height:1.8;padding-top:6px}
+.mcLong.show{display:block}
+.mcLong .lb{display:inline-block;font-family:var(--disp);font-weight:700;font-size:11px;color:var(--accent-ink);background:var(--accent-wash);border-radius:999px;padding:2px 9px;margin:6px 0 2px}
+.buddyFloat{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.buddyChat{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+
+/* 紙面の呼吸(字が枠に貼り付く問題) */
+.rdr-main{padding:22px 22px 26px}
+.rdr-main .rdr-chips{margin:-4px 0 16px}
+.rdr-sec{margin-top:4px}
+.rdr-sh{margin:12px 0 10px}
+.rdr-p{margin:0 0 14px}
+.rfig{padding:18px;margin:18px 0}
+.rflow .fp{padding:8px 0;gap:14px}
+.rco{margin:18px 0;padding:16px 18px}
+/* 演習: 盒中盒 → 一行(全行タップ・シェブロン) */
+.rprac{display:flex;align-items:center;gap:12px;position:relative;padding:14px 16px;margin-top:18px}
+.rprac-h{display:flex;flex-direction:column;flex:1;gap:2px;min-width:0}
+.rprac-h .pl{display:none}
+.rprac-h .sub{font-family:var(--disp);font-weight:700;font-size:13px;color:var(--ink)}
+.rprac-h .cnt{font-family:var(--jp);font-size:11px;color:var(--soft)}
+.rprac::after{content:'›';flex:none;color:var(--faint);font-size:20px;line-height:1}
+.rprac-cta{position:absolute;inset:0;background:none;border:none;color:transparent;font-size:0;min-height:0;padding:0;border-radius:18px}
+
+/* 演習行(アイコン+左寄せ) + 翻頁の折返し是正 */
+.rprac{text-align:left}
+.rprac .ric{flex:none;color:var(--accent);display:grid;place-items:center}
+.rprac-h{align-items:flex-start;justify-content:center}
+.rprac-h .sub{text-align:left}
+.rdr-pager{flex-wrap:nowrap}
+.rdr-pager button{border:none;background:none;white-space:nowrap;flex:none;padding:9px 8px;color:var(--soft)}
+@media(hover:hover){.rdr-pager button:hover{color:var(--accent-ink);background:var(--accent-wash)}}
+.rdr-pager button.rdr-pg-kai{background:none;border:none}
+.rdr-pager > div{flex:1;min-width:0;display:flex;justify-content:center;overflow:hidden}
+
+/* 演習行副行の右寄り残留是正 */
+.rprac-h .cnt{margin-left:0;text-align:left;flex:none}
+.qback,.qhome{border:none;background:none;color:var(--soft);font-weight:700}
+@media(hover:hover){.qback:hover,.qhome:hover{border:none;background:var(--accent-wash);color:var(--accent-ink)}}
+.echip{border-radius:var(--r-pill)}
+.echip.cur{outline:2px solid var(--accent);outline-offset:1px}
+.cde{border-radius:var(--r-pill)}
+.a2hsbar-go{border-radius:var(--r-pill)}
+.unc{border-radius:var(--r-pill)}
+.hubacts .btn{border-radius:var(--r-pill)}
+.qhd{align-items:center;margin-bottom:10px}
+.qnum{margin-bottom:12px}
+.examstrip{gap:8px}
+
+.fc-nav .btn,.fc-nav .btn.ghost{background:none;border:none;box-shadow:none;color:var(--soft);font-family:var(--jp);font-weight:700;font-size:13px;padding:9px 12px;min-height:44px}
+@media(hover:hover){.fc-nav .btn:hover{background:var(--accent-wash);color:var(--accent-ink);border:none}}
+.back{min-height:44px;display:inline-flex;align-items:center;padding:0 10px;border-radius:var(--r-pill);font-weight:700;color:var(--soft)}
+@media(hover:hover){.back:hover{background:var(--accent-wash);color:var(--accent-ink);text-decoration:none}}
+
+.donet{font-family:var(--disp);font-weight:900;font-size:20px;text-align:center;margin:6px 0 0}
+.dsub1{text-align:center;color:var(--soft);font-size:12.5px;margin:2px 0 4px}
+
+.card,.flag,.stc,.rdr-main,.runner,.lookgrid,.rc,.rc-cmp,.rc-sigs,.nh-search,.nh-exam{box-shadow:0 2px 6px rgba(var(--glow-rgb),.06),0 12px 30px rgba(var(--glow-rgb),.18)}  /* 拡散影が重かったので両コースとも淡く */
+.subcard{box-shadow:0 8px 20px rgba(var(--glow-rgb),.13)}
+.kt,.rtile,.nh-k,.srow,.sgs-i,.nh-sig,.nh-cv,.nh-cont{box-shadow:0 6px 16px rgba(var(--glow-rgb),.11)}
+.searchbar{box-shadow:0 8px 20px rgba(var(--glow-rgb),.16)}
+/* 頂排: 第N回ピル+節位置は卡内パンくず/章条と重複 → 撤去(戻る+Aa+栞のみの一行) */
+.rdr-kai,.rdr-pg{display:none}
+
+/* 按圧の灰層撤去(縮みだけ残す) + 全域選択禁止(資料冊の成段正文と入力欄のみ許可) */
+.is-pressed{transform:scale(.96);filter:none}
+body{-webkit-user-select:none;user-select:none}
+.rdr-p,.rdr-lede,.rco .def,.rco .term,.rfig-desc,.rflow .fp,.rdr-sh h2,.rdr-title{-webkit-user-select:text;user-select:text}
+input,textarea{-webkit-user-select:text;user-select:text}
+.rx-lecture,.rx-run-b,.rdr-main,.ql,.qtext,.expl,.longx,.model,.ta-ro,.cm-t{-webkit-user-select:text;user-select:text} /* 学習の本文は選んで複写・調べる・翻訳ができる（S6 U-17） */
+.rx-lecture button,.rx-run-b button,.rdr-main button,.ql button,.rx-hide-t,.rx-tri-go,.rx-chip{-webkit-user-select:none;user-select:none} /* 押す部品は選択しない */
+
+/* manual-0.3 リーダー(神経: 読む・さがす主体のコース)
+ * 1 概念 = 1 カード。定義→箇条→図→教員の声→注意→対比→出典 の順で、
+ * 「読む」順序がそのまま「試験で効く」順序になるように積む。 */
+.rc{ margin:18px 0; padding:16px 16px 12px; background:var(--card); border:1px solid var(--line);
+  border-radius:var(--r-3); }
+.rc-flash{ animation:rcflash 1.4s ease-out; }
+@keyframes rcflash{ 0%{ box-shadow:0 0 0 3px var(--accent), 0 8px 22px rgba(var(--glow-rgb),.20); }
+  100%{ box-shadow:0 2px 8px rgba(var(--glow-rgb),.10),0 14px 40px rgba(var(--glow-rgb),.34); } }
+.rc-hd{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.rc-term{ margin:0; font-size:calc(17px*var(--rdr-fs,1)); font-weight:700; color:var(--ink); letter-spacing:.01em; }
+.rc-yomi{ font-size:11px; color:var(--faint); }
+.rc-alias{ display:flex; gap:5px; flex-wrap:wrap; margin:6px 0 0; }
+.rc-a{ font-size:11px; color:var(--soft); background:var(--line2); border:1px solid var(--line);
+  border-radius:999px; padding:1px 7px; }
+.rc-def{ margin:8px 0 0; font-size:calc(16px*var(--rdr-fs,1)); line-height:1.75; color:var(--ink);
+  font-weight:600; border-left:3px solid var(--accent); padding-left:10px; }
+.rc-b{ margin:10px 0 0; padding-left:18px; }
+.rc-b li{ font-size:calc(15px*var(--rdr-fs,1)); line-height:1.8; color:var(--ink); margin:2px 0; }
+.rc-heardwrap{ margin:10px 0 0; padding:8px 10px; background:var(--accent-wash); border-radius:var(--r-2); }
+.rc-hl{ font-size:11px; font-weight:700; color:var(--accent-ink); letter-spacing:.06em; }
+.rc-heard{ margin:4px 0 0; }
+.rc-heard li{ color:var(--soft); }
+
+.rc-fig{ margin:12px 0 0; padding:10px; background:var(--card2); border:1px solid var(--line); border-radius:var(--r-2); }
+.rc-svg svg{ display:block; width:100%; height:auto; }
+.rc-fig figcaption{ margin-top:6px; font-size:calc(12px * var(--rdr-fs,1)); color:var(--soft); line-height:1.6; }
+/* 路径C: 医学解剖図は生成しない → 原図への正確な指針を出す(白紙にも捏造にもしない) */
+.rc-slideref{ display:flex; align-items:center; gap:8px; margin:12px 0 0; padding:9px 11px;
+  border:1px dashed var(--sep); border-radius:var(--r-2); background:var(--line2); }
+.rc-slideref .sr-ic{ width:16px; height:16px; color:var(--accent-deep); flex:0 0 auto; }
+.rc-slideref .sr-ic svg{ width:16px; height:16px; }
+.rc-slideref .sr-t{ font-size:12.5px;color:var(--ink); }
+.rc-slideref .sr-n{ margin-left:auto; font-size:11px; color:var(--faint); white-space:nowrap; }
+
+.rc-sig{ margin:12px 0 0; padding:10px 12px; border-left:3px solid var(--accent-deep);
+  background:var(--accent-wash); border-radius:0 var(--r-2) var(--r-2) 0; }
+.rc-sig .sg-l{ font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--accent-deeper); }
+.rc-sig p{ margin:3px 0 0; font-size:calc(14px * var(--rdr-fs,1)); line-height:1.7; color:var(--ink); font-weight:600; }
+.rc-sig .sg-s{ font-size:11px; color:var(--faint); }
+
+/* caveat: 教材の字面 vs 定説。正解を先に、教材の記載は消さずに残す */
+.rc-cav{ margin:12px 0 0; border:1px solid #E3B7A8; border-radius:var(--r-2); overflow:hidden; }
+.cv-hd{ display:flex; align-items:center; gap:7px; padding:7px 11px; background:#FBEDE7; }
+.cv-ic{ width:16px; height:16px; border-radius:50%; background:#C25E48; color:#fff; font-size:11px;
+  font-weight:800; display:grid; place-items:center; }
+.cv-hd b{ font-size:12px; color:#8E4433; }
+.cv-r{ display:flex; gap:9px; padding:8px 11px; border-top:1px solid #F1DCD4; }
+.cv-l{ flex:0 0 78px; font-size:11px; font-weight:700; padding-top:2px; }
+.cv-r.ok .cv-l{ color:#3F7A55; } .cv-r.no .cv-l{ color:#B4553F; } .cv-r.ex .cv-l{ color:var(--accent-deeper); }
+.cv-r p{ margin:0; font-size:12.5px; line-height:1.7; color:var(--ink); }
+.cv-r.no p{ color:var(--soft); }
+.rc-cav .rc-src{ padding:0 11px 8px; }
+
+.rc-spine{ margin:12px 0; padding:12px 14px; background:var(--card2); border:1px solid var(--line); border-radius:var(--r-2); }
+.sp-h{ font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--soft); }
+.sp-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.sp-i{ display:flex; align-items:baseline; gap:5px; padding:5px 10px; background:var(--accent-wash);
+  border:1px solid var(--hair); border-radius:999px; }
+.sp-i b{ font-size:12.5px; color:var(--ink); } .sp-i small{ font-size:11px; color:var(--accent-deeper); font-weight:700; }
+.sp-ar{ color:var(--faint); font-size:12px; }
+
+/* 対比表: 組ごとに軸が違うので 1 組 = 1 表(共通軸に揃えない) */
+.rc-cmp{ margin:16px 0; border:1px solid var(--line); border-radius:var(--r-3); overflow:hidden; background:var(--card); }
+.cm-h{ display:flex; align-items:center; gap:8px; padding:9px 12px; background:var(--accent-wash); border-bottom:1px solid var(--line); }
+.cm-h b{ font-size:13px; color:var(--ink); }
+.cm-k{ margin-left:auto; font-size:11px; color:var(--soft); white-space:nowrap; }
+.cm-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.cm-t{ border-collapse:collapse; width:100%; min-width:420px; }
+.cm-t th,.cm-t td{ border-bottom:1px solid var(--line2); border-right:1px solid var(--line2);
+  padding:8px 10px; text-align:left; vertical-align:top; font-size:calc(13px * var(--rdr-fs,1)); line-height:1.6; }
+.cm-t tr:first-child th{ background:var(--line2); font-size:11px; color:var(--soft); font-weight:700; white-space:nowrap; }
+.cm-c0{ background:var(--card2); font-weight:700; color:var(--ink); white-space:nowrap; }
+.cm-lk{ background:none; border:0; padding:0; font:inherit; font-weight:700; color:var(--accent-ink);
+  text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+.cm-t td{ color:var(--ink); }
+
+.rc-sigs{ margin:16px 0; padding:12px 14px; background:var(--card2); border:1px solid var(--line); border-radius:var(--r-3); }
+.sgs-h{ display:flex; align-items:center; gap:8px; }
+.sgs-h b{ font-size:13px; color:var(--ink); }
+.sgs-c{ margin-left:auto; font-size:11px; color:var(--accent-deeper); font-weight:700; }
+.sgs-i{ display:flex; flex-direction:column; gap:2px; width:100%; text-align:left; margin-top:8px;
+  padding:9px 11px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-2); cursor:pointer; }
+.sgs-q{ font-size:12.5px; color:var(--ink); font-weight:600; line-height:1.6; }
+.sgs-t{ font-size:11px; color:var(--accent-ink); }
+.rc-self{ margin:16px 0; padding:12px 14px; border:1px dashed var(--sep); border-radius:var(--r-3); }
+.sf-h{ font-size:12px; font-weight:700; color:var(--soft); }
+.sf-i{ display:block; width:100%; text-align:left; margin-top:8px; padding:9px 11px; background:var(--accent-wash);
+  border:0; border-radius:var(--r-2); cursor:pointer; }
+.sf-q{ display:block; font-size:12.5px; color:var(--ink); line-height:1.6; }
+.sf-a{ display:block; margin-top:3px; font-size:11px; color:var(--accent-ink); font-weight:700; }
+
+.rc-links{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:10px 0 0; }
+.rc-lk{ font-size:11px; font-weight:700; letter-spacing:.05em; color:var(--faint); }
+.rc-src{ display:flex; gap:5px; flex-wrap:wrap; margin:10px 0 0; padding-top:8px; border-top:1px dashed var(--line); }
+.rc-s{ font-size:11px; color:var(--soft); background:var(--line2); border-radius:4px; padding:2px 6px; }
+.rc-s.rc-t{ background:transparent; border:1px dashed var(--line); color:var(--faint); }
+
+#courseBtn{ display:flex; align-items:center; gap:4px; padding:0 10px; width:auto; min-width:0; flex:0 1 auto; }
+.cbtn-t{ font-size:12.5px; font-weight:700; color:var(--accent-ink); white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; } /* 長い課名は省略記号で（隣の「?」を押しつぶさない：U-04） */
+.cbtn-c{ font-size:11px; color:var(--soft); flex:none; }
+
+
+.srsum{ font-size:11px; color:var(--soft); margin:10px 0 6px; }
+.srow{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:10px 12px;
+  margin-top:6px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-2); cursor:pointer; }
+@media(hover:hover) and (pointer:fine){.srow:hover{ border-color:var(--hair); }}
+.sr-m{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.sr-term{ font-size:13.5px; font-weight:700; color:var(--ink); }
+.sr-m small{ font-size:11.5px; color:var(--soft); line-height:1.5; }
+.sr-k{ flex:0 0 auto; font-size:11px; color:var(--soft); white-space:nowrap; } /* 浅色でも 4.5:1（--faint は 2.37：S4-025）。深色は下の html[data-theme="dark"] .sr-k が同じ --soft */
+mark.hl-hit{ background:var(--accent-wash); color:var(--accent-ink); font-weight:700;
+  border-radius:3px; padding:0 2px; box-shadow:inset 0 -6px 0 var(--accent-wash); }
+
+
+.nh-hd{ margin:6px 0 12px; }
+.nh-h1{ margin:0; font-size:20px; font-weight:800; color:var(--ink); letter-spacing:.01em; }
+.nh-sub{ font-size:12px; color:var(--soft); }
+.nh-search{ padding:14px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-3); }
+.nh-srow{ display:flex; align-items:center; gap:9px; }
+.nh-srow svg{ width:18px; height:18px; color:var(--accent-deep); flex:0 0 auto; }
+.nh-si{ flex:1; min-width:0; border:0; outline:0; background:transparent; font-size:14px; color:var(--ink); padding:8px 0; }
+.nh-si::placeholder{ color:var(--soft); }
+.nh-sb{ flex:0 0 auto; border:0; border-radius:999px; padding:8px 16px; background:var(--cta-bg,var(--accent-ink));
+  color:#fff; font-size:12.5px; font-weight:700; cursor:pointer;
+  min-height:44px; box-sizing:border-box; }   /* 白文字 2.92:1 → 4.8:1 / 高さ 35px → 44px */
+.nh-shint{ margin-top:8px; font-size:11px; color:var(--soft); line-height:1.6; }
+.nh-cont{ display:flex; align-items:center; gap:9px; width:100%; margin-top:10px; padding:11px 13px;
+  background:var(--accent-wash); border:1px solid var(--hair); border-radius:var(--r-2); cursor:pointer; }
+.nc-l{ font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--accent-ink); }
+.nc-t{ font-size:13px; font-weight:600; color:var(--ink); }
+.nc-a{ margin-left:auto; color:var(--faint); }
+.nh-sec{ margin:18px 0 8px; font-size:11px; font-weight:800; letter-spacing:.08em; color:var(--soft); }
+.nh-kais{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+.nh-kais.compact{ grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); }
+.nh-k{ display:flex; flex-direction:column; gap:3px; text-align:left; padding:10px 11px; background:var(--card);
+  border:1px solid var(--line); border-radius:var(--r-2); cursor:pointer; }
+@media(hover:hover) and (pointer:fine){.nh-k:hover{ border-color:var(--hair); }}
+.nk-n{ font-size:11px; font-weight:800; color:var(--accent-ink); }   /* 4.22:1 → 4.8:1 */
+.nk-t{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.4; }
+.nk-m{ display:flex; gap:6px; margin-top:2px; }
+.nk-m em{ font-style:normal; font-size:11px; color:var(--soft); background:var(--line2); border-radius:4px; padding:1px 5px; }
+.nk-m em.g{ color:var(--accent-deeper); background:var(--accent-wash); }
+.nh-2col{ display:grid; grid-template-columns:1fr; gap:10px; margin-top:16px; }
+@media(min-width:760px){ .nh-2col{ grid-template-columns:1fr 1fr; } }
+.nh-sig{ display:flex; flex-direction:column; gap:2px; width:100%; text-align:left; margin-top:8px;
+  padding:9px 11px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-2); cursor:pointer; }
+.nh-sig .sg-q{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.6; }
+.nh-sig .sg-m{ font-size:11px; color:var(--accent-ink); }
+.nh-cav .sph b{ color:#8E4433; }
+.nh-cv{ display:flex; flex-direction:column; gap:2px; width:100%; text-align:left; margin-top:8px;
+  padding:9px 11px; background:#FDF4F1; border:1px solid #EED8D0; border-radius:var(--r-2); cursor:pointer; }
+.nh-cv .cv-t{ font-size:12.5px; font-weight:700; color:#8E4433; }
+.nh-cv .cv-x{ font-size:11.5px; color:var(--ink); line-height:1.6; }
+.nh-cv .cv-k{ font-size:11px; color:var(--faint); }
+.nh-exam{ display:flex; flex-direction:column; gap:3px; width:100%; text-align:left; margin-top:16px;
+  padding:13px 15px; background:linear-gradient(135deg,var(--card) 8%,var(--accent-wash) 100%);
+  border:1px solid var(--hair); border-radius:var(--r-3); cursor:pointer; }
+.ne-t{ font-size:14px; font-weight:800; color:var(--ink); }
+.ne-d{ font-size:11.5px; color:var(--soft); line-height:1.6; }
+.ne-a{ position:absolute; right:16px; color:var(--faint); }
+
+.cmenu{ position:fixed; top:56px; right:12px; z-index:60; width:min(300px,calc(100vw - 24px));
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r-3);
+  box-shadow:0 12px 36px rgba(var(--glow-rgb),.22); overflow:hidden; }
+.cm-i{ display:flex; align-items:center; gap:9px; width:100%; text-align:left; padding:11px 13px;
+  background:transparent; border:0; border-bottom:1px solid var(--line2); cursor:pointer; }
+.cm-dot{ width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+.cm-tx{ display:flex; flex-direction:column; min-width:0; }
+.cm-tx b{ font-size:calc(13px * var(--rdr-fs,1)); color:var(--ink); }
+.cm-tx small{ font-size:11px; color:var(--soft); }
+.cm-ck{ margin-left:auto; color:var(--accent-deeper); font-weight:800; }
+
+.sr-via{ display:flex; gap:5px; flex-wrap:wrap; margin-top:1px; }
+.sv-c{ display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--soft);
+  background:var(--line2); border:1px solid var(--line); border-radius:999px; padding:1px 7px; }
+.sv-c em{ font-style:normal; font-size:11px; font-weight:700; color:var(--faint); letter-spacing:.04em; }
+
+/* 内嵌したレジュメの原図(解剖図はここが本体。細部が要るので拡大への逃げ道を付ける) */
+.rc-fig-slide{ padding:8px; }
+.rc-imgwrap{ position:relative; border-radius:var(--r-2); overflow:hidden; background:#fff; }
+.rc-img{ display:block; width:100%; height:auto; max-height:min(58vh,460px); object-fit:contain;
+  background:#fff; aspect-ratio:attr(width) / attr(height); }
+/* 図が縦に伸びて本文の呼吸を潰さないよう上限を切る。細部は拡大ボタンで原寸へ。 */
+.rc-zoom{ position:absolute; right:8px; bottom:8px; width:34px; height:34px; display:grid; place-items:center;
+  border:1px solid var(--line); border-radius:999px; background:rgba(255,255,255,.86);
+  backdrop-filter:var(--glass-blur); cursor:pointer;
+  transition:transform .12s var(--curve), background .15s; }
+.rc-zoom svg{ width:16px; height:16px; color:var(--accent-deeper); }
+@media(hover:hover) and (pointer:fine){.rc-zoom:hover{ background:#fff; }}
+.fz-wrap{ display:flex; flex-direction:column; gap:8px; }
+.fz-img{ width:100%; height:auto; border-radius:var(--r-2); background:#fff; }
+.fz-cap{ font-size:11px; color:var(--soft); text-align:center; }
+.rc-slideref{ justify-content:flex-start; }
+.rc-slideref .sr-t{ font-weight:600; }
+
+/* 動效:新組件も既存の語彙(t-1/curve)に合わせる。押圧は .is-pressed(pointer 駆動)に委譲。 */
+.nh-k,.srow,.sgs-i,.sf-i,.nh-sig,.nh-cv,.nh-cont,.nh-exam,.cm-i,.nh-sb{ transition:transform .12s var(--curve), background .15s; }
+.cmenu{ animation:cmenuIn 200ms var(--curve) both; transform-origin:top right; }
+@keyframes cmenuIn{ from{ opacity:0; transform:translateY(-6px) scale(.98); } to{ opacity:1; transform:none; } }
+.rc-flash{ will-change:box-shadow; }
+@media (prefers-reduced-motion: reduce){ .cmenu{ animation:none; } }
+
+.mcSearch{ display:flex;align-items:center;margin:6px 10px 2px;background:var(--card);border:1px solid var(--line);border-radius:999px; }
+.mcSearch svg{ width:16px; height:16px; color:var(--accent-deep); flex:0 0 auto; }
+.mcSearch input{ flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--ink); }
+.mcSearch input::placeholder{ color:var(--soft); }
+.mcSearch button{ flex:0 0 auto; border:0; border-radius:999px; padding:5px 12px; font-size:11.5px;
+  font-weight:700; color:#fff; background:var(--cta-bg,var(--accent-ink)); cursor:pointer;
+  min-height:44px; box-sizing:border-box; }
+
+/* 課切替:全画面シートをやめ、topbar 直下の小さな浮きに(たかが 2 コースの行き来) */
+.cpop{ position:fixed; top:54px; right:12px; z-index:60; width:min(320px,calc(100vw - 24px));
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r-3);
+  box-shadow:0 14px 40px rgba(var(--glow-rgb),.22); overflow:hidden;
+  animation:cpopIn 200ms var(--curve) both; transform-origin:top right; }
+.cpop.wide{ width:min(360px,calc(100vw - 24px)); }
+@keyframes cpopIn{ from{ opacity:0; transform:translateY(-6px) scale(.98); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .cpop{ animation:none; } }
+/* コース切替の専用トランジション。2 つの課は肌色がまるで違う(桃/空)ので、
+ * 前後の課を素朴に横滑りさせると「ただのページ移動」に見えて安っぽい。
+ * 行き先の課の色でできた薄いヴェールで一瞬覆い、その下で中身を差し替え、
+ * 新しい色の面がふわっと引いて新ホームが立ち上がる — 課をまたいだ実感を出す。 */
+.course-veil{ position:fixed; inset:0; z-index:55; pointer-events:none; opacity:0;
+  background:
+    radial-gradient(130% 80% at 50% -10%, var(--cv-accent) 0%, transparent 55%),
+    linear-gradient(180deg, var(--cv-wash) 0%, var(--cv-paper) 60%, var(--cv-card) 100%);
+  will-change:opacity; }
+.course-veil.in{ animation:cvIn 220ms cubic-bezier(.4,0,.2,1) forwards; }
+.course-veil.out{ animation:cvOut 460ms cubic-bezier(.22,.61,.36,1) forwards; }
+@keyframes cvIn{ from{ opacity:0; } to{ opacity:1; } }
+@keyframes cvOut{ from{ opacity:1; } to{ opacity:0; } }
+#view.course-rise{ animation:courseRise 460ms cubic-bezier(.22,.61,.36,1) both; }
+@keyframes courseRise{ from{ opacity:0; transform:translateY(14px) scale(.992); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){
+  .course-veil.in,.course-veil.out{ animation-duration:1ms; }
+  #view.course-rise{ animation:none; }
+}
+.cpop .listrow{ border:0; border-bottom:1px solid var(--line2); border-radius:0; }
+.cpop .listrow:last-child{ border-bottom:0; }
+.cpop .cm-i{ display:block; width:100%; padding:0; border-bottom:1px solid var(--line2); }  /* 旧 .cm-i は横並び flex。行内に主ボタン+操作を積むので上書き */
+.cm-i:last-child{ border-bottom:0; }
+.cm-i.on{ background:var(--accent-wash); }
+.cm-main{ display:flex; align-items:center; gap:9px; width:100%; text-align:left; padding:11px 13px 8px;
+  background:transparent; border:0; cursor:pointer; }
+.cm-acts{ display:flex; gap:6px; padding:0 13px 11px; }
+.cm-a{ flex:1 1 0; min-width:0; white-space:nowrap; border:1px solid var(--line); background:var(--card2);
+  border-radius:999px; padding:7px 4px; font-size:11.5px; font-weight:700; color:var(--accent-ink); cursor:pointer;
+  min-height:44px; box-sizing:border-box;
+  transition:background var(--t-1,130ms) var(--curve); }
+@media(hover:hover) and (pointer:fine){.cm-a:hover{ background:var(--accent-wash); }}
+
+
+
+/* reader「本日の内容」の回ごとの粒度(首页の数え上げストリップとは別物。読む時の見取りとして残す) */
+.rc-stats{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
+.st-i{ display:flex; flex-direction:column; align-items:center; min-width:62px; padding:7px 10px;
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r-2); }
+.st-i b{ font-size:16px; color:var(--accent-deeper); }
+.st-i small{ font-size:11px; color:var(--soft); }
+
+.nk-kw{ display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+.nk-kw em{ font-style:normal; font-size:11px; color:var(--accent-ink); background:var(--accent-wash);
+  border:1px solid var(--hair); border-radius:999px; padding:1px 6px; white-space:nowrap; }
+
+/* 配られた問題の一覧(読むためのページ。出題はしない) */
+.ql-lede{ font-size:12px; color:var(--soft); margin:2px 0 14px; }
+.ql{ margin:0 0 14px; padding:14px 15px; background:var(--card); border:1px solid var(--line);
+  border-radius:var(--r-3); box-shadow:0 2px 6px rgba(var(--glow-rgb),.06),0 12px 30px rgba(var(--glow-rgb),.18); }
+.ql-neg{ border-color:#E3B7A8; }
+.ql-hd{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.ql-n{ font-size:11px; font-weight:800; color:var(--accent-ink); }
+.ql-kai{ font-size:11px; color:var(--soft); background:var(--line2); border-radius:4px; padding:1px 6px; }
+.ql-topic{ font-size:11px; color:var(--faint); }
+.ql-badge{ margin-left:auto; font-size:11px; font-weight:800; color:#fff; background:#C25E48;
+  border-radius:999px; padding:2px 9px; }
+.ql-q{ margin:9px 0 0; font-size:14px; font-weight:600; line-height:1.75; color:var(--ink); }
+.ql-opts{ display:flex; flex-direction:column; gap:5px; margin-top:10px; }
+.ql-o{ display:flex; gap:9px; align-items:flex-start; padding:8px 10px; border:1px solid var(--line);
+  border-radius:var(--r-2); background:var(--card2); font-size:13px; line-height:1.7; color:var(--soft); }
+.ql-o.on{ background:var(--accent-wash); border-color:var(--accent-deep); color:var(--ink); font-weight:600; }
+.ql-neg .ql-o.on{ background:#FBEDE7; border-color:#C25E48; }
+.ql-mk{ flex:0 0 20px; height:20px; display:grid; place-items:center; border-radius:50%;
+  background:var(--line2); color:var(--faint); font-size:11px; font-weight:800; }
+.ql-o.on .ql-mk{ background:var(--cta-bg,var(--accent-ink)); color:#fff; }
+.ql-neg .ql-o.on .ql-mk{ background:#C25E48; }
+.ql-warn{ margin-top:9px; font-size:11.5px; color:#8E4433; background:#FBEDE7; border-radius:var(--r-2); padding:7px 10px; }
+.ql-ex{ display:flex; gap:9px; margin-top:11px; padding-top:10px; border-top:1px dashed var(--line); }
+.ql-exl{ flex:0 0 auto; font-size:11px; font-weight:700; color:var(--accent-ink); padding-top:2px; }
+.ql-ex p{ margin:0; font-size:12.5px; line-height:1.75; color:var(--ink); }
+
+/* 対話の口(送信は矢印だけ。ラベルを付けると「機能」に見えて会話に見えない) */
+.mcSearch{ gap:6px; padding:6px 6px 6px 14px; }
+.mcSearch input{ font-size:13.5px; padding:8px 0; }
+.mc-send{ flex:0 0 auto; width:44px; height:44px; min-height:44px; padding:0; display:grid; place-items:center;
+  border:0; border-radius:50%; background:var(--cta-bg,var(--accent-ink)); color:#fff; cursor:pointer;
+  transition:transform .12s var(--curve); }
+.mc-send svg{ width:17px; height:17px; }
+
+/* iOS はフォントが 16px 未満の入力欄に触れると勝手にズームする。狭い画面(＝ほぼスマホ)では
+ * 検索欄・reviewXの入力を 16px に上げ、フォーカス時の拡大を止める(見た目より、勝手なズームの方が
+ * 目障り。実機所見)。pointer 判定は端末により当てにならないので幅で分ける。
+ * この位置＝各コンポーネントの font-size 指定より後。ここより前に置くと .mcSearch input 等に負ける。
+ * 広い画面(マウス機)は元の小さめ表示のまま。 */
+@media (max-width:640px){
+  .searchinput,.nh-si,.mcSearch input,.dateinput,input[type=text],textarea,textarea.answer{ font-size:16px; } /* textarea.answer は基底(0,1,1)が裸 textarea(0,0,1)に勝つため明示列挙 — iOS 自動拡大の再発止め */
+}
+
+/* レジュメ原図への出口(各カードの中だけ。ライブラリへの入口は作らない) */
+.rc-ref{ display:flex; align-items:center; gap:8px; width:100%; margin:10px 0 0; padding:8px 11px;
+  background:transparent; border:1px dashed var(--sep); border-radius:var(--r-2); cursor:pointer;
+  transition:background var(--t-1,130ms) var(--curve); }
+@media(hover:hover) and (pointer:fine){.rc-ref:hover{ background:var(--line2); }}
+.rc-ref .rf-ic{ width:15px; height:15px; color:var(--accent-ink); flex:0 0 auto; }
+.rc-ref .rf-ic svg{ width:15px; height:15px; }
+.rc-ref .rf-t{ font-size:11.5px; color:var(--soft); }
+.rc-ref .rf-a{ margin-left:auto; color:var(--faint); font-size:12px; }
+
+/* 単一書き手：書き手でないタブの上部帯（読むだけ・「こちらで続ける」で引き継ぐ） */
+.writerbar{position:fixed;left:0;right:0;top:var(--topbar-h,64px);z-index:19;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.06);font-size:13px;color:var(--ink)}
+.writerbar-t{flex:1 1 220px;line-height:1.5}
+body.writer-ro .wrap{padding-top:var(--writerbar-h,64px)}
+.writerbar.pulse{animation:writerpulse .5s ease}
+@keyframes writerpulse{0%{background:var(--accent-wash)}100%{background:var(--card)}}
+
+/* ===== 新课（rx-content/1）视图族 ===== */
+.rx-home,.rx-lecture{max-width:var(--cmax);margin:0 auto;padding:16px 0 64px} /* 横の余白は .wrap が持つ（二重にすると顶栏と 24px ずれる：U-82） */
+.rx-h{font-family:var(--disp);font-size:22px;font-weight:700;color:var(--ink);margin:8px 0 12px}
+.rx-syl{color:var(--soft);font-size:13px;margin:0 0 16px}
+.rx-lecs{display:grid;gap:10px}
+.rx-lec{display:flex;align-items:baseline;gap:12px;text-align:left;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-2);background:var(--card);color:var(--ink);cursor:pointer}
+.rx-lec-n{font-weight:700;color:var(--accent-ink);white-space:nowrap}
+.rx-bh{font-size:15px;font-weight:700;color:var(--ink);margin:22px 0 10px}
+.rx-sum-i{border-bottom:1px solid var(--line2)}
+.rx-sum-q{display:flex;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:10px 4px;background:none;border:0;text-align:left;color:var(--ink);cursor:pointer}
+.rx-q-h{color:var(--accent-ink);font-size:12px;white-space:nowrap}
+.rx-sum-a{padding:0 4px 12px}
+@starting-style{ .rx-sum-a:not(.hide){opacity:0} }
+.rx-sum-a{transition:opacity var(--t-1) var(--ease)} /* 「答えを見る」：答えは淡入だけ（位移・高さは動かさない）。隠すのは即時。reduce は 346 行の全停止（前端計画 004） */
+.rx-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-2);padding:14px;margin:0 0 12px}
+.rx-card-hd{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.rx-card-hd h3{font-size:16px;margin:0}
+.rx-hide-t{min-height:44px;min-width:44px;padding:0 10px;font-size:12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--card2);color:var(--soft);cursor:pointer} /* 视觉小钮，命中区 44px（触控下限） */
+.rx-names{color:var(--soft);font-size:12.5px;margin:6px 0 8px}
+.rx-f{display:grid;grid-template-columns:7.5em 1fr;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line2)}
+.rx-f-l{font-size:12.5px;font-weight:700;color:var(--soft)}
+.rx-prop{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:2px 0}
+.rx-stars{color:var(--accent-deep);font-size:11px;letter-spacing:1px;min-width:2.6em}
+.rx-imp{font-size:11px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent);border-radius:var(--r-pill);padding:0 6px}
+.rx-pt{flex:1 1 16em}
+.rx-pt,.rx-f-l,.rx-tri1-x,.rx-sum-q,.rx-rule-t{overflow-wrap:anywhere} .rx-f-b{min-width:0} /* 括弧に挟まれた長いラテン文字の語（MDMA（methylenedioxymethamphetamine））が 320 幅で欄を押し広げて頁が横に動いていた：最後の手段として語の中で折る。grid 項目の min-width:auto も止める（break-ui B-1） */
+.rx-hl{background:var(--accent-wash);transition:background var(--t-3) var(--curve)}
+.rx-tri{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.rx-tri-c{background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-1);padding:8px}
+.rx-tri-h{font-size:12px;font-weight:700;color:var(--accent-ink);margin-bottom:4px}
+.rx-tri-c p{margin:0;font-size:13px}
+.rx-refs{font-size:11.5px;color:var(--soft);margin-top:4px}
+.rx-tri-go{min-height:44px;background:none;border:0;padding:0 2px;color:var(--accent-ink);font-size:12.5px;text-decoration:underline;cursor:pointer} /* 文字链，命中区高 44px */
+.rx-var{margin:4px 0}
+.rx-var-x{color:var(--no);margin-right:6px}
+.rx-var-c{font-size:12.5px;color:var(--soft);margin:2px 0 0 1.4em}
+.rx-var-lb{font-weight:700;margin-right:6px}
+.rx-tbl-w{overflow-x:auto;margin:8px 0}
+.rx-tbl{border-collapse:collapse;font-size:13px;min-width:100%}
+.rx-tbl th,.rx-tbl td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.rx-tbl thead th{background:var(--accent-wash)}
+.rx-tprops{margin-top:6px}
+.rx-fig svg{display:block;width:100%;height:auto;max-height:70vh;color:var(--fig-ink)}
+.rx-fig-ans{margin-top:8px}
+.rx-alt{color:var(--soft);font-size:13px}
+.rx-photo{display:block;max-width:100%;height:auto;border-radius:var(--r-1)}
+.rx-credit{font-size:11.5px;color:var(--soft);margin:4px 0 8px}
+.rx-blk{margin:6px 0}
+.rx-deep>summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.rx-gap{padding:8px 0;border-top:1px solid var(--line2)}
+.rx-card.rx-hidden .rx-f-b:not(.rx-shown),.rx-card.rx-hidden .rx-tprops:not(.rx-shown),.rx-card.rx-hidden .rx-tbl td:not(.rx-shown){filter:blur(6px);cursor:pointer;-webkit-user-select:none;user-select:none} /* 表は見出し行と一列目を残し、セルごとに隠す（U-08） */
+.rx-card.rx-hidden .rx-shown{filter:none;cursor:auto}
+@media (max-width:560px){ .rx-f{grid-template-columns:1fr} .rx-tri{grid-template-columns:1fr} }
+@media (prefers-reduced-motion: reduce){ .rx-hl{transition:none} }
+.rx-prac{margin:8px 0 4px}
+.rx-modes{display:flex;flex-wrap:wrap;gap:8px}
+.rx-mode{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--card);color:var(--ink);cursor:pointer}
+.rx-mode-n{font-family:var(--mono);font-size:11px;color:var(--soft)}
+.rx-run{max-width:var(--cmax);margin:0 auto}
+.rx-run-f{margin-top:16px}
+.rx-stmt{font-size:16px;line-height:1.8;margin:12px 0}
+.rx-stem{font-weight:700;margin:12px 0}
+.rx-case{background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-1);padding:10px 12px;margin:10px 0;line-height:1.8}
+.rx-tf{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rx-aids{display:flex;gap:10px;align-items:center;margin-top:12px}
+.rx-tf-hint{margin:10px 0 0;font-size:12.5px;line-height:1.6;color:var(--soft)}
+@media (min-width:360px) and (max-width:599.98px){ .flag .fcta{max-width:calc(100% - 72px)} } /* V-10（S8 persona）：首页の主ボタン「試験をはじめる」の右端が浮動 talk 钮（右 16px・52px）の下に入らないよう、钮の幅を 72px 空ける。320 幅では「中断した模擬試験を続ける」が二行になる（U-53）ので 360 幅から */
+.rx-unsure{min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--card);color:var(--soft);cursor:pointer} /* 命中区 44px */
+.rx-unsure.on{border-color:var(--accent-deep);color:var(--accent-ink);background:var(--accent-wash)}
+.rx-hint{color:var(--soft);font-size:13px}
+.rx-segs{display:flex;flex-wrap:wrap;gap:6px}
+.rx-seg{min-height:44px;padding:6px 10px;border:1px dashed var(--sep);border-radius:var(--r-1);background:var(--card);color:var(--ink);cursor:pointer}
+.rx-verdict{font-weight:700;margin:10px 0}
+.rx-verdict.ok{color:var(--ok-deep)} .rx-verdict.no{color:var(--no-deep)}
+mark.rx-wrong{background:var(--no-wash);color:var(--no-deep);border-bottom:2px solid var(--no);padding:0 1px}
+.rx-seg-pick{background:var(--card2);box-shadow:0 0 0 1px var(--line);border-radius:4px;padding:1px 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone} /* 選んだ片段（選べる単位）を淡い枠で：中の mark が誤り箇所。片段≠誤り箇所でも「重なれば正解」の判定が見て分かる */
+.rx-tamper{font-size:12.5px;color:var(--soft);margin-left:1.4em} /* 「正しくは」（.rx-var-c）と同じ字下げ：左の線をそろえる（S8 persona 第二批：「正しくは」缩进・「誤りの型」顶格） */ .rx-fix-cmp ~ .rx-tamper{margin-left:0} /* 改錯練習では「正しくは」が比較枠（.rx-fix-cmp）の中で頂格：型の行も枠の左にそろえる */
+.rx-ev{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;font-size:13px;margin:6px 0}
+.rx-ev-lb{font-weight:700;color:var(--soft)}
+.rx-fb{display:grid;gap:10px;margin-top:14px}
+.rx-fb-i{border:1px solid var(--line);border-radius:var(--r-1);padding:8px 10px}
+.rx-fb-i.ok{border-color:var(--ok-line)} .rx-fb-i.no{border-color:var(--line)}
+.rx-fb-h{display:flex;gap:8px;align-items:baseline}
+.rx-fb-k{font-family:var(--mono);font-size:11px;color:var(--soft)}
+.rx-fb-j{font-weight:700}
+.rx-fix-l{font-size:12px;font-weight:700;color:var(--soft)}
+.rx-mine{background:var(--card2);border-left:3px solid var(--line);padding:6px 10px}
+.rx-self{display:flex;gap:8px;margin-top:10px}
+.rx-lines{margin:6px 0 10px;padding-left:1.2em}
+.rx-score{font-size:18px;font-weight:700;margin:16px 0}
+.opt.on{border-color:var(--accent-deep);background:var(--accent-wash)}
+/* 作答後（S6 第1组）：選んだ肢は正誤の色に「選んだ」太枠を重ねる（.opt.on が .opt.ok/.no を上書きしていた）・判定は帯で・「次へ」は画面下に貼る */
+.opt.on.ok{border-color:var(--ok);background:var(--ok-wash);box-shadow:inset 0 0 0 1px var(--ok)}
+.opt.on.no{border-color:var(--no);background:var(--no-wash);box-shadow:inset 0 0 0 1px var(--no)}
+.rx-run .opt{position:relative} .rx-run .opt .lbl{position:absolute;top:-9px;right:10px;padding:0 8px;font-size:11px;line-height:1.6;border-radius:999px;background:var(--card);border:1px solid currentColor} /* 判定の札は枠の上辺に浮かせる：肢の高さを変えない（押した肢が動かない：V-08 (c)） */
+.rx-verdict{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid transparent;border-radius:var(--r-2);scroll-margin:calc(var(--topbar-h,52px) + 12px) 0 104px}
+.rx-verdict.ok{background:var(--ok-wash);border-color:var(--ok-line)} .rx-verdict.no{background:var(--no-wash);border-color:var(--no-line)}
+.rx-run-f{position:sticky;bottom:0;z-index:4;display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding:16px 0 calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--paper) 40%)}
+.rx-run-f.lefthand{justify-content:flex-start}
+.rx-run-f:empty{display:none}
+.rx-run.rx-q{overflow-anchor:none} /* 答えたあとの位置はこちらで保つ（rxKeepOpts）：吸底の帯の流れ上の位置が大きく動くと WebKit のスクロール錨が勝手に 150px ほど送る（c2 で実測） */
+.rx-run-f.c2{padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));gap:10px} .rx-run-f.c2:empty{display:flex;position:static;min-height:calc(60px + env(safe-area-inset-bottom,0px))} .rx-run-f.c2.flow{position:static} /* 押した肢を覆ってしまう時だけ流れに戻す（rxFootClear） */ /* 答える前は流れの中の空き（sticky の空帯だと WebKit が答えた瞬間に 150px ほど送る：実測） */ /* (c2)：答える前から同じ高さの帯を予約（空でも見える地色の帯）、答えたあとは一行（判定＋次へ）。最後の肢を覆わない・何も動かない */
+.rx-run-f.c2 .btn{min-height:44px;min-width:8em;flex:0 0 auto} .rx-run-f.c2 .rx-verdict{padding:6px 10px;font-size:13px;line-height:1.4;gap:6px} .rx-ok-chip{margin-left:auto;padding:0 8px;border-radius:999px;background:var(--ok-wash);border:1px solid var(--ok-line);color:var(--ok-deep);font-size:12px;font-weight:700;white-space:nowrap} /* 「わからない」行（44px・上 12px）と同じ枠に収める */ /* 答えたあと：判定と「次へ」は選択肢の直下に流し込む（貼り付かない・何も覆わない：V-08 (c)） */
+.rx-run.rx-q{display:flex;flex-direction:column;min-height:calc(100vh - var(--topbar-h,52px) - 22px);min-height:calc(100dvh - var(--topbar-h,52px) - 22px - env(safe-area-inset-bottom,0px))} /* 短い問題でも「次へ」の位置が動かない（下端に固定） */
+.rx-run.rx-q .rx-run-f{margin-top:auto}
+.wrap:has(.rx-run.rx-q){padding-bottom:0}
+.rx-run-f .btn{min-width:10em;min-height:48px;border-radius:var(--r-pill)}
+@media (max-width:600px){ .rx-run-f .btn{flex:0 1 64%} }
+.rx-guard{pointer-events:none}
+.rx-run-b:focus{outline:none}
+.rx-fb-h{width:100%;min-height:44px;align-items:center;background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit;cursor:pointer}
+.rx-fb-h::after{content:"";flex:none;margin-left:auto;width:7px;height:7px;border-right:1.5px solid var(--soft);border-bottom:1.5px solid var(--soft);transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.rx-fold .rx-fb-h::after{transform:rotate(-45deg)}
+.rx-fb-t{flex:1;min-width:0}
+.rx-fb{grid-template-columns:minmax(0,1fr)} .rx-fb-i{min-width:0} /* たたんだ一行（nowrap）が列幅を押し広げて横にはみ出さない */
+@media (max-width:600px){ /* 手机：長い選択肢では身分ラベルを本文の下へ（本文の幅を削らない）。旧課 runner も同じ部品 */
+  .opt{flex-wrap:wrap;row-gap:2px}
+  .opt > .mk + span,.opt > span:first-child:not(.lbl):not(.mk){flex:1 1 auto;min-width:0} /* 一行に収まらない長い選択肢だけ、ラベルが次の行（右寄せ）へ回る */
+  .opt > .mk + span{max-width:calc(100% - 36px)} /* 記号と本文は同じ行に（記号 25px＋間隔 11px） */
+  .opts .opt .lbl{margin-left:auto;padding-left:8px}
+}
+.rx-fold .rx-fb-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--soft)}
+.rx-fb-i.rx-fold{padding-top:0;padding-bottom:0}
+.rx-unsure.on{border-color:var(--accent-ink);color:var(--accent-ink);background:var(--accent-wash);font-weight:700;box-shadow:inset 0 0 0 1px var(--accent-ink)}
+.rx-unsure.on::before{content:"✓";margin-right:6px}
+@media (max-width:599.98px){ /* 手机竖屏：答える前は作答キーを親指の届く下側へ */
+  .rx-run.rx-ask .rx-run-b{flex:1;display:flex;flex-direction:column}
+  .rx-run.rx-ask .rx-run-b > .rx-tf,.rx-run.rx-ask .rx-run-b > .opts,.rx-run.rx-ask .rx-run-b > .rx-hint:has(+ .rx-segs){margin-top:auto}
+}
+@media (prefers-reduced-motion: reduce){ .rx-fb-h::after{transition:none} }
+.rx-lec{flex-wrap:wrap}
+.rx-lec-m{flex-basis:100%;font-size:11.5px;color:var(--soft)}
+.rx-review{margin:6px 0 10px}
+.rx-locked{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--sep);border-radius:var(--r-1);margin:8px 0;color:var(--soft)}
+.rx-lock-i{display:inline-flex;width:16px;height:16px} .rx-lock-i svg{width:16px;height:16px}
+.rx-mode-locked{color:var(--soft);border-style:dashed}
+.rx-test{display:inline-block;font-size:11.5px;font-weight:700;color:var(--no-deep);border:1px solid var(--no-line);border-radius:var(--r-pill);padding:0 8px;margin:4px 0}
+.rx-pass{width:100%;min-height:44px;font-size:16px;padding:8px 10px;border:1.5px solid var(--line);border-radius:var(--r-1);margin:6px 0 10px;box-sizing:border-box}
+.rx-timer{font-variant-numeric:tabular-nums;color:var(--accent-ink);font-weight:700}
+.rx-mock{margin:0 0 10px 8px}
+.rx-tools{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+/* 印刷（2026-10-15：「印刷」と「Markdown 書き出し」を下ろした）：ブラウザ自身の印刷（Cmd+P）でも画面の内容は出さず、
+ * 一行の説明だけ（body の data-print-note＝t('printOff')。applyLangButtons が付ける）。body::before の飾りの光をこの間だけ説明に替える。 */
+@media print{
+  @page{margin:20mm}
+  body{background:#fff!important;padding:0!important}
+  body>*{display:none!important}
+  body::before{content:attr(data-print-note)!important;display:block!important;position:static!important;height:auto!important;background:none!important;color:#000;font:14px/1.7 sans-serif}
+}
+.rx-links{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line2)}
+.rx-rel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
+.rx-rel-lb{font-size:11.5px;font-weight:700;color:var(--soft)}
+.rx-chip{min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--card2);color:var(--accent-ink);font-size:12px;cursor:pointer} /* 命中区 44px */
+/* 离线：新版提示（首页底部・不打扰；右下留给浮动按钮）与顶栏离线标签 */
+.sw-upd{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;max-width:calc(100vw - 100px);display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-pill);box-shadow:var(--shadow-sm);font-size:13px;color:var(--ink)}
+.sw-upd .btn{min-height:44px}
+.off-chip{display:flex;align-items:center;justify-content:center;height:22px;padding:0 10px;border-top:1px solid var(--line);font-size:11.5px;font-weight:700;color:var(--soft);white-space:nowrap;background:var(--card2)} /* 顶栏の下の細い帯（目立たせない） */
+.rx-f-tx{margin:4px 0 0;font-size:13px;color:var(--soft);line-height:1.6}
+/* 课次标签：zh「第12课」（两位数 4 字）也不折行 */
+.wl-kai,.trail .og,.tag.kai{white-space:nowrap}
+.rx-hd{margin:6px 0 12px} /* 新課ホームの問候＋試験日（章程第 24 条・神経の .nh-hd と同じ間合い） */
+/* 旧課に開いた新機能（S1-d）：逐肢の印（選ばなかった不正解は色を付けず文字だけ）・今日の復習の行 */
+.opt.dim .lbl{color:var(--soft)}
+.subrow.sdr-row{grid-template-columns:1fr} /* 旧 .sp-row（別部品の flex 行）と名前が衝突していたので改名 */
+/* 旧課の今日の復習：0 件のときは .rx-done（U-52 で新課と統一）。押せない subcard はもう出さない */
+.ql-tools{margin:4px 0 14px}
+
+/* S6 第3组：字号と排版（U-07・U-44・U-45・U-80） */
+.rx-lec{font-size:15px} .rx-lec-t{font-weight:600}
+.rx-sum-q{font-size:15px;font-weight:600;line-height:1.6} .rx-sum-a{font-size:15px}
+.rx-mode{font-size:14px} .rx-unsure{font-size:13px} .rx-seg{font-size:14px} .rx-fb-h{font-size:14.5px}
+.qnum,.prog,.kb,.rx-mode-n,.rx-score,.scoreline b,.bigscore .pct,.prh .prn,.nk-n{font-variant-numeric:tabular-nums}
+.rx-tbl th,.rx-tbl td{min-width:5em} /* 列が 1〜2 字に潰れない（収まらなければ表だけ横に動く） */
+.rx-tbl .rx-nw{white-space:nowrap;min-width:0} /* 短いラベル（人名・国名・年代など）は折り返さない */
+.rx-tbl .rx-long{min-width:11em} /* 長い説明の列は 1 行 11 字以上を確保 */
+.rx-tbl tr > :first-child{position:sticky;left:0;z-index:1;background:var(--card);box-shadow:inset -1px 0 0 var(--line)}
+.rx-tbl thead tr > :first-child{background:var(--accent-wash)}
+.rx-tbl-w{background:linear-gradient(to right,var(--card) 30%,rgba(255,255,255,0)) left center/28px 100% no-repeat local,linear-gradient(to left,var(--card) 30%,rgba(255,255,255,0)) right center/28px 100% no-repeat local,linear-gradient(to right,rgba(0,0,0,.08),rgba(0,0,0,0)) left center/12px 100% no-repeat scroll,linear-gradient(to left,rgba(0,0,0,.08),rgba(0,0,0,0)) right center/12px 100% no-repeat scroll} /* 横に続きがある側だけ薄い影（スクロールで消える） */
+.rx-card{container-type:inline-size}
+.rx-tri-c p{font-size:14px}
+@container (max-width:780px){ .rx-tri{grid-template-columns:1fr} } /* カード内の残り幅で判断（三欄が 1 行 8〜14 字に潰れない） */
+
+/* S6 第4组 */
+body.writer-ro .rdr-hd{top:calc(var(--topbar-h,52px) + var(--writerbar-h,64px))} /* 読むだけの帯が読本の道具列（戻る・Aa・しおり）を覆わない（U-26） */
+@media(max-width:860px){ body.writer-ro .rdr-chips{top:calc(var(--topbar-h,52px) + var(--writerbar-h,64px) + 47px)} }
+.ql{scroll-margin-top:calc(var(--topbar-h,52px) + 12px)}
+.flip-front,.flip-back{transition:visibility 0s linear calc(var(--flip-dur,.5s) / 2)} /* 回転の半ばで面を入れ替える：見えていない面は描かない（どの描画系でも裏が透けない／鏡像にならない：U-94） */
+.flip-back{visibility:hidden} .flip3d.flipped .flip-back{visibility:visible} .flip3d.flipped .flip-front{visibility:hidden}
+.flip3d.flip-instant .flip-front,.flip3d.flip-instant .flip-back{transition:none}
+@media (prefers-reduced-motion: reduce){ .flip-front,.flip-back{transition:none} }
+
+/* S6 第5组：导航基础（U-11・U-39） */
+.rx-card,#rx-sum,#rx-prac,#rx-deep,#rx-gaps{scroll-margin-top:calc(var(--topbar-h,52px) + 16px)}
+.rx-lecture.rx-cv .rx-card{content-visibility:auto;contain-intrinsic-size:auto 900px} .rx-lecture.rx-cv #rx-gaps{content-visibility:auto;contain-intrinsic-size:auto 800px} .rx-lecture.rx-cv .rx-deep{content-visibility:auto;contain-intrinsic-size:auto 600px} /* 回を「開く」一回目の描画だけ：首屏の外のカード・ずれ・発展を布局せずに先に画く（回ページは 22 画面分、首屏にカードが無いのに全部の布局で 500ms 超え：V-06）。画いた次のフレームで rx-cv を外して全部を布局する（位置を測る処理・戻る・着地は常に全布局のあとで走る） */ /* 跳んだ先の見出しが固定の顶栏に隠れない */
+.rx-toc{display:flex;flex-direction:column;gap:2px;max-height:min(70vh,560px);overflow:auto;margin:0 -6px}
+.rx-toc-i{display:block;width:100%;min-height:44px;padding:10px 12px;text-align:left;background:none;border:0;border-radius:var(--r-1);font-size:14px;color:var(--ink);cursor:pointer}
+.rx-toc-i.rx-toc-sec{font-weight:700;color:var(--accent-ink)}
+@media(hover:hover) and (pointer:fine){ .rx-toc-i:hover{background:var(--accent-wash)} }
+.rx-next{display:flex;flex-direction:column;align-items:center;gap:6px;margin:28px 0 8px;padding-top:20px;border-top:1px solid var(--line)}
+.rx-next .btn{min-width:12em}
+.rx-next-t{font-size:13px;color:var(--soft)}
+.rx-cont{margin:6px 0 12px}
+
+/* S6 第6组：遮挡与顶栏（U-09・U-04・U-81・U-82） */
+.tb-in{container-type:inline-size} .tb-r{min-width:0;flex:0 1 auto}
+#moreBtn{display:none}
+@container (max-width:400px){ #helpBtn,#setBtn,.tb-r .lang{display:none} #moreBtn{display:inline-flex} } /* 狭いときは「?」「設定」「日／中」を「…」へ（ボタンは 44px のまま） */
+.tbmenu{position:fixed;top:56px;right:12px;z-index:61;min-width:180px;display:flex;flex-direction:column;padding:6px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-3);box-shadow:var(--shadow)}
+.tbm-i{display:flex;align-items:center;min-height:44px;padding:0 14px;border:0;border-radius:var(--r-1);background:none;text-align:left;font-size:14px;color:var(--ink);cursor:pointer}
+.tbm-i[aria-pressed="true"]{color:var(--accent-ink);font-weight:700}
+.tbm-i[aria-pressed="true"]::after{content:"✓";margin-left:auto;padding-left:12px}
+@media(hover:hover) and (pointer:fine){ .tbm-i:hover{background:var(--accent-wash)} }
+.tbm-sep{height:1px;margin:4px 8px;background:var(--line)}
+body:has(#view .runner,#view .grading,#view .rdr,#view .rx-run) .buddyFloat{display:none} /* 練習・模試・採点・読本では浮動ボタンを出さない（主操作と本文を覆わない：U-09） */
+.wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))} /* それ以外の画面は浮動ボタンの分だけ下に余白 */
+.rx-run.rbody{padding-left:0;padding-right:0}
+
+/* S6 第7组：其余低成本与视觉打磨 */
+.rc-zoom{width:44px;height:44px} .rx-fig{position:relative} .rc-svg{position:relative} /* 拡大ボタンは 44px（U-59）・図の右下に */
+.rx-hide-t{white-space:nowrap;flex:none} /* ボタンは縮めない・長い題は題の側で折り返す（S4-016） */
+.btn.btn-danger{border-color:var(--no-line);color:var(--no-deep);background:var(--card)} /* 消す操作：赤い枠・既定にしない（U-24） */
+@media(hover:hover) and (pointer:fine){ .btn.btn-danger:hover{border-color:var(--no);color:var(--no-deep);background:var(--no-wash)} }
+.rdr-fs-pop{gap:12px}
+.rdr-fs-b{min-width:44px;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--card);color:var(--ink);font-family:var(--jp);font-weight:700;font-size:13px;cursor:pointer}
+.rdr-fs-b.big{font-size:17px} .rdr-fs-b:disabled{opacity:.35;cursor:default}
+.rdr-fs-dots{display:flex;gap:6px} .rdr-fs-dots i{width:7px;height:7px;border-radius:50%;background:var(--line)} .rdr-fs-dots i.on{background:var(--cta-bg,var(--accent-ink))}
+.modal-hd{position:sticky;top:-22px;z-index:2;display:flex;align-items:flex-start;gap:8px;margin:-22px -22px 10px;padding:16px 14px 8px 22px;background:rgba(255,255,255,.96);border-radius:var(--r-4) var(--r-4) 0 0} /* 長い弾窗でも見出しと × は上に残る（U-63） */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .modal-hd{background:var(--card)} }
+.modal-hd h3{flex:1;min-width:0;margin:10px 0 0}
+.modal-x{float:none;margin:0;flex:none}
+.restline{margin-top:14px} .restline .rp{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 14px;border-radius:var(--r-2);background:var(--accent-wash);color:var(--accent-ink);font-size:13px} /* 休憩のひと言は結果カードの下に（成績を覆わない：U-64） */
+.restline .rpic svg{width:20px;height:20px}
+@media(hover:hover) and (pointer:fine){ /* 新課にも悬停の手がかり（U-65） */
+  .rx-lec:hover,.rx-mode:hover,.rx-chip:hover,.rx-sum-q:hover{border-color:var(--accent-deep);background:var(--accent-wash)}
+  .rx-fb-h:hover .rx-fb-t{text-decoration:underline;text-decoration-color:var(--line)}
+  .rx-tri-go:hover{color:var(--accent-deeper)}
+}
+.qhome::before{content:none}
+.qhd-l{align-items:center}
+.rx-deep>summary{list-style:none} .rx-deep>summary::-webkit-details-marker{display:none}
+.rx-deep>summary::after{content:"";width:8px;height:8px;margin-left:10px;border-right:1.75px solid var(--soft);border-bottom:1.75px solid var(--soft);transform:translateY(-2px) rotate(45deg);transition:transform .15s} /* 開けることが分かる印（U-83） */
+.rx-deep[open]>summary::after{transform:translateY(2px) rotate(-135deg)}
+@media (prefers-reduced-motion: reduce){ .rx-deep>summary::after{transition:none} }
+.vw{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;background:rgba(24,20,24,.92)} /* 図の全画面ビューア（U-14・U-46） */
+.vw-bar{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px}
+.vw-t{flex:1;min-width:0;color:#fff;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vw-b{width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:var(--r-pill);background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+.vw-b svg{width:20px;height:20px} .vw-b:disabled{opacity:.35;cursor:default}
+@media(hover:hover) and (pointer:fine){ .vw-b:not(:disabled):hover{background:rgba(255,255,255,.22)} }
+.vw-b:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:none}
+.vw-stage{flex:1;min-height:0;display:flex;overflow:auto;padding:16px;touch-action:pan-x pan-y pinch-zoom}
+.vw-stage.zoomed{cursor:grab}
+.vw-content{margin:auto;flex:none;background:#fff;border-radius:6px;overflow:hidden}
+.vw-content img,.vw-content svg{display:block;width:100%;height:100%}
+.vw-content.vw-svg{padding:0}
+.vw-stage.loading .vw-content{background:linear-gradient(90deg,#eee 25%,#f6f6f6 50%,#eee 75%);background-size:200% 100%;animation:vwshimmer 1.2s linear infinite;min-width:240px;min-height:160px}
+@keyframes vwshimmer{to{background-position:-200% 0}}
+@media (prefers-reduced-motion: reduce){ .vw-stage.loading .vw-content{animation:none} }
+.vw-cap{padding:8px 16px calc(12px + env(safe-area-inset-bottom,0px));color:rgba(255,255,255,.8);font-size:12px;text-align:center}
+
+/* ── S6 第 8 组 ── */
+.sechd .sh-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sechd .sh-lede{margin:0;font-size:12px;line-height:1.5;color:var(--soft)}
+.rmap .kt .kb.hi{color:var(--ok-deep);background:var(--ok-wash);border-color:var(--ok-line)} /* U-19 正答率の段階: 80%〜 / 50〜79% / 〜49% */
+.rmap .kt .kb.mid{color:var(--ink);background:#fff}
+.rmap .kt .kb.lo{color:var(--no-deep);background:var(--no-wash);border-color:var(--no-line)}
+.rmap .kt .ksv{font-size:11px;line-height:1.2;color:var(--soft);margin-top:-2px}
+.a2hs-sep{display:flex;flex-direction:column;align-items:flex-start;gap:9px;background:var(--accent-wash);border:1px solid var(--hair);border-radius:var(--r-2);padding:11px 13px;margin-bottom:14px}
+.a2hs-sep p{margin:0;font-size:13px;line-height:1.7;color:var(--ink)}
+.a2hs-imp{background:var(--card);border:1px solid var(--hair);border-radius:var(--r-2);padding:13px 14px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.a2hs-imp-t{font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px}
+.a2hs-imp-b{margin:0 0 10px;font-size:13px;line-height:1.7;color:var(--soft)}
+.rx-mode-n{font-family:var(--jp)} /* U-89「20問（全74問から）」：数字だけでなくなった */
+.rx-batch{margin:-4px 2px 0;font-size:12px;color:var(--soft)}
+.rx-left{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:4px 0 18px}
+.rx-left .rx-hint{margin:0}
+.rx-verdict.dk{color:var(--ink);background:var(--card2);border-color:var(--line)} /* U-90「わからない」は中性 */
+
+/* ── 第一批收尾（Codex 复查 N-01〜03・U 残留） ── */
+#tocBtn{display:none} body.rx-lec-view #tocBtn{display:inline-grid} /* N-03：新課回次页の目次は顶栏に常駐（44px）。浮钮は正文を覆うので廃止 */
+.rdr-pmid{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0} /* U-59：点は飾り、下に「3/7」 */
+.rdr-pager .rdr-dots span{display:block;width:6px;height:6px;border-radius:var(--r-pill);background:var(--hair);transition:width .22s var(--curve),background .22s}
+.rdr-pager .rdr-dots span.on{width:18px;background:var(--accent-deep)}
+.rdr-pgn{font-family:var(--mono);font-size:12px;color:var(--soft);font-variant-numeric:tabular-nums}
+.rdr-pager > button{min-width:44px;padding-left:14px;padding-right:14px}
+@media (prefers-reduced-motion: reduce){ .rdr-pager .rdr-dots span{transition:none} }
+.rx-card.rx-dup-t>.rx-card-hd>h3{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap} /* U-83：見出しは読み上げには残す（見た目だけ隠す） */
+.rx-card.rx-dup-t>.rx-card-hd{justify-content:flex-end}
+.exmore,.rxchip,.wkchip{position:relative} /* U-59：見た目は小さいまま、命中区を 44px に */
+.exmore::after{content:'';position:absolute;left:-6px;right:-6px;top:50%;height:44px;transform:translateY(-50%)}
+.rxchip::after,.wkchip::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+.nk-kw em{max-width:100%;white-space:normal;overflow-wrap:anywhere;box-sizing:border-box} .nh-k{min-width:0} /* F-07：長い語の chip はカードの中で折り返す（はみ出していた） */
+.a2hsbar-go{color:var(--accent-ink);background:var(--card);border:1px solid var(--accent-ink)} /* F-08：横幅の按钮は描边（実心の主按钮は一画面に一つ） */
+.cpop :focus-visible,.tbmenu :focus-visible{outline-offset:-2px} /* F-09：浮层の縁で焦点環が切れない */
+/* ── 练习构图（收尾清单 二：U-57・U-37・F-06）：操作条は文書の流れの中で sticky、判定は条の左・次へは右（利き手で鏡像） ── */
+.rx-run.rx-q{min-height:0}
+.rx-run.rx-q .rx-run-f{margin-top:16px}
+@media (max-width:599.98px){ .rx-run.rx-q{min-height:calc(100vh - var(--topbar-h,52px) - 22px);min-height:calc(100dvh - var(--topbar-h,52px) - 22px - env(safe-area-inset-bottom,0px))} .rx-run.rx-q .rx-run-f{margin-top:auto} } /* 手机：作答前は作答キー、作答後は操作条（判定＋次へ）を常に画面下の親指の届く所に（≥600px は内容のすぐ下：收尾清单 構図・総指揮 手机 2 点） */
+.wrap:has(.rx-run.rx-q){padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))} /* 主屏模式：作答前の下詰めの行（自信がない・わからない）が Home 指示条にかからない（S8 複験 V-01） */
+.rx-run-f{justify-content:space-between;align-items:center;gap:12px}
+.rx-run-f.lefthand{flex-direction:row-reverse;justify-content:space-between}
+.rx-run-f .rx-verdict,.qnav .rx-verdict{flex:1 1 auto;min-width:0;margin:0;padding:9px 14px;font-size:14px;line-height:1.45}
+.rx-run-f .btn{flex:none}
+@media (max-width:599.98px){ .rx-run-f .btn{flex:0 0 auto;min-width:7.5em} }
+.runner .qnav{position:sticky;bottom:0;z-index:4;margin-top:18px;padding:14px 0 calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--paper) 36%)}
+.qnav.has-v{justify-content:flex-end}
+.qnav.has-v .qdots,.qnav.has-v .nbtn.spacer{display:none}
+.qnav.has-v .rx-verdict{margin-right:auto}
+.qnav.has-v.lefthand .rx-verdict{margin-right:0;margin-left:auto}
+@media (max-width:599.98px){ .qnav.has-v{gap:8px} .qnav.has-v .nbtn.prev{padding:10px 11px} }
+@media (min-width:600px) and (orientation:portrait){ /* iPad 竖屏：题卡は読みやすい幅、作答区は画面の約 1/3 から（貼り付きも下の空きも作らない） */
+  .rx-run.rx-q,.runner.no-rail .rbody{max-width:680px;margin-left:auto;margin-right:auto}
+  .rx-run.rx-ask .rx-run-b{padding-top:clamp(16px,9vh,120px)}
+  .rx-run.rx-ask .rx-stmt,.rx-run.rx-ask .rx-stem{font-size:18px;line-height:1.85}
+  .rx-run .opts{gap:12px}
+}
+.runner{overflow:clip} /* 角丸の切り抜きは保ったまま、滚动容器を作らない（overflow:hidden だと中の操作条の sticky が効かない：收尾清单 二） */
+.runner .qnav{background:linear-gradient(to bottom,rgba(255,255,255,0),var(--card) 36%)} /* runner はカード地：条の下地もカード色 */
+/* F-04：長い弹窗は「頭／本文」の二段。滚动は本文だけ、頭は滚动区の外。面は頭も本文も不透明の --card ひとつ（毛玻璃と白帯の継ぎ目・透けを無くす） */
+.modal-in.has-hd{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;border:1px solid var(--line)}
+.modal-in.has-hd>.modal-hd{position:static;flex:none;margin:0;padding:16px 14px 8px 22px;background:var(--card);border-radius:0}
+.modal-in.has-hd>.modal-bd{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 22px 22px}
+/* F-05：読本の単栏（≤860px）は工具栏と本文カードを同じ幅・同じ軸に。本文の行は約 38em でカードの中央に（左寄せで右に約 118px 空いていた） */
+@media(max-width:860px){
+  .rdr-main,.rdr-pager{max-width:none}
+  .rdr-main>*:not(.rdr-chips){max-width:38em;margin-left:auto;margin-right:auto}
+}
+.rc-links,.rxref,.weakchips1{row-gap:16px} /* U-59：chip の命中区（44px）が上下の行で重ならないよう行間を空ける */
+.rc-links{margin-top:16px} /* 連続する chip の行（対比表・関連など）同士も 16px 空ける */
+/* 操作条の判定は「状態」：図標＋太字、判定色の文字だけ（全幅の色付き枠にしない＝入力欄に見えた：收尾清单 構図 1）。role=status は要素ごと維持 */
+.rx-run-f .rx-verdict,.qnav .rx-verdict{flex:0 1 auto;display:inline-flex;align-items:center;gap:7px;background:none;border:0;border-radius:0;padding:0;margin:0;font-size:15px;font-weight:800;line-height:1.4;min-width:0}
+.rx-run-f .rx-verdict::before,.qnav .rx-verdict::before{content:'';flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat}
+.rx-run-f .rx-verdict.ok,.qnav .rx-verdict.ok{color:var(--ok-deep)}
+.rx-run-f .rx-verdict.no,.qnav .rx-verdict.no{color:var(--no-deep)}
+.rx-run-f .rx-verdict.no::before,.qnav .rx-verdict.no::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E")}
+.rx-run-f .rx-verdict.dk,.qnav .rx-verdict.dk{color:var(--ink)}
+.rx-run-f .rx-verdict.dk::before,.qnav .rx-verdict.dk::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 3-6.7L3 8'/%3E%3Cpath d='M3 3v5h5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 3-6.7L3 8'/%3E%3Cpath d='M3 3v5h5'/%3E%3C/svg%3E")}
+/* 操作条は不透明の地帯（画面の地色／カード色）＋上縁の発丝線：後ろを流れる本文が条の脇から半行のぞかない（收尾清单 構図 2） */
+.rx-run-f{background:var(--paper);border-top:1px solid color-mix(in srgb,var(--sep) 55%,transparent);box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5);padding-top:12px}
+.runner .qnav{background:var(--card);border-top:1px solid color-mix(in srgb,var(--sep) 55%,transparent);box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5);padding-top:12px}
+.rx-run-f:not(:has(.rx-verdict)){border-top-color:transparent;box-shadow:none}
+@media (max-width:599.98px){ /* 旧課 runner も手机は操作条を画面下に：本文を縦の箱にして条を下端へ（sticky なので長い解説では視口下に吸い付く） */
+  .runner .rbody.has-bar{display:flex;flex-direction:column;min-height:calc(100vh - var(--topbar-h,52px) - 96px);min-height:calc(100dvh - var(--topbar-h,52px) - 96px)}
+  .runner .rbody.has-bar>.qnav{margin-top:auto}
+}
+/* R-03：手机専用の作答レイアウトは「600px 未満」だけ（599.98px）。ちょうど 600px は iPad 側（min-width:600px） */
+/* R-02：真 iPhone Safari で条の下に約 60pt 本文がのぞいた（sticky の基準辺とツールバーのずれ）。条と同じ地色の不透明な裙を下へ約 120px 延ばす。
+   ::after の絶対配置だとページの滚动量が増えるので、多層の box-shadow（滚动量に影響しない）で塗る */
+.rx-run-f{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--paper),0 120px 0 0 var(--paper)}
+.runner .qnav{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--card),0 120px 0 0 var(--card)}
+.rx-run-f:not(:has(.rx-verdict)){box-shadow:none}
+/* R-04：顶栏の目次は文字ボタン（44×44 の枠に 12.5px の「目次／目录」）。目次のある回次页では「?」「設定」「日／中」を 520px 以下で「…」へ（課名を一字に潰さない） */
+#tocBtn{min-width:44px;padding:0 8px;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:var(--accent-ink);font-family:var(--jp)}
+@container (max-width:520px){ body.rx-lec-view #helpBtn,body.rx-lec-view #setBtn,body.rx-lec-view .tb-r .lang{display:none} body.rx-lec-view #moreBtn{display:inline-flex} }
+/* R-05：条の判定は短く（✓ 正解／✕ 不正解／↺ 今日の復習に入れました）、折り返しても一字だけの行を作らない。○× の正誤は題文の直下 */
+.rx-run-f .rx-verdict,.qnav .rx-verdict{text-wrap:balance}
+.rx-truth{margin:-4px 0 12px;font-size:14px;font-weight:700} .rx-truth.t{color:var(--ok-deep)} .rx-truth.f{color:var(--no-deep)}
+/* R-07：iPad 竖屏は作答の前後で題文の位置と 18px を保つ（揭示で上へ跳ばない） */
+@media (min-width:600px) and (orientation:portrait){
+  .rx-run.rx-q .rx-run-b{padding-top:clamp(16px,9vh,120px)}
+  .rx-run.rx-q .rx-stmt,.rx-run.rx-q .rx-stem{font-size:18px;line-height:1.85}
+}
+/* R-08：読本の単栏（≤860px）は節 chip の行も本文と同じ約 38em の列に */
+@media(max-width:860px){ .rdr-main>.rdr-chips{max-width:38em;margin-left:auto;margin-right:auto} }
+/* ── 第二批 U-41 宽屏：≥1200 目次｜本文、≥1440 ＋辅助栏。本文列 820px＝命題文で約 39 字／行（原則 3；720px だと実測 33 字で狭すぎた）、広さは目次と辅助栏に ── */
+.rx-stoc,.rx-rail{display:none}
+@media(min-width:1200px){
+  body.rx-wide{--cmax:1120px}
+  .rx-lec-grid{display:grid;grid-template-columns:216px minmax(0,820px);column-gap:36px;justify-content:center;max-width:none}
+  .rx-lec-grid>.rx-stoc{display:block;grid-column:1;grid-row:1}
+  .rx-lec-grid>.rx-lec-main{grid-column:2;grid-row:1;min-width:0}
+  .rx-stoc-in{position:sticky;top:calc(var(--topbar-h,52px) + 20px);max-height:calc(100vh - var(--topbar-h,52px) - 40px);overflow:auto;padding:4px 4px 12px 0;scrollbar-width:thin}
+  .rx-stoc-h{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--soft);margin:58px 0 8px 12px}
+  .rx-stoc-l{display:flex;flex-direction:column;gap:1px;border-left:1px solid var(--line)}
+  .rx-stoc-i{display:block;width:100%;text-align:left;font-size:13px;line-height:1.5;color:var(--soft);background:none;border:0;border-left:2px solid transparent;margin-left:-1px;padding:7px 10px 7px 12px;min-height:36px;cursor:pointer;border-radius:0 var(--r-1) var(--r-1) 0}
+  .rx-stoc-i.rx-stoc-sec{font-weight:700;color:var(--ink)}
+  .rx-stoc-t{display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden} .rx-stoc-i.full .rx-stoc-t{display:block;overflow:visible}
+  .rx-stoc-i{-webkit-touch-callout:none}
+  .rx-stoc-i.on{color:var(--accent-ink);border-left-color:var(--accent-ink);background:var(--accent-wash);font-weight:700}
+  .rx-lec-grid .rx-toc-btn{display:none}
+  .rx-lec-grid .rx-tri{grid-template-columns:1fr} /* U-45 甲：宽屏の本文列でも講義・標準・試験の対照は縦に（三列だと一列 15 字前後に潰れる） */ body.rx-wide.rx-lec-view #tocBtn{display:none} /* ≥1200 は左に常設の目次：顶栏の目次ボタンと工具行の目次キーは出さない */
+  .rx-home-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;column-gap:36px;grid-template-areas:"imp imp" "hd hd" "main side";align-items:start}
+  .rx-home-grid>.a2hs-imp{grid-area:imp} .rx-home-grid>.rx-hd{grid-area:hd} .rx-home-grid>.rx-home-main{grid-area:main;min-width:0} .rx-home-grid>.rx-home-side{grid-area:side}
+  .rx-home-side{position:sticky;top:calc(var(--topbar-h,52px) + 20px);display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-3)}
+  .rx-home-side>*{margin:0}
+  .rx-home-side .rx-review,.rx-home-side .rx-mock{width:100%}
+  .rx-home-main .rx-lecs{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .rx-home-main .rx-lec{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;gap:4px;min-height:120px;padding:16px 18px}
+  .rx-home-main .rx-lec-n{font-size:13px}
+  .rx-home-main .rx-lec-t{font-size:17px;line-height:1.45}
+  .rx-home-main .rx-lec-m{flex-basis:auto;margin-top:auto;padding-top:10px}
+  .rx-home-main .rx-lec-bar{display:flex;align-self:stretch;height:5px;border-radius:var(--r-pill);overflow:hidden;background:var(--track);margin-top:6px}
+  .rx-lec-bar i{display:block;min-width:0} .rx-lec-bar .ma{background:var(--ok)} .rx-lec-bar .le{background:var(--accent)} .rx-lec-bar .ne{background:var(--track)}
+}
+@media(min-width:1440px){
+  body.rx-wide{--cmax:1428px}
+  .rx-lec-grid{grid-template-columns:216px minmax(0,820px) 272px}
+  .rx-lec-grid>.rx-rail{display:block;grid-column:3;grid-row:1}
+  .rx-lec-grid .rx-lec-main>#rx-prac{display:none}
+  .rx-rail-in{position:sticky;top:calc(var(--topbar-h,52px) + 20px);display:flex;flex-direction:column;gap:14px;margin-top:58px}
+  .rx-rail-card{padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-3)}
+  .rx-rail-m{margin:0 0 10px;font-size:13px;color:var(--soft)}
+  .rx-rail-bar{display:flex;height:6px;border-radius:var(--r-pill);overflow:hidden;background:var(--track)}
+  .rx-rail-bar i{display:block;min-width:0} .rx-rail-bar .ma{background:var(--ok)} .rx-rail-bar .le{background:var(--accent)} .rx-rail-bar .ne{background:var(--track)}
+  .rx-prac-rail{padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-3)}
+  .rx-prac-rail .rx-bh{margin-top:0}
+  .rx-prac-rail .rx-modes{flex-direction:column;flex-wrap:nowrap;gap:6px}
+  .rx-prac-rail .rx-mode{justify-content:space-between;width:100%}
+  .rx-prac-rail .rx-mode-locked{justify-content:flex-start}
+  .rx-rail .rx-review{width:100%;margin:0}
+}
+/* ── 第二批 A：読本の吸顶を一段に（U-49）・節名（U-69） ── */
+.rdr-pg{font-family:var(--jp);font-size:12px} /* 「1.1 節名 · 2/6」：はみ出す分は省略 */
+@media(max-width:860px){
+  .rdr-chips{position:static} /* 節の帯は吸顶しない（顶栏＋読本の頭＋節の帯の三段で、横持ちだと画面の半分近くを占めていた） */
+  body.reader-view #tocBtn{display:inline-grid} /* 左の目次が出ない幅：顶栏の「目次」から節名つきの一覧 */
+}
+@container (max-width:520px){ body.reader-view #helpBtn,body.reader-view #setBtn,body.reader-view .tb-r .lang{display:none} body.reader-view #moreBtn{display:inline-flex} }
+@media(max-height:500px){ .rdr-hd{position:static} }
+@media(max-width:860px){ .rdr-crumb .rdr-pg{display:block;flex:1 1 auto} } /* 窄宽：頭に位置（回・節名・頁）。宽屏は左の目次があるので出さない */ /* 横持ちの低い画面では読本の頭も吸顶しない（本文に高さを残す） */
+/* ── 第二批 A：旧課の宽屏（U-41） ── */
+.rdr-toc-sub{display:flex;flex-direction:column;gap:1px;margin:-2px 0 6px 18px;border-left:1px solid var(--line)}
+.rdr-toc-sub .tc{display:block;width:100%;text-align:left;background:none;border:0;border-left:2px solid transparent;margin-left:-1px;padding:6px 10px;min-height:32px;font-size:12px;line-height:1.4;color:var(--soft);cursor:pointer;border-radius:0 var(--r-1) var(--r-1) 0}
+.rdr-toc-sub .tc.on{color:var(--accent-ink);border-left-color:var(--accent-ink);font-weight:700}
+@media(hover:hover) and (pointer:fine){ .rdr-toc-sub .tc:not(.on):hover{background:var(--line2)} }
+.rdr-toc{max-height:calc(100vh - var(--topbar-h,52px) - 76px);overflow:auto;scrollbar-width:thin}
+@media(min-width:1200px){
+  .rmap{grid-template-columns:repeat(auto-fill,minmax(176px,1fr))} /* 臨床「回ごとの進みぐあい」：4 列固定で 6 割が空いていた */
+  .ridx{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px} /* まとめノートの回一覧：長い一本の帯を多列のカードに */
+  /* 読本の図は卡片の中に留める（越えて広げる案は卡片の縁と読む軸を壊すため不採用：総指揮 2026-10-13）。拡大は全画面の看图器で */
+}
+
+/* ---------- 第二批 B 组：U-52 新課首页の層級・禁用の見た目 ---------- */
+/* 押せないボタン：半透明（opacity）で薄めると「主ボタンの色のまま」押せそうに見え、深色では沈みすぎる。地を --track、字を --soft に置き換える（深浅とも同じ token から） */
+.btn:disabled{opacity:1;background:var(--track);background-image:none;color:var(--soft);box-shadow:none;cursor:default}
+.btn.ghost:disabled{background:transparent;border-color:var(--line2);color:var(--faint)}
+@media(hover:hover) and (pointer:fine){ .btn:disabled:hover{background:var(--track);background-image:none;color:var(--soft)} .btn.ghost:disabled:hover{background:transparent;border-color:var(--line2);color:var(--faint)} } /* 押せないボタンはホバーでも変えない */ /* 描边ボタンは枠も字も一段引く（--soft だと押せる「次へ」と見分けにくかった） */
+/* 今日の復習：あれば全幅の主ボタン、なければ完了の一行（ボタンにしない） */
+.rx-review{display:block;width:100%;min-height:52px;font-size:15px}
+.rx-done{display:flex;align-items:center;gap:10px;min-height:52px;box-sizing:border-box;padding:10px 14px;margin:6px 0 10px;border-radius:var(--r-2);background:var(--ok-wash);color:var(--ink);font-size:14px;font-weight:600;line-height:1.5}
+.rx-done-i{flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff} .rx-done-i svg{width:16px;height:16px}
+.rx-rail .rx-done{margin:0}
+/* 回の行：「›」と掌握度の棒をどの幅でも */
+.rx-lec{row-gap:6px}
+.rx-lec-t{flex:1 1 auto;min-width:0}
+.rx-lec-go{flex:none;margin-left:auto;align-self:center;color:var(--faint);font-size:20px;line-height:1}
+.rx-lec{position:relative} .rx-lec-go{position:absolute;top:14px;right:16px} .rx-lec-t{padding-right:20px} /* 回題が折り返しても「›」は一行目の右端（以前は ≥1200 だけ：break-ui B-2） */
+.rx-lec-bar{display:flex;flex-basis:100%;height:4px;border-radius:var(--r-pill);overflow:hidden;background:var(--track);margin-top:2px}
+.rx-lec-bar i{display:block;min-width:0} .rx-lec-bar .ma{background:var(--ok)} .rx-lec-bar .le{background:var(--accent)} .rx-lec-bar .ne{background:var(--track)}
+/* 整課の書き出しは回一覧の下（三次的な操作） */
+
+@media(min-width:1200px){
+  .rx-home-main .rx-lec-bar{flex-basis:auto}
+}
+/* U-56：回次页の要点は最初の 3 件だけ、残りは「残り n 件」で開く */
+.rx-sum-x{display:none}
+.rx-sum-more{margin:10px 0 4px}
+/* U-74 で見つけた既存の歪み：通知は left:50% のため自動幅が画面の半分で頭打ちになり、短い文でも折り返していた（ファイル名が途中で切れる） */
+.toast{width:max-content;max-width:min(86vw,560px);box-sizing:border-box}
+.sdr-row .rx-done{margin:0}
+
+/* ---------- 第二批 C 组：U-54 模擬試験の作答画面 ---------- */
+.examstrip-w{display:flex;align-items:center;gap:4px}
+.examstrip-w .examstrip{flex:1 1 auto;min-width:0}
+.exam-ov-btn{flex:none;display:grid;place-items:center;width:44px;height:44px;margin:4px 14px 0 0;border:1.5px solid var(--line);border-radius:var(--r-2);background:var(--card);color:var(--soft);cursor:pointer}
+.exam-ov-btn svg{width:18px;height:18px}
+@media(hover:hover) and (pointer:fine){ .exam-ov-btn:hover{border-color:var(--accent);color:var(--accent-ink)} }
+/* 下の操作条：時計・前へ・次へ（主）・採点する。runner の操作条と同じ不透明の帯 */
+.exam-answer .examnav{position:sticky;bottom:0;z-index:4;align-items:center;flex-wrap:nowrap;padding:12px 0 calc(12px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid color-mix(in srgb,var(--sep) 55%,transparent);box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--card)}
+.exam-answer .examnav.flow{position:static} /* 一画面に収まらない題：吸底をやめて最後の肢を覆わない（V-11） */
+.exam-answer .qnum{position:sticky;top:var(--topbar-h,52px);z-index:3;background:var(--card);margin:0 -22px;padding:6px 22px 6px;flex-wrap:nowrap} /* 題頭行（Q.01・形式・しおり・進度・残り時間）は顶栏の下に貼り付く：操作条が流れに戻る長い題でも残り時間が見える（V-11 補） */
+.exam-answer .qnum .qtimer{position:static;transform:none;margin-left:0;flex:none} .exam-answer .qnum .prog{margin-left:auto}
+@media (max-width:599.98px){ .exam-answer .qnum{margin:0 -14px;padding:6px 14px} }
+@media (min-width:1100px){ .exam-answer .qnum{margin:0 -30px;padding:6px 30px} }
+.exam-answer .examnav .qtimer{position:static;transform:none;flex:none;margin:0}
+.exam-answer .examnav .btn{min-width:0;flex:1 1 auto;padding-left:10px;padding-right:10px;white-space:nowrap} /* ボタン名は折らない（「採点す/る」の孤立行） */
+@media (max-width:399.98px){ .exam-answer .examnav{gap:6px} .exam-answer .examnav .btn{padding-left:8px;padding-right:8px;font-size:13px} .exam-answer .examnav .qtimer{padding-left:7px;padding-right:7px} }
+/* 題号の一覧 */
+.exam-ov-lg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 14px;font-size:12.5px;color:var(--soft)}
+.exam-ov-lg span{display:inline-flex;align-items:center;gap:6px}
+.exam-ov-lg span::before{content:'';width:14px;height:14px;box-sizing:border-box;border-radius:4px;border:1.5px solid var(--line);background:var(--card2)}
+.exam-ov-lg .lg-done::before{border-color:var(--cta-bg,var(--accent-ink));background:var(--cta-bg,var(--accent-ink))}
+.exam-ov-lg .lg-unc::before{border:0;border-radius:50%;background:var(--no)}
+.exam-ov-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.exam-ov-q{position:relative;min-height:44px;border:1.5px solid var(--line);border-radius:var(--r-2);background:var(--card2);color:var(--soft);font-size:13px;font-weight:700;cursor:pointer}
+.exam-ov-q.done{border-color:var(--cta-bg,var(--accent-ink));background:var(--cta-bg,var(--accent-ink));color:#fff} /* 回答済み＝課の色の実地（淡い地だと未回答の描边と見分けられなかった：総指揮 2026-10-13） */
+.exam-ov-q.is-unc::after{content:'';position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--no);box-shadow:0 0 0 2px var(--card)}
+.exam-ov-q.cur{outline:3px solid var(--accent-ink);outline-offset:2px} /* いまの題＝太い環 */
+/* 提出前の確認：題号を押すとその題へ */
+.chkline:has(.sc-q){display:block} /* 題号ボタンは見出しの下に横いっぱいに並べる（右の細い列だと 3 個ずつで縦に長くなった） */
+.cl-n{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.sc-q{min-width:44px;min-height:44px;border:1.5px solid var(--line);border-radius:var(--r-2);background:var(--card);color:var(--accent-ink);font-size:13px;font-weight:700;cursor:pointer}
+@media(hover:hover) and (pointer:fine){ .sc-q:hover{border-color:var(--accent)} }
+/* U-53：中断した模擬試験があるときの主ボタン（位置つき） */
+.flag .fcta.has-prog{flex-direction:column;gap:2px;padding-top:9px;padding-bottom:9px}
+.flag .fcta-row{display:inline-flex;align-items:center;gap:8px}
+.flag .fcta .fprog{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.04em}
+/* U-48：採点ページの「結果を確定する」は下に貼り付く操作条に（記述の採点 x/y と一緒に。長いページの末尾まで降りなくてよい） */
+.grading .gradefoot{position:sticky;bottom:0;z-index:4;margin-top:6px;padding:12px 2px calc(12px + env(safe-area-inset-bottom,0px));background:var(--paper);border-top:1px solid color-mix(in srgb,var(--sep) 55%,transparent);box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--paper)}
+/* U-47：新課の練法の結果ページ：次の一歩 */
+.rx-res-acts{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 6px}
+@media (max-width:599.98px){ .rx-res-acts .btn{flex:1 1 100%} }
+/* U-60：訂正ドリル。自分の答え｜正しくは を並べて見比べる・自己採点は狭い画面で縦に（三つ横並びで語の途中から折れていた） */
+.rx-fix-cmp{display:grid;gap:8px;margin:10px 0 4px}
+@media (min-width:600px){ .rx-fix-cmp:has(.rx-mine){grid-template-columns:minmax(0,1fr) minmax(0,1fr)} }
+.rx-fix-cmp>div{margin:0;padding:8px 12px;border-radius:var(--r-2);font-size:15px;line-height:1.7;color:var(--ink)}
+.rx-fix-cmp .rx-mine{background:var(--card2);border-left:3px solid var(--line)}
+.rx-fix-cmp .rx-var-c{background:var(--ok-wash);border-left:3px solid var(--ok-line)}
+.rx-fix-cmp .rx-var-lb{display:block;font-size:12px;color:var(--soft);margin:0 0 2px}
+@media (max-width:599.98px){ .rx-self{flex-direction:column} .rx-self .btn{width:100%} }
+@media (min-width:600px){ .rx-self .btn{flex:1 1 0} }
+/* U-51：単語帳の評価は裏返してから（場所は取っておき、出てきても下の行が動かない） */
+.fc-marks.pre{visibility:hidden}
+/* U-77：宽い画面の talk は脇の小窓。本体を暗くしない（外を押せば閉じるのは同じ）・出題が窮屈にならない幅 */
+@media (min-width:900px){ .buddyDim{background:transparent} .buddyChat{width:min(460px,calc(100vw - 32px));max-width:none} }
+/* 臨床「回ごとの進みぐあい」：見出しは折らない。説明は横に入らなければ丸ごと見出しの下の行へ（二つの欄がそれぞれ途中で折れて一字の孤立行が出ていた） */
+.rmaphd-t{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;row-gap:1px}
+.rmaphd-t b{white-space:nowrap}
+.rmaphd-t small{flex:1 1 auto;min-width:0}
+/* 首页の試験日の一行（examSubHtml）：折り目を整える */
+.greetsub .gs-t{display:inline;text-wrap:pretty} .greetsub .nw{white-space:nowrap} .greetsub .gs-t:lang(ja){word-break:auto-phrase} /* 日本語は文節で折る（対応ブラウザのみ） */
+
+/* ── 第二批 U-43 深色样张（ux/dark-proto）：色は引擎の darkPalette が各課の色相から作る。ここは浅色で直書きの白地と、図・写真の地だけ ── */
+html[data-theme="dark"]{color-scheme:dark}
+html[data-theme="dark"] .rmap .kt .kb.todo,html[data-theme="dark"] .rmap .kt .kb.mid,html[data-theme="dark"] .rtab .tr{background:var(--card)}
+html[data-theme="dark"] .rc-zoom{background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--ink)}
+html[data-theme="dark"] .modal-in,html[data-theme="dark"] .modal-hd{background:var(--card)}
+html[data-theme="dark"] .modal{background:rgba(0,0,0,.55)}
+/* 図（SVG）は明るい紙の上に置く（図の中の色は浅色前提で描かれている）：カードの中に一段明るい面 */
+html[data-theme="dark"] .rx-fig,html[data-theme="dark"] .rc-svg{background:#F4F1F3;border-radius:var(--r-2);color:#3B333A;
+  --fig-ink:#4A3B44;--fig-muted:#977E8D;--fig-grid:#F0E2EA;--ink:#3B333A;--soft:#76606D;--card:#FFFFFF;--line:#F3E7EF}
+html[data-theme="dark"] .a2hs-prev-ic,html[data-theme="dark"] .rc-imgwrap img{filter:none}
+html[data-theme="dark"] .rx-verdict.ok{background:var(--ok-wash)} html[data-theme="dark"] .rx-verdict.no{background:var(--no-wash)}
+html[data-theme="dark"] .rx-run-f .rx-verdict,html[data-theme="dark"] .qnav .rx-verdict{background:none}
+/* 深色の弹窗の縁：獲焦した容器の焦点環（浅色の強調色）が光る輪郭に見えた → 課の色相の低明度で境界だけ。白の内側ハイライトも外す（総指揮 2026-10-12） */
+html[data-theme="dark"] .modal-in{border-color:var(--modal-edge);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+html[data-theme="dark"] .modal-in:focus,html[data-theme="dark"] .modal-in:focus-visible{outline:1px solid var(--modal-edge);outline-offset:0;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+/* 深色の写真・讲义原図（位図）：白地が大きな光の塊になるので、明るさだけ少し落とす（配色・可読性は変えない）。SVG は明るい面のまま */
+html[data-theme="dark"] .rc-img,html[data-theme="dark"] .rx-photo,html[data-theme="dark"] .fz-img,html[data-theme="dark"] .vw-content img{filter:brightness(var(--img-dim,.9))}
+/* U-25：只読の間は作答区を一段淡く（押すと説明が出る） */
+body.writer-ro .rx-run .rx-run-b{opacity:.6}
+/* U-54 題号の条（総指挥定甲 2026-10-13）：回答済み＝課の色の実地・白字（一覧と同じ語汇）、いまの題＝太い環、自信がない＝？印に地の縁取り */
+.echip.done{background:var(--cta-bg,var(--accent-ink));border-color:var(--cta-bg,var(--accent-ink));color:#fff}
+.echip.cur{outline:3px solid var(--accent-ink);outline-offset:2px}
+.echip.is-unc::after{box-shadow:0 0 0 2px var(--card)}
+/* U-86：振り返りの図。回ごとの棒は一つの格子でそろえる・今週の柱に数と曜日、今日に印、0 の日は平らな線 */
+.chgrid{display:grid;grid-template-columns:minmax(64px,max-content) minmax(0,1fr) 36px;column-gap:9px;row-gap:12px;align-items:center;margin:9px 0}
+.chgrid .chrow2{display:contents}
+.chgrid .chrow2 .chn{max-width:10em}
+.weekrow{height:auto;align-items:stretch;gap:4px;margin-bottom:8px}
+.weekrow .wk-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.weekrow .wk-v{height:14px;font-size:10.5px;line-height:14px;color:var(--accent-ink);font-weight:700}
+.weekrow .wk-bw{display:flex;align-items:flex-end;justify-content:center;width:100%;height:46px}
+.weekrow .wk-b{display:block;width:100%;max-width:26px;min-height:2px;height:2px;background:var(--accent);border-radius:5px 5px 3px 3px}
+.weekrow .wk-col.zero .wk-b{background:var(--line);border-radius:1px}
+.weekrow .wk-d{font-size:10.5px;color:var(--soft);line-height:1.2}
+.weekrow .wk-col.today .wk-d{color:var(--accent-ink);font-weight:800}
+/* 離線図の占位（K2-13）：破れ画像と代替文字・放大键を出さず、同じ場所に静かな枠 */
+.rc-imgwrap.img-off img,.rx-photo-w.img-off img,.rc-imgwrap.img-off .rc-zoom{display:none}
+.fig-off{display:flex;align-items:center;justify-content:center;min-height:120px;aspect-ratio:5/3;max-height:320px;width:100%;box-sizing:border-box;padding:16px;border:1.5px dashed var(--line);border-radius:var(--r-2);background:var(--card2);color:var(--soft);font-size:13px;line-height:1.6;text-align:center}
+.rx-fig .fig-off{aspect-ratio:auto;min-height:96px}
+/* U-72：切課のヴェールの中身（課名つきの「読み込んでいます」と細い進み棒）。速い切替では出る前に終わるよう少し遅らせて現す */
+.course-veil .cv-in{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:12px;width:max-content;max-width:min(86vw,420px);text-wrap:balance;opacity:0;animation:cvTxt .3s ease .35s forwards}
+.course-veil .cv-t{font-size:14px;font-weight:600;color:var(--cv-ink);text-align:center;line-height:1.6}
+.course-veil .cv-bar{position:relative;width:132px;height:3px;border-radius:var(--r-pill);overflow:hidden;background:color-mix(in srgb,var(--cv-bar) 22%,transparent)}
+.course-veil .cv-bar i{position:absolute;top:0;left:-40%;width:40%;height:100%;border-radius:inherit;background:var(--cv-bar);animation:cvBar 1.1s ease-in-out infinite}
+@keyframes cvTxt{ to{ opacity:1; } }
+@keyframes cvBar{ to{ left:100%; } }
+@media (prefers-reduced-motion: reduce){ .course-veil .cv-in{animation:none;opacity:1} .course-veil .cv-bar i{animation:none;left:30%} }
+/* 起動の骨組み（index.html の #view に静的に置く：脚本が来るまで真っ白にしない）。最初の描画で置き換わる */
+.boot-skel{display:grid;gap:14px;max-width:560px;margin:28px auto 0;padding:0 2px}
+.boot-skel i{display:block;height:18px;border-radius:var(--r-2);background:var(--line2)}
+.boot-skel i:nth-child(1){width:58%;height:26px} .boot-skel i:nth-child(2){width:38%} .boot-skel i:nth-child(3){height:120px} .boot-skel i:nth-child(4){height:72px}
+@media (prefers-reduced-motion: no-preference){ .boot-skel i{animation:bootPulse 1.6s ease-in-out infinite alternate} }
+@keyframes bootPulse{ from{opacity:.55} to{opacity:1} }
+/* 深色：課の皮膚が当たる前（起動直後）も暗い地で（index.html が先に data-theme を立てる） */
+html[data-theme="dark"]:not([data-course]),html[data-theme="dark"]:not([data-course]) body{background:#1A1619;color:#E9E1E6}
+html[data-theme="dark"]:not([data-course]) .boot-skel i{background:#2A2328}
+html[data-theme="dark"]:not([data-course]) .topbar{background:#1A1619}
+/* U-43 深色の逐画面検査（D 組）：浅色前提で #fff を混ぜていた面・縁を深色の面に */
+html[data-theme="dark"] .toast{background:var(--line);color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.45)} /* 地が --ink（深色では明るい）で白字が読めなかった */
+html[data-theme="dark"] .flip-back{background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--accent-wash) 70%,var(--card)))}
+html[data-theme="dark"] .statcap{background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--accent-wash) 40%,var(--card)))}
+html[data-theme="dark"] .rbb .bead i{box-shadow:0 0 0 3px var(--card)} html[data-theme="dark"] .rbb .bn.end .bead i{box-shadow:0 0 0 3px var(--card),0 0 0 4px var(--hair)}
+html[data-theme="dark"] .qdots i.seen{background:color-mix(in srgb,var(--accent) 55%,var(--card))}
+html[data-theme="dark"] .wkchip,html[data-theme="dark"] .cdown,html[data-theme="dark"] .bmstar.on{border-color:color-mix(in srgb,var(--accent) 40%,var(--card))}
+@media(hover:hover) and (pointer:fine){ html[data-theme="dark"] .wkchip:hover{background:color-mix(in srgb,var(--accent) 22%,var(--card))} }
+/* 深色：「教材の字面と定説」の一族（読本の caveat 框・神経首页の考试要点卡・問題一覧の「誤っているもの」）は浅色の地と字を写し込んでいた（正文 1.13：S4 の 4.3.0 预跑）。
+ * 地は卡片色に --no を薄く混ぜ、字は深色用の値（--no-deep・--ok-deep・--soft）に。浅色は元のまま */
+html[data-theme="dark"] .nh-cv{background:color-mix(in srgb,var(--no) 9%,var(--card));border-color:color-mix(in srgb,var(--no) 28%,var(--card))}
+html[data-theme="dark"] .rc-cav,html[data-theme="dark"] .ql-neg{border-color:color-mix(in srgb,var(--no) 35%,var(--card))}
+html[data-theme="dark"] .cv-hd,html[data-theme="dark"] .ql-warn,html[data-theme="dark"] .ql-neg .ql-o.on{background:color-mix(in srgb,var(--no) 14%,var(--card))}
+html[data-theme="dark"] .cv-r{border-top-color:color-mix(in srgb,var(--no) 22%,var(--card))}
+html[data-theme="dark"] .nh-cv .cv-t,html[data-theme="dark"] .cv-hd b,html[data-theme="dark"] .nh-cav .sph b,html[data-theme="dark"] .ql-warn,html[data-theme="dark"] .cv-r.no .cv-l{color:var(--no-deep)}
+html[data-theme="dark"] .cv-r.ok .cv-l{color:var(--ok-deep)}
+html[data-theme="dark"] .nh-cv .cv-k,html[data-theme="dark"] .fc-hint,html[data-theme="dark"] .sr-k,html[data-theme="dark"] .rx-lec-go{color:var(--soft)} /* 次要文字：--faint は深色で 3.2 前後 */
+html[data-theme="dark"] .opt.ok .mk,html[data-theme="dark"] .opt.no .mk,html[data-theme="dark"] .unc.on .mk{color:var(--paper)} /* 作答後の記号：明るい --ok・--no の地に白字（2.36）→ 暗い字 */
+.course-veil.out .cv-in{animation:none;opacity:0;transition:opacity .12s} /* 引き始めたら中身はすぐ消す（速い切替で新しいホームに文字が重なって残らない） */
+/* U-25：只読の説明が開いている間、書き手の帯は対話框の上に出て押せる（帯の「こちらで続ける」からも続けられる） */
+body.ro-notice-open .writerbar{z-index:51}
+/* N5-05：恢復框が開いている間に失権したとき、帯は遮罩の上に出て押せる。框の見出しと閉じるボタンが帯に隠れないよう、框は帯の下の空きに置く */
+
+/* 新課の検索（S1・Q-026）：ホームの入口は問候・試験日の下。宽屏の二栏では主栏の幅に揃える */
+.rx-hd .rx-srchbar{margin:14px 0 4px}
+@media (min-width:1200px){ .rx-home-grid>.rx-hd .rx-srchbar{max-width:calc(100% - 356px)} }
+/* ===== ux/render 第一步：回のページの「読む」「覚える」（S6 方案）。三栏まわりは軽く（内容形式の見直しで形が変わりうる：総指揮 2026-10-14） ===== */
+.rx-viewseg{margin:0 0 12px}
+.rx-viewseg .segbtn{min-width:6.5em}
+/* 覚える：本拠でない所の短い参照（★・冒頭・↗）。押すと本拠の行へ */
+.rx-pref{display:flex;align-items:center;gap:6px;width:100%;min-height:44px;margin:0;padding:2px 0;background:none;border:0;color:var(--soft);font-size:13.5px;text-align:left;cursor:pointer}
+.rx-pref-t{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px dotted var(--line)}
+.rx-pref-a{flex:none;color:var(--accent-ink);font-size:12px}
+@media (hover:hover) and (pointer:fine){ .rx-pref:hover .rx-pref-t{color:var(--ink);border-bottom-color:var(--accent)} }
+/* 「試験では」：二行まで（全文は DOM に残る）。比較はその場で開く */
+.rx-tri1{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;font-size:13px;line-height:1.6;color:var(--soft);margin:2px 0 0 2.6em}
+.rx-tri1-h{font-weight:700;color:var(--accent-ink)}
+.rx-tri-tog{min-height:44px;background:none;border:0;padding:0 2px;margin-left:2.6em;color:var(--accent-ink);font-size:12.5px;text-decoration:underline;cursor:pointer;-webkit-user-select:none;user-select:none}
+.rx-xtri .rx-tri1{margin-left:0}
+@media (hover:hover) and (pointer:fine){ .rx-tri-tog:hover{color:var(--accent-deeper)} }
+/* 練習の逐肢反馈：正肢の理由（首行の下） */
+.rx-why{font-size:13.5px;line-height:1.7;margin:2px 0 6px 1.4em} /* 誤肢の「正しくは」（.rx-var-c）と同じ字下げ */
+/* 元の位置に戻る：画面の下に 6 秒 */
+.rx-backspot{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:35;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+@starting-style{ .rx-backspot{opacity:0} }
+.rx-backspot{transition:transform .12s var(--curve),background .15s,opacity var(--t-1) var(--ease)} /* 出るときは淡入（.btn の過渡はそのまま）。reduce は 346 行の全停止で過渡なし（前端計画 003） */
+.rx-backspot.out{opacity:0;transition:opacity 120ms var(--ease-out);pointer-events:none} /* 退場は入場より速く・単純に（美学手册 §2） */
+/* 読む：讲解块を前に、命題は「根拠を見る（n）」に畳む */
+.rx-explain{font-size:15px;line-height:1.85;margin:4px 0 6px}
+.rx-xtri{margin:0 0 12px}
+.rx-top3{margin:8px 0 4px}
+.rx-basis{margin-top:8px;border-top:1px solid var(--line2)}
+.rx-basis>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--accent-ink)}
+/* 答法规则：課ページ（一度だけ全文）・首页の入口行・回の先頭の短链 */
+.rx-rules-row{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;margin-top:14px;padding:11px 14px;border:1px solid var(--line);border-radius:var(--r-2);background:transparent;color:var(--ink);font-size:14px;text-align:left;cursor:pointer}
+.rx-rules-row .rx-rules-a{margin-left:auto;color:var(--faint);font-size:20px;line-height:1}
+html[data-theme="dark"] .rx-rules-row .rx-rules-a{color:var(--soft)} /* --faint は深色で 3.2 前後 */
+@media(hover:hover){.rx-rules-row:hover{border-color:var(--accent)}}
+.rx-rules-go{display:inline-flex;align-items:center;gap:4px;min-height:44px;margin:-8px 0 4px;padding:0 2px;background:none;border:0;color:var(--accent-ink);font-size:13px;cursor:pointer} /* 文字链，命中区高 44px */
+.rx-rules-go .rx-rules-l{text-decoration:underline;text-underline-offset:2px}
+.rx-home.rx-rules,.rx-lecture.rx-rules{max-width:40em} /* 読む幅（一行 40 字前後）：宽屏でも中央の一列 */
+.rx-rule-order{margin:6px 0 10px;padding-left:1.6em;font-size:15px;line-height:1.7}
+.rx-rule-order>li{margin:4px 0;padding-left:2px}
+.rx-rule-notes{margin:8px 0 10px;padding-left:1.2em;font-size:14px;line-height:1.75;color:var(--ink)}
+.rx-rule-notes>li{margin:4px 0}
+.rx-rule-notes ul{margin:4px 0 2px;padding-left:1.2em;list-style:circle}
+.rx-rule-std{margin:10px 0 0;font-size:14px;line-height:1.75}
+.rx-rule{padding:12px 0;border-top:1px solid var(--line2)}
+.rx-rule-h{margin:0 0 6px;font-size:15px;font-weight:700;color:var(--ink)}
+.rx-rule-t{margin:0;font-size:14.5px;line-height:1.85}
+.rx-rule,.rx-rule-pre{scroll-margin-top:calc(var(--topbar-h,52px) + 16px)}

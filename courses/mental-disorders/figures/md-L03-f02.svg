@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 510" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">うつ病の診断に使う9つの症状と必要な条件</title>
+  <desc id="d">うつ病の診断に使う9つの症状を、核となる2つの症状（抑うつ気分、興味・喜びの喪失）と、そのほかの7つに分けて並べた図。診断には、9つのうち5つ以上が同じ2週間の間にみられることが必要である。その中に、核となる症状が少なくとも1つ含まれる。多くの症状は、ほとんど毎日みられることが条件である。このほか、苦痛や機能の障害があることも必要である。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:1.4}
+    .key{fill:none;stroke:currentColor;stroke-width:3}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:13.5px;opacity:.9}
+  </style>
+  <rect class="key" x="16" y="16" width="368" height="92" rx="8"/>
+  <text class="lab" x="30" y="42">核となる症状（少なくとも1つ必要）</text>
+  <text class="it" x="30" y="70">□ 気分の落ち込み（抑うつ気分）</text>
+  <text class="it" x="30" y="94">□ 興味・喜びの喪失</text>
+  <rect class="box" x="16" y="122" width="368" height="208" rx="8"/>
+  <text class="lab" x="30" y="148">そのほかの症状</text>
+  <text class="it" x="30" y="174">□ 食欲・体重の変化</text>
+  <text class="it" x="30" y="198">□ 不眠または過眠</text>
+  <text class="it" x="30" y="222">□ 焦り（精神運動焦燥）または</text>
+  <text class="it" x="50" y="244">動きや考えの遅さ（精神運動制止）</text>
+  <text class="it" x="30" y="268">□ 疲れやすさ　　□ 自責感</text>
+  <text class="it" x="30" y="292">□ 集中力の低下</text>
+  <text class="it" x="30" y="316">□ 死にたい気持ち（希死念慮）</text>
+  <rect class="box" x="16" y="344" width="368" height="152" rx="8"/>
+  <text class="lab" x="30" y="368">診断に必要な条件（3つとも満たす）</text>
+  <text class="it" x="30" y="392">① 9つのうち5つ以上</text>
+  <text class="it" x="30" y="414">② その中に核となる症状が少なくとも1つ</text>
+  <text class="it" x="30" y="436">③ 同じ2週間の間にみられる</text>
+  <text class="it" x="52" y="458">（症状の多くはほとんど毎日）</text>
+  <text class="sm" x="30" y="484">※このほか、苦痛や機能の障害があることも必要</text>
+</svg>

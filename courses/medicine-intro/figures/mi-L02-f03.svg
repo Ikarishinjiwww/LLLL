@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 322" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">甲状腺の位置</title>
+  <desc id="d">首を前から見た模式図。喉ぼとけ（甲状軟骨）の下に、気管の前を包むように、蝶のような形の甲状腺がある。甲状腺が腫れると、首の前側が膨らんで見えることがある。</desc>
+  <style>
+    .ln{fill:none;stroke:currentColor;stroke-width:1.6}
+    .thin{fill:none;stroke:currentColor;stroke-width:1;opacity:.6}
+    .thy{fill:currentColor;opacity:.22;stroke:currentColor;stroke-width:2}
+    .lab{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:13.5px;opacity:.9}
+  </style>
+  <text class="sm" x="16" y="20">首を前から見た図（模式）</text>
+  <path class="ln" d="M90 34 Q100 150 70 286 M230 34 Q220 150 250 286"/>
+  <path class="ln" d="M132 74 L188 74 L182 104 L160 122 L138 104 Z"/>
+  <path class="thin" d="M144 124 V286 M176 124 V286"/>
+  <path class="thin" d="M144 142 H176 M144 158 H176 M144 236 H176 M144 252 H176 M144 268 H176"/>
+  <path class="thy" d="M160 186 C150 186 146 170 140 156 C132 140 112 146 110 176 C108 208 122 228 140 222 C150 218 154 200 160 198 C166 200 170 218 180 222 C198 228 212 208 210 176 C208 146 188 140 180 156 C174 170 170 186 160 186 Z"/>
+  <path class="thin" d="M188 92 H262 M206 170 H262 M176 252 H262"/>
+  <text class="lab" x="268" y="88">喉ぼとけ</text>
+  <text class="sm" x="268" y="106">（甲状軟骨）</text>
+  <text class="lab" x="268" y="166">甲状腺</text>
+  <text class="sm" x="268" y="184">（蝶のような形）</text>
+  <text class="lab" x="268" y="257">気管</text>
+  <text class="sm" x="16" y="310">腫れると、首の前側が膨らんで見えることがある</text>
+</svg>
