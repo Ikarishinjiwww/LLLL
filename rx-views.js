@@ -162,6 +162,7 @@ function renderRxLecture(lecId,focusCard,opts){ // opts.fast：利用者が回�
   RXR={view:rxViewOf(Lc), home:rxHomeMap(Lc), done:{}}; App.rxHome={lec:Lc.id, map:RXR.home, view:RXR.view};
   kids.push(rxViewSeg(Lc));
   const prac=rxPracticeBar(Lc); if(prac){ prac.id='rx-prac'; kids.push(prac); } // 演習の入口は要点より前（要点 10 件で首屏の外へ押し出されていた：U-56）
+  const gl=(RXR.view==='read')?rxGlossBlock(Lc):null; if(gl) kids.push(gl); // 用語ミニ表：「読む」だけ、要点の前（方案 4-3）
   const sum=rxSummaryBlock(Lc); if(sum){ sum.id='rx-sum'; kids.push(sum); }
   const order=RX.orderOf(Lc).map(function(id){ return ix.cards[id]&&ix.cards[id].card; }).filter(Boolean);
   const main=order.filter(function(c){ return c.kind!=='deep'; }), deep=order.filter(function(c){ return c.kind==='deep'; });
@@ -184,6 +185,28 @@ function renderRxLecture(lecId,focusCard,opts){ // opts.fast：利用者が回�
   if(fast) requestAnimationFrame(function(){ requestAnimationFrame(function(){ page.classList.remove('rx-cv'); }); }); // 一度画いてから残りを布局（INP は最初の画までで決まる）
   rxMarkLanding(); rxSpy();
   if(focusCard){ const n=document.getElementById('rxc-'+focusCard); if(n){ const dt=n.closest('details'); if(dt) dt.open=true; n.scrollIntoView({block:'start'}); } }
+}
+
+/* ===== 用語ミニ表（方案 4-3・Q-027：日本語で）。回級 glossary:[{term,yomi,gloss,note}] を「読む」の回首・要点の前に、畳んだ details で出す。
+ * 4.3.0.2（S4-037）：データは 4.3.0 で配布済みなのに app が一度も読んでいなかった。表示だけ。検索（ix.glossary・落点）は 4.3.2 で。
+ * 開關 RX_FLAGS.glossary（既定 true）：false なら表を出さない（検索側も同じ開關を見る約束）。 */
+var RX_FLAGS=Object.assign({glossary:true},(typeof window!=='undefined'&&window.RX_FLAGS)||{});
+function rxGlossRows(Lc){ // term と gloss の両方がある条だけ（N6：gloss 欠は飛ばす）。各欄は文字列として純テキストで扱う（標記は解釈しない）
+  const str=function(x){ return typeof x==='string'?x.trim():''; };
+  return (Array.isArray(Lc&&Lc.glossary)?Lc.glossary:[]).map(function(g){ return (g&&typeof g==='object')?{term:str(g.term),yomi:str(g.yomi),gloss:str(g.gloss),note:str(g.note)}:null; })
+    .filter(function(g){ return g && g.term && g.gloss; });
+}
+function rxGlossBlock(Lc){
+  if(RX_FLAGS.glossary===false) return null; // 既定 true（オブジェクトごと差し替えられても出す）
+  const rows=rxGlossRows(Lc); if(!rows.length) return null;
+  const cols=String(t('rxGlossCols')).split('／'); // 用語／読み／意味／注意（宽屏の表頭；窄屏は CSS で各行を縦に積む）
+  // 窄屏は CSS で table・tr・td を block にする：表の意味が消えないよう role を明示し、thead は視覚だけ隠す（VoiceOver は列名を読む）。各 td の data-label＝列名（窄屏の「注意：」はここから）
+  const cell=function(k,cls,text){ return el('td',{class:cls+' jp',role:'cell','data-label':cols[k]||'',text:text}); };
+  const table=el('table',{class:'rx-gloss-t',role:'table'},[
+    el('thead',{class:'rx-gloss-th',role:'rowgroup'},[ el('tr',{role:'row'},cols.map(function(c){ return el('th',{scope:'col',role:'columnheader',text:c}); })) ]),
+    el('tbody',{role:'rowgroup'},rows.map(function(g){ return el('tr',{role:'row','data-gloss-term':g.term},[ // data-gloss-term＝検索の落点用（回内で一意）
+      cell(0,'rx-gl-term',g.term), cell(1,'rx-gl-yomi',g.yomi), cell(2,'rx-gl-gloss',g.gloss), cell(3,'rx-gl-note',g.note) ]); })) ]);
+  return el('details',{class:'rx-gloss',id:'rx-gloss'},[ el('summary',{class:'jp',text:tf('rxGlossTitle',{n:rows.length})}), el('div',{class:'rx-tbl-w'},[table]) ]); // 内容は日本語：lang は付けずページに従う（Q-027）
 }
 
 /* 一枚要点：问句在前，点开才显示命题（先答后看）。没有 recall 的项不进（降级）。 */

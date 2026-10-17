@@ -2258,3 +2258,25 @@ html[data-theme="dark"] .rx-rules-row .rx-rules-a{color:var(--soft)} /* --faint 
 .rx-rule-h{margin:0 0 6px;font-size:15px;font-weight:700;color:var(--ink)}
 .rx-rule-t{margin:0;font-size:14.5px;line-height:1.85}
 .rx-rule,.rx-rule-pre{scroll-margin-top:calc(var(--topbar-h,52px) + 16px)}
+/* ===== 用語ミニ表（方案 4-3；4.3.0.2）：畳んだ details。≥1200 は四列の表、窄屏は一条ずつ縦に積む（用語・読みを一行、意味、注意の小字） ===== */
+.rx-gloss{margin:0 0 14px;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}
+.rx-gloss>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--accent-ink);list-style:none}
+.rx-gloss>summary::-webkit-details-marker{display:none}
+.rx-gloss>summary::before{content:'›';display:inline-block;width:1.1em;transition:transform .15s var(--curve,ease)} .rx-gloss[open]>summary::before{transform:rotate(90deg)}
+.rx-gloss .rx-tbl-w{margin:0 0 10px}
+.rx-gloss-t{width:100%;border-collapse:collapse;font-size:13.5px;line-height:1.6}
+.rx-gloss-t th{text-align:left;font-size:12px;font-weight:700;color:var(--soft);padding:6px 8px;border-bottom:1px solid var(--line)}
+.rx-gloss-t td{padding:7px 8px;vertical-align:top;border-bottom:1px solid var(--line2)}
+.rx-gloss-t .rx-gl-term{font-weight:700;white-space:nowrap} .rx-gloss-t .rx-gl-yomi{color:var(--soft);white-space:nowrap} .rx-gloss-t .rx-gl-note{font-size:12.5px;color:var(--soft)}
+@media (max-width:1199.98px){
+  .rx-gloss-t,.rx-gloss-t tbody,.rx-gloss-t tr{display:block;width:100%}
+  .rx-gloss-t thead{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap} /* 視覚だけ隠す：列名は読み上げに残す */
+  .rx-gloss-t tr{padding:8px 0;border-bottom:1px solid var(--line2)}
+  .rx-gloss-t td{display:block;padding:0;border:0}
+  .rx-gloss-t .rx-gl-term,.rx-gloss-t .rx-gl-yomi{display:inline;white-space:normal} .rx-gloss-t .rx-gl-yomi{margin-left:.5em;font-size:12.5px}
+  .rx-gloss-t .rx-gl-yomi:empty,.rx-gloss-t .rx-gl-note:empty{display:none}
+  .rx-gloss-t .rx-gl-gloss{margin-top:2px}
+  .rx-gloss-t .rx-gl-note{margin-top:2px}
+  .rx-gloss-t .rx-gl-note[data-label]:not(:empty)::before{content:attr(data-label) '：'} /* 列名は rxGlossCols の第四語（data-label）から：CSS に文言を書かない */
+}
+

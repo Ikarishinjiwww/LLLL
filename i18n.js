@@ -54,6 +54,7 @@ const T = {
     updTitle:'更新内容',
     rxKaiN:'第{n}回',
     rxSummary:'この回の要点',
+    rxGlossTitle:'この回の用語（{n}）', rxGlossCols:'用語／読み／意味／注意', // 用語ミニ表（快審第二十七批 簽発・方案 4-3；4.3.0.2）
     rxCards:'カード',
     rxDeep:'発展',
     rxGaps:'講義と標準のずれ',
@@ -451,6 +452,7 @@ const T = {
     updTitle:'更新内容',
     rxKaiN:'第{n}课',
     rxSummary:'本课要点',
+    rxGlossTitle:'本课术语（{n}）', rxGlossCols:'术语／读音／释义／注意',
     rxCards:'卡片',
     rxDeep:'拓展',
     rxGaps:'讲义与标准的出入',
