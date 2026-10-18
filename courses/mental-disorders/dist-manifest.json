@@ -2,9 +2,9 @@
  "schema": "rx-dist-manifest/1",
  "built": "2026-10-18",
  "files": {
-  "content.json": "3d6e914e395bba9e6d4a6ff69b4dabbd38843c75fa273ecf7c1cb05b4b8f78d6",
+  "content.json": "163a61e09c062148cbb711cc14067508e4c777ba5944540943143d47a630105a",
   "course.json": "8670d026f3b135ec16840651b3eb5590679062583284271d5bf134ba8d402f5d",
-  "quiz.enc.json": "f577195a856b82544455d36d42850c5187ae0694698d7e875b1d890e83bf4e39",
+  "quiz.enc.json": "9210ccc65550f0b80b759e97277b0c4fb3aaad916f96eebe7793679a691d0e19",
   "images/md-L01-i01.jpg": "ecb3f3536ada090a1f6d7f3892dd52a3d7443bcf2e8efc0bada41b2d0e2a3c8c",
   "images/md-L01-i02.jpg": "6e86be2fbfeb43429b65f5fb7c43dafeb8ab8536fecfffbf4c1f2e857bf7b944",
   "images/md-L01-i03.jpg": "42ccc257900909d7d3ee577103a159da962535c2376a04fe2ff29516ce55122e",

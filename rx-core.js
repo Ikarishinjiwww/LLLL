@@ -44,9 +44,10 @@ var RX = (function () {
         ix.props[p.id] = { prop: p, lec: L.id };
         arr(p.variants).forEach(function (v) { if (v && v.id) ix.variants[v.id] = { variant: v, prop: p.id }; });
       });
-      arr(L.cards).forEach(function (c) { if (c && c.id) { ix.cards[c.id] = { card: c, lec: L.id }; indexExplain(ix, c); } });
+      arr(L.cards).forEach(function (c) { if (c && c.id) ix.cards[c.id] = { card: c, lec: L.id }; });
       arr(L.questions).forEach(function (q) { if (q && q.id) ix.questions[q.id] = { q: q, lec: L.id }; });
     });
+    Object.keys(ix.cards).forEach(function (cid) { indexExplain(ix, ix.cards[cid].card); }); // 讲解块は全部の回を建てた後に：命題の存否を、配列で後ろの回が定義する命題まで含めて判じる（HF1-07；逐回の中では後ろの回の命題が「ない」に見えた）
     ix.lectures.sort(function (a, b) { return (a.kai || 0) - (b.kai || 0); });
     ix.lectures.forEach(function (L) {
       orderOf(L).forEach(function (cid) {

@@ -46,35 +46,111 @@ async function loadRxCourse(meta){
 }
 
 /* ---------- ホーム（回の一覧） ---------- */
-function renderRxHome(){
+function renderRxHome(){ // 新課ホーム＝臨床ホームと同じ骨格・同じ部品（検索条→問候・試験日・演習｜復習の切替・進捗卡→両側の中身→一言）。中身だけ新課の機能に差し替える（総指揮 10-18：既存の設計を搬す、新しい視覚言語を作らない）
   registerFrame(renderHome,'home');
   clearCareTimer(); clearRunnerTimer();
-  const ix=App.rx.ix;
-  const left=daysUntilExam(); // 章程第 24 条：臨床の homeHeroNode と同じく、問候が主見出し・その下に試験日の一行（課名は topbar の chip にある）。新課には問題数がないので「1日 N 問」の目安は出さない
+  const pad=el('div',{class:'h2pad'});
+  var a2i=a2hsImportCardNode();
+  if(a2i){ pad.appendChild(a2i); }
+  else { var later=false; try{ later=sessionStorage.getItem('quiz:a2hs-later')==='1'; }catch(e){} if(!later){ var a2=a2hsBannerNode(); if(a2) pad.appendChild(a2); } }
+  pad.appendChild(rxSearchBarNode());
+  pad.appendChild(rxHomeHeroNode());
+  const tc=el('div',{class:'hometab',id:'homeTabContent'});
+  tc.appendChild(App.homeTab==='review' ? rxReviewTabNode() : rxExamTabNode());
+  pad.appendChild(tc);
+  pad.appendChild(el('p',{class:'careline1b jp'},[ kaoWrap(pick(t('carePool'))) ]));
+  setView(el('div',{class:'home2 rx-home'},[ pad ]),true); // rx-home＝新課ホームの印（回帰契約・smoke が見る）
+}
+function rxMasteryAll(){ const ix=App.rx.ix, sched=lsGet(nk('rx:sched'),null); let a=0,b=0,c=0; ix.lectures.forEach(function(L){ const m=RX.mastery(L,sched); a+=m.mastered; b+=m.learning; c+=m.new; }); return {mastered:a,learning:b,new:c,total:a+b+c}; }
+function rxHomeHeroNode(){ // 臨床 homeHeroNode と同じ：問候 → 試験日の一行 → 演習／復習の切替；右列は進捗卡（新課＝命題の覚えた数）
+  const left=daysUntilExam();
   const sub=(left!=null&&left>0)?t('examIn').replace('{n}','<b>'+left+'</b>'):(left!=null&&left<=0)?t('examDay'):t('setExam')+' ›';
-  const kids=[ el('div',{class:'rx-hd'},[ el('div',{class:'greet1b jp'},kaoWrap(greetMsg())), el('button',{class:'greetsub jp',html:sub,onclick:openExamDate}) ]) ];
-  kids[0].appendChild(rxSearchBarNode()); // 検索の入口：問候・試験日の下（Q-026）
+  return el('div',{class:'hero1b'},[
+    el('div',{class:'h1l'},[ el('div',{class:'greet1b jp'},kaoWrap(greetMsg())), el('button',{class:'greetsub jp',html:sub,onclick:openExamDate}) ]),
+    homeSwitchNode(),
+    el('div',{class:'h1r'},[ rxStatCapNode() ])
+  ]);
+}
+function rxStatCapNode(){ // 臨床 statCapNode と同じ作り：題数の代わりに命題の覚えた数
+  const m=rxMasteryAll(), pct=m.total?Math.round(m.mastered/m.total*100):0;
+  return el('div',{class:'stc'},[ el('div',{class:'stc-pr'},[
+    el('div',{class:'prh'},[ el('span',{class:'prl',text:t('rxProgTitle')}), el('span',{class:'prn',text:m.mastered+' / '+m.total}) ]),
+    el('div',{class:'prbar'},[ el('i',{style:'width:'+pct+'%'+(pct>0?';min-width:10px':'')}) ]),
+    el('div',{class:'prf'},[ el('span',{class:'prp',text:pct+'% '+t('progDone')}), el('span',{class:'prr',text:tf('rxProgLeft',{n:m.total-m.mastered})}) ])
+  ]) ]);
+}
+function rxSubcard(icon,title,desc,onclick){ return el('button',{class:'subcard',onclick:onclick},[ el('span',{class:'scic',html:NEW_ICONS[icon]}), el('span',{class:'sctx'},[ el('b',{class:'jp',text:title}), el('small',{class:'jp',text:desc}) ]) ]); }
+function rxFirstLec(){ const ix=App.rx.ix, rd=lsGet(nk('rx:read'),null); return (rd&&ix.lecById[rd.lec])||ix.lectures[0]; } // 続きの回、無ければ第1回
+function rxExamTabNode(){ // 演習側：今日の復習（旗卡）→ 期末の模擬試験・過去問（小卡）→ 回をえらぶ（回格）
+  const q=rxQueue(), n=q.list.length;
+  const flag=flagNode({icon:'refresh',pill:t('rxFlagReviewPill'),title:t('rxReviewToday'),desc:n?(tf('rxReviewN',{n:n})+(n>RX_REVIEW_BATCH?'　'+tf('rxReviewBatch',{k:RX_REVIEW_BATCH}):'')):t('rxReviewNone'),cta:t('rxFlagReviewCta'),onCta:rxReviewRun});
+  if(!n){ const b=flag.querySelector('.fcta'); if(b) b.remove(); } // 無いときは押せないボタンを出さない（U-52 と同じ）
+  const vs=rxVaultState();
+  const mock=rxSubcard('exam',t('rxModeMock'),vs==='unlocked'?t('rxSubMockD'):t('rxLocked'),vs==='unlocked'?rxMockRun:rxUnlockDialog);
+  const past=rxSubcard('lock',t('rxModePast'),vs==='unlocked'?t('rxSubPastD'):t('rxUnlockBtn'),vs==='unlocked'?function(){ const L=rxFirstLec(); renderRxLecture(L.id,null,{fast:true}); }:rxUnlockDialog);
+  mock.classList.add(vs==='unlocked'?'is-mock':'is-locked'); past.classList.add(vs==='unlocked'?'is-past':'is-locked'); // 状態の印（様式なし）：契約・検索の目印
+  return homeTabWrap([ flag, el('div',{class:'subrow'},[ mock, past ]) ],[ rxRangePanelNode() ]);
+}
+function rxRangePanelNode(){ // 臨床 rangePanelNode の回格だけ（随机・苦手は新課に無い）：回ごとの覚えた割合、押すと回ページの演習の入口へ
+  const ix=App.rx.ix, sched=lsGet(nk('rx:sched'),null), sub=el('div',{class:'rmap'});
+  ix.lectures.forEach(function(L){ const m=RX.mastery(L,sched), tot=m.mastered+m.learning+m.new, has=(m.mastered+m.learning)>0, p=tot?Math.round(m.mastered/tot*100):0;
+    sub.appendChild(el('button',{class:'kt',onclick:function(){ renderRxLecture(L.id,null,{fast:true,page:0}); const pr=document.getElementById('rx-prac'); if(pr) pr.scrollIntoView({block:'start'}); }},[ // 窄幅は演習の入口のある 1 頁目へ（前に止めた頁には戻らない：快審第三十七批 第 10 条）
+      el('div',{class:'kh'},[ el('span',{class:'kn',text:tf('kaiN',{n:L.kai})}), el('span',{class:'kb '+(has?(p>=80?'hi':p>=50?'mid':'lo'):'todo'),text:has?tf('rxKaiDone',{p:p}):t('untouched')}) ]),
+      el('div',{class:'ktt jp',text:L.title||'',title:L.title||''}),
+      rxMasteryBar(L), // 覚えた・学習中・未着手の三色（回一覧と同じ棒：新課の良い所を回格にも）
+      el('div',{class:'ksv mono',text:tf('rxKaiSolved',{a:m.mastered,b:tot})})
+    ])); });
+  return el('div',{class:'spanel',id:'reviewHub'},[
+    el('div',{class:'sph'},[ el('b',{text:t('rxRangeTitle')}), el('small',{class:'jp',text:t('rxRangeSub')}) ]),
+    el('div',{class:'rmaphd'},[ el('span',{class:'mhic',html:NEW_ICONS.grid}), el('div',{class:'rmaphd-t'},[ el('b',{class:'jp',text:t('kaiReachLabel')}), el('small',{class:'jp',text:t('rxKaiReachSub')}) ]) ]),
+    el('div',{class:'rmapgroups'},[ el('div',{class:'rchap'},[ sub ]) ])
+  ]);
+}
+function rxReviewTabNode(){ // 復習側：読む（旗卡＋続きから）→ 覚える・答え方の原則（小卡）→ 回一覧 → 学習の振り返り
+  const ix=App.rx.ix, rd=lsGet(nk('rx:read'),null), rl=rd&&ix.lecById[rd.lec], rc=rl&&rd.card&&ix.cards[rd.card]&&ix.cards[rd.card].card;
+  const chip=rl?(t('flagManualCont')+'　'+t('rxKaiN').replace('{n}',rl.kai)+'　'+(rc?(rc.title||''):(rl.title||''))):null;
+  const flag=flagNode({icon:'book',pill:t('flagManualPill'),title:t('rxFlagReadTitle'),desc:t('rxFlagReadD'),cta:t('flagManualCta'),onCta:function(){ const L=ix.lectures[0]; App.rxViewTmp={lec:L.id,view:'read'}; renderRxLecture(L.id,null,{fast:true}); },chip:chip,onChip:rl?function(){ rxResume(rd); }:null});
+  const subs=el('div',{class:'subrow'},[
+    rxSubcard('cards',t('rxViewMem'),t('rxSubMemD'),function(){ const L=rxFirstLec(); App.rxViewTmp={lec:L.id,view:'mem'}; renderRxLecture(L.id,null,{fast:true}); }),
+    rxSubcard('list',t('rxRulesH'),t('rxSubRulesD'),function(){ renderRxRules(); })
+  ]);
   const list=el('div',{class:'rx-lecs'});
   ix.lectures.forEach(function(Lc){
     list.appendChild(el('button',{class:'rx-lec jp','data-lec':Lc.id,onclick:function(){ renderRxLecture(Lc.id,null,{fast:true}); }},[
-      el('span',{class:'rx-lec-n',text:t('rxKaiN').replace('{n}',Lc.kai)}),
-      el('span',{class:'rx-lec-t',text:Lc.title||''}),
-      el('span',{class:'rx-lec-go','aria-hidden':'true',text:'›'}), // 押せる行だと分かるように（U-52）
-      el('span',{class:'rx-lec-m jp',text:rxMasteryLine(Lc)}),
-      rxMasteryBar(Lc) // 覚えた・学習中・未着手の割合の細い棒（U-41 样张では宽屏だけ → U-52 で全宽度に）
-    ]));
+      el('span',{class:'rx-lec-n',text:t('rxKaiN').replace('{n}',Lc.kai)}), el('span',{class:'rx-lec-t',text:Lc.title||''}), el('span',{class:'rx-lec-go','aria-hidden':'true',text:'›'}),
+      el('span',{class:'rx-lec-m jp',text:rxMasteryLine(Lc)}), rxMasteryBar(Lc) ]));
   });
-  const rd=lsGet(nk('rx:read'),null), rl=rd&&ix.lecById[rd.lec];
-  if(rl){ const rc=rd.card&&ix.cards[rd.card]&&ix.cards[rd.card].card;
-    kids.push(el('button',{class:'nh-cont rx-cont',onclick:function(){ rxResume(rd); }},[ el('span',{class:'nc-l jp',text:t('flagManualCont')}),
-      el('span',{class:'nc-t jp',text:t('rxKaiN').replace('{n}',rl.kai)+'　'+(rc?(rc.title||''):(rl.title||''))}), el('span',{class:'nc-a',text:'›'}) ])); }
-  kids.push(list);
-  const rr=rxRulesLink('rx-rules-row'); if(rr) kids.push(rr); // 答法规则（課ページに一度）：回一覧の下
-  // 宽屏（≥1200）は二栏：左＝続きから・回一覧、右＝今日の復習などの付加部（U-41 样张）。窄屏は従来の順（問候→付加部→続きから→回一覧）
-  const hd=kids.shift(), side=el('div',{class:'rx-home-side'},rxHomeExtras()), mainCol=el('div',{class:'rx-home-main'},kids);
-  const all=[ hd, side, mainCol ];
-  const a2i=a2hsImportCardNode(); if(a2i) all.unshift(a2i); // U-03: ホーム画面アプリの初回は、取り込みの案内を一番上に
-  setView(el('div',{class:'rx-home rx-home-grid'},all)); document.body.classList.add('rx-wide');
+  subs.lastChild.classList.add('rx-rules-row'); // 課ページに一度の入口（従来の印）
+  if(!rxRules().length) subs.lastChild.remove(); // 答え方の原則の無い課では小卡を出さない
+  return homeTabWrap([ flag, subs ],[ list, rxLookbackNode() ]);
+}
+function rxWeekActivity(){ // 新課の今週：rx:log の事件を日ごとに数える（時刻の無い旧い記録は数えない）
+  const days=[], now=new Date(); now.setHours(0,0,0,0);
+  for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push({start:d.getTime(),n:0}); }
+  const log=lsGet(nk('rx:log'),null); let any=false;
+  (Array.isArray(log)?log:[]).forEach(function(e){ const tt=(e&&(e.t||e.at))||0; if(!tt) return; any=true; for(let i=0;i<7;i++){ if(tt>=days[i].start && tt<days[i].start+86400000){ days[i].n++; break; } } });
+  return {days:days,total:days.reduce(function(s,d){return s+d.n;},0),any:any};
+}
+function rxLookbackNode(){ // 臨床 lookbackNode と同じ面板：左＝回ごとの覚えた割合、右＝今週＋よく引っかかる誤りの型（間違いノートへの橋は新課に無い）
+  const ix=App.rx.ix, sched=lsGet(nk('rx:sched'),null);
+  const panel=el('div',{class:'spanel'},[ el('div',{class:'sph'},[ el('b',{text:t('lookbackTitle')}), el('small',{class:'jp',text:t('rxLookbackSub')}) ]) ]);
+  const L1=el('div',null,[ el('div',{class:'lookh',text:t('rxLookField')}) ]);
+  const grid=el('div',{class:'chgrid'}); let anyM=false;
+  ix.lectures.forEach(function(L){ const m=RX.mastery(L,sched), tot=m.mastered+m.learning+m.new, has=(m.mastered+m.learning)>0, p=tot?Math.round(m.mastered/tot*100):0; if(has) anyM=true;
+    grid.appendChild(el('div',{class:'chrow2'},[ el('div',{class:'chn jp',text:tf('kaiN',{n:L.kai})+'　'+(L.title||'')}), el('div',{class:'chb'},[ el('i',{style:'width:'+(has?p:0)+'%'}) ]), el('div',{class:'chv',text:has?p+'%':t('untouchedShort')}) ])); });
+  if(anyM) L1.appendChild(grid); else L1.appendChild(el('div',{class:'gnone jp',style:'padding:6px 0',text:t('lookbackEmpty')}));
+  const R1=el('div',null);
+  const wa=rxWeekActivity();
+  if(wa.any){ R1.appendChild(el('div',{class:'lookh',text:t('rxLookWeekTop')})); // 新課は「最近7日間」（自然週ではない：快審第三十七批 第 17 条）
+    const mx=Math.max.apply(null,wa.days.map(function(d){return d.n;}).concat([1])), wrow=el('div',{class:'weekrow'}), wfmt=new Intl.DateTimeFormat(App.lang==='zh'?'zh-CN':'ja-JP',{weekday:'short'});
+    wa.days.forEach(function(d,i){ const day=wfmt.format(new Date(d.start)); wrow.appendChild(el('div',{class:'wk-col'+(i===6?' today':'')+(d.n?'':' zero'),title:day+' '+d.n},[ el('span',{class:'wk-v mono',text:d.n?String(d.n):''}), el('span',{class:'wk-bw'},[ el('i',{class:'wk-b',style:d.n?('height:'+Math.max(10,Math.round(d.n/mx*100))+'%'):''}) ]), el('span',{class:'wk-d jp',text:day}) ])); });
+    R1.appendChild(wrow); R1.appendChild(el('div',{class:'weekn jp',html:t('rxLookWeekN')+' <b>'+wa.total+'</b> '+t('unitQ')})); R1.appendChild(el('div',{class:'lookdiv'})); }
+  R1.appendChild(el('div',{class:'lookh',text:t('rxTopTamper')}));
+  const top=RX.topTamper(lsGet(nk('rx:stats'),null),3);
+  if(top.length){ top.forEach(function(x){ R1.appendChild(el('div',{class:'weakrow2'},[ el('span',{class:'jp',text:(typeof rxTamperName==='function'?rxTamperName(x.code,ix.tamper[x.code]):(ix.tamper[x.code]||x.code))}), el('span',{class:'wv',text:String(x.n)}) ])); }); }
+  else R1.appendChild(el('div',{class:'gnone jp',text:t('glanceNone')}));
+  panel.appendChild(el('div',{class:'lookgrid'},[ L1, R1 ]));
+  return panel;
 }
 
 /* ---------- 回视图：一枚要点 → カード群 → 深読み → 講義と標準のずれ ---------- */
@@ -106,8 +182,8 @@ function rxPL(pid,where,opt){ // 覚える：この場所が本拠で、まだ�
   if(RXR && RXR.view==='mem'){ if(RXR.home[pid]===where && !RXR.done[pid]){ RXR.done[pid]=1; return rxPropLine(e.prop,opt); } return rxPropRef(e.prop); }
   return rxPropLine(e.prop,opt); }
 let rxRefSeq=0;
-function rxPropRef(p){ // 短い参照：★・冒頭約 16 字・↗。data-prop は付けない（検索の選び先にしない：S1 と合意）
-  const tx=p.text.length>16?p.text.slice(0,16)+'…':p.text, id='rxref-'+(++rxRefSeq);
+function rxPropRef(p){ // 短い参照：★・冒頭（幅に収まる分、CSS の省略記号）・↗。data-prop は付けない（検索の選び先にしない：S1 と合意）
+  const tx=p.text, id='rxref-'+(++rxRefSeq); // 可視文は全文を置き CSS（nowrap＋text-overflow:ellipsis）で切る：文字列に「…」を足すと可視名が読み上げ名（動作＋全文）に含まれず、axe の label-content-name-mismatch（S4-034、WCAG 2.5.3）になる
   // 読屏名＝動作＋目標の全文（同じ書き出しの参照を区別：快审第二十七批 R-05）。二つの名前節点を aria-labelledby で組む：動作は画面の言語、命題は ja（签发 24e7426）
   return el('button',{class:'rx-pref jp','data-prop-ref':p.id,title:p.text,'aria-labelledby':id+'-a '+id+'-t',onclick:function(){ rxGoHome(p.id); }},[
     el('span',{class:'rx-stars','aria-hidden':'true',text:rxStars(p.imp)}), el('span',{class:'rx-pref-t',text:tx}), el('span',{class:'rx-pref-a','aria-hidden':'true',text:'↗'}),
@@ -165,17 +241,23 @@ function renderRxLecture(lecId,focusCard,opts){ // opts.fast：利用者が回�
   const gl=(RXR.view==='read')?rxGlossBlock(Lc):null; if(gl) kids.push(gl); // 用語ミニ表：「読む」だけ、要点の前（方案 4-3）
   const sum=rxSummaryBlock(Lc); if(sum){ sum.id='rx-sum'; kids.push(sum); }
   const order=RX.orderOf(Lc).map(function(id){ return ix.cards[id]&&ix.cards[id].card; }).filter(Boolean);
-  const main=order.filter(function(c){ return c.kind!=='deep'; }), deep=order.filter(function(c){ return c.kind==='deep'; });
-  if(main.length) kids.push(el('h2',{class:'rx-bh jp',text:t('rxCards')})); // カードの無い回に空の見出しを出さない（break-ui B-3）
+  const mainAll=order.filter(function(c){ return c.kind!=='deep'; }), deep=order.filter(function(c){ return c.kind==='deep'; });
+  // 窄幅（<1024）は塊ごとに翻頁（臨時方案 3）：ページ＝カード境界の規則で切る（rxPages）。焦点のカードがあればそのページ、無ければ覚えているページ。宽幅は一頁に鋪開（pages=null）
+  const pages=readWide()?null:rxPages(Lc,mainAll), pageN=pages?pages.length:1;
+  let pgIdx=0; if(pages){ if(opts&&typeof opts.page==='number') pgIdx=opts.page; else if(opts&&opts.page==='last') pgIdx=pageN-1; else if(focusCard){ const k=pages.findIndex(function(pg){ return pg.indexOf(focusCard)>=0; }); pgIdx=k>=0?k:(deep.some(function(c){ return c.id===focusCard; })?pageN-1:((App.rxPage||{})[Lc.id]||0)); } else pgIdx=(App.rxPage||{})[Lc.id]||0; /* 発展・ずれ・次の回は最後の頁にある */ pgIdx=Math.max(0,Math.min(pgIdx,pageN-1)); (App.rxPage||(App.rxPage={}))[Lc.id]=pgIdx; }
+  const main=pages?mainAll.filter(function(c){ return pages[pgIdx].indexOf(c.id)>=0; }):mainAll, first=!pages||pgIdx===0, last=!pages||pgIdx===pageN-1;
+  if(!first){ [sum,gl,prac].forEach(function(n){ const i=n?kids.indexOf(n):-1; if(i>=0) kids.splice(i,1); }); } // 2 頁目以降：要点・演習・用語表は 1 頁目にある
+  if(main.length) kids.push(el('h2',{class:'rx-bh jp',text:t('rxCards')+(pages?('　'+(pgIdx+1)+'/'+pageN):'')})); // カードの無い回に空の見出しを出さない（break-ui B-3）
   main.forEach(function(c){ kids.push(rxCard(c)); });
-  if(deep.length){
+  if(last && deep.length){
     const d=el('details',{class:'rx-deep',id:'rx-deep'},[ el('summary',{class:'rx-bh jp',text:t('rxDeep')}) ]);
-    deep.forEach(function(c){ const cd=rxCard(c); if((c.title||'').trim()===t('rxDeep').trim()) cd.classList.add('rx-dup-t'); d.appendChild(cd); }); // 「発展」の直下に同名の見出しが重なるときは見出しを隠す（データは不変：复查 U-83）
+    deep.forEach(function(c){ const cd=rxCard(c); if((c.title||'').trim()===t('rxDeep').trim()) cd.classList.add('rx-dup-t'); d.appendChild(cd); }); // 「発展」の直下に同名の見出しが重なるときは見出しを一つに
     kids.push(d);
   }
-  const gaps=RXR.view==='read'?null:rxGapsBlock(Lc); if(gaps){ gaps.id='rx-gaps'; kids.push(gaps); } // ずれは試験の面：「読む」では出さない
-  const nx=ix.lectures[ix.lectures.indexOf(Lc)+1]; // 回の終わりから次の回へ（U-39）
-  if(nx) kids.push(el('div',{class:'rx-next'},[ el('button',{class:'btn ghost jp',text:t('rxNextLec'),onclick:function(){ renderRxLecture(nx.id,null,{fast:true}); }}),
+  const gaps=(last && RXR.view!=='read')?rxGapsBlock(Lc):null; if(gaps){ gaps.id='rx-gaps'; kids.push(gaps); } // ずれは試験の面：「読む」では出さない（末頁）
+  const nx=ix.lectures[ix.lectures.indexOf(Lc)+1], pv=ix.lectures[ix.lectures.indexOf(Lc)-1]; // 回の終わりから次の回へ（U-39）
+  if(pages) kids.push(rxPager(Lc,pgIdx,pageN,pv,nx)); // 窄幅：旧課読本と同じ翻頁条
+  if(last && nx) kids.push(el('div',{class:'rx-next'},[ el('button',{class:'btn ghost jp',text:t('rxNextLec'),onclick:function(){ renderRxLecture(nx.id,null,{fast:true,page:0}); }}), // 次の回は 1 頁目から（CR432-9：pgIdx は読まれていなかった）
     el('div',{class:'rx-next-t jp',text:t('rxKaiN').replace('{n}',nx.kai)+'　'+(nx.title||'')}) ]));
   const mainCol=el('div',{class:'rx-lec-main'},kids);
   const fast=!!(opts&&opts.fast)&&!focusCard&&!App.rxLand;
@@ -187,6 +269,59 @@ function renderRxLecture(lecId,focusCard,opts){ // opts.fast：利用者が回�
   if(focusCard){ const n=document.getElementById('rxc-'+focusCard); if(n){ const dt=n.closest('details'); if(dt) dt.open=true; n.scrollIntoView({block:'start'}); } }
 }
 
+/* ===== 窄幅の分塊（臨時方案 3）：カード境界の規則で回を数頁に切る。カード id は書かない（データの順序と種類から毎回導く）。
+ * 規則：図・写真のカードは直前のカードと同じ頁（答えが前のカードを指す）；頁の長さは本文の字数の当量で約 1800 字を目安、ただし 1 頁 2 枚以上・4 枚以下；
+ * 要点・演習・用語表は 1 頁目、発展・ずれ・次の回は末頁（renderRxLecture 側）。S7 の分頁境界（dc11e5aa）は節境界が基本だが、データに節が無いあいだは長さで切る。 ===== */
+const RX_PAGE_CHARS=1800, RX_PAGE_MIN=2, RX_PAGE_MAX=4;
+function rxCardWeight(c){ const A=function(x){ return Array.isArray(x)?x:[]; }, S=function(x){ return (typeof x==='string')?x.length:0; }; let n=S(c.title)+S(c.names); A(c.fields).forEach(function(f){ n+=S(f&&f.text)+S(f&&f.label); }); A(c.explain).forEach(function(b){ n+=S(b&&b.text); }); A(c.blocks).forEach(function(b){ n+=S(b&&b.text); }); A(c.rows).forEach(function(r){ A(r&&r.cells).forEach(function(x){ n+=S(x); }); }); A(c.symptoms).forEach(function(x){ n+=S(x); }); /* 配列でない・文字列でない欄は数えない（残缺データでも落ちない：HF1 の規則、夹具 N2） */ if(c.kind==='figure'||c.kind==='photo') n+=400; return n+120; }
+function rxPages(Lc,main){ // main＝発展以外のカード（order の順）。戻り値＝[[id,...],...]
+  const pages=[]; let cur=[], w=0;
+  main.forEach(function(c){ const glue=(c.kind==='figure'||c.kind==='photo'); const cw=rxCardWeight(c);
+    if(cur.length && !glue && ((w+cw>RX_PAGE_CHARS && cur.length>=RX_PAGE_MIN) || cur.length>=RX_PAGE_MAX)){ pages.push(cur); cur=[]; w=0; }
+    cur.push(c.id); w+=cw; });
+  if(cur.length){ if(pages.length && cur.length<RX_PAGE_MIN && pages[pages.length-1].length+cur.length<=RX_PAGE_MAX) pages[pages.length-1]=pages[pages.length-1].concat(cur); else pages.push(cur); } // 末尾の 1 枚だけの頁は前の頁に寄せる
+  return pages.length?pages:[[]];
+}
+function rxPageCount(L){ return readWide()?1:rxPages(L,RX.orderOf(L).map(function(id){ return App.rx.ix.cards[id]&&App.rx.ix.cards[id].card; }).filter(function(c){ return c&&c.kind!=='deep'; })).length; }
+function rxPager(Lc,page,total,pv,nx){ // 旧課 readerPager と同じ形（.rdr-pager）：前へ／次へ・点・n/m。端は隣の回へ
+  const dots=el('div',{class:'rdr-dots','aria-hidden':'true'}); for(let i=0;i<total;i++) dots.appendChild(el('span',{class:i===page?'on':''}));
+  const pgn=el('span',{class:'rdr-pgn',role:'text','aria-label':t('dotPage').replace('{n}',String(page+1)).replace('{m}',String(total)),text:(page+1)+'/'+total});
+  const go=function(pg){ renderRxLecture(Lc.id,null,{fast:true,page:pg}); window.scrollTo(0,0); };
+  let prev; if(page>0){ prev=el('button',{text:'‹ '+t('rdrPrev'),onclick:function(){ go(page-1); }}); }
+  else if(pv){ prev=el('button',{class:'rdr-pg-kai',text:'‹ '+t('rxKaiN').replace('{n}',pv.kai),onclick:function(){ renderRxLecture(pv.id,null,{fast:true,page:rxPageCount(pv)-1}); window.scrollTo(0,0); }}); }
+  else { prev=el('button',{text:'‹ '+t('rdrPrev')}); prev.disabled=true; }
+  let next; if(page<total-1){ next=el('button',{text:t('rdrNext')+' ›',onclick:function(){ go(page+1); }}); }
+  else if(nx){ next=el('button',{class:'rdr-pg-kai',text:t('rxKaiN').replace('{n}',nx.kai)+' ›',onclick:function(){ renderRxLecture(nx.id,null,{fast:true,page:0}); window.scrollTo(0,0); }}); }
+  else { next=el('button',{text:t('rdrNext')+' ›'}); next.disabled=true; }
+  return el('div',{class:'rdr-pager rx-pager'},[ prev, el('div',{class:'rdr-pmid'},[ dots, pgn ]), next ]);
+}
+function rxPageOf(L,cardId){ // 窄幅でそのカードが何頁目か（発展・無ければ最後の頁）。宽幅は 0
+  if(readWide()) return 0; const ix=App.rx.ix, main=RX.orderOf(L).map(function(x){ return ix.cards[x]&&ix.cards[x].card; }).filter(function(c){ return c&&c.kind!=='deep'; });
+  const pages=rxPages(L,main), k=pages.findIndex(function(pg){ return pg.indexOf(cardId)>=0; }); return k>=0?k:pages.length-1; }
+function rxRelayout(){ // 幅の境界をまたいだとき（core.js）：またぐ前に視口の上端線にかかっていたカードを錨にして描き直し、同じ相対位置へ（S4-041：宽→窄で 1 頁目に落ちて位置が消えていた。iPad の横⇄縦がちょうど 1024 をまたぐ）
+  const L=App.rxTocLec; if(!L) return;
+  const tb=document.querySelector('.topbar'), line=(tb?tb.getBoundingClientRect().bottom:52)+8;
+  let id=null, off=0;
+  const cards=[].slice.call(document.querySelectorAll('#view .rx-lecture .rx-card')).filter(function(c){ return !c.closest('.nav-leave-fwd,.nav-leave-back') && c.id && c.id.indexOf('rxc-')===0; });
+  const cur=cards.filter(function(c){ return c.getBoundingClientRect().bottom>line+24; })[0];
+  const rec=[App.rxCur,App.rxCurPrev].filter(function(c){ return c && c.lec===L.id && c.card && c.w!==innerWidth && document.getElementById('rxc-'+c.card); })[0]; // 幅が変わる前の記録（今の幅で記された物は視口が戻ったあとの滚り＝信用しない）
+  if(rec){ id=rec.card; off=-(rec.off||0); } // 幅が変わる前の記録（滚りごとに同期で記す＝CR432-6 の「速い滚りの直後」も新しい）。change の時点では新しい幅で版面が組み直され scrollY だけ残る（Chromium）か scrollY が 0 に戻っている（WebKit）ので、生の位置は錨にならない
+  else if(cur){ id=cur.id.slice(4); off=cur.getBoundingClientRect().top-line; } // 記録が無い（開いてから一度も滚っていない）：今の位置から
+  if(!id){ renderRxLecture(L.id,null,{page:(App.rxPage||{})[L.id]||0}); return; }
+  // off<0＝カードの途中を読んでいた
+  renderRxLecture(L.id,null,{page:rxPageOf(L,id)});
+  const n=document.getElementById('rxc-'+id); if(!n) return; const dt=n.closest('details'); if(dt) dt.open=true;
+  const place=function(){ const m=document.getElementById('rxc-'+id); if(!m) return; const keep=Math.max(off,-(m.getBoundingClientRect().height-40)); // 途中なら途中のまま（幅が変わってカードが短くなった分は末尾 40px で止める）
+    const t2=document.querySelector('.topbar'), ln=(t2?t2.getBoundingClientRect().bottom:52)+8; // 上端線は毎回測り直す（WebKit は change の瞬間、固定の顶栏の矩形が古い scrollY 分ずれて返る）
+    window.scrollTo(0, Math.max(0, m.getBoundingClientRect().top+window.scrollY-ln-keep)); };
+  // WebKit は媒体クエリの change を視口の再布局より先に届け、その後 scrollY を 0 に戻す（実測 80ms 後）：描いた直後・次のフレーム・120／300／600ms 後に合わせ直す。利用者が滚り始めたら止める
+  if(App._rxRelayoutStop) App._rxRelayoutStop();
+  const evs=['wheel','touchstart','keydown','pointerdown'], timers=[]; let on=true;
+  const stop=function(){ if(!on) return; on=false; timers.forEach(clearTimeout); evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); App._rxRelayoutStop=null; };
+  App._rxRelayoutStop=stop; evs.forEach(function(ev){ window.addEventListener(ev,stop,{capture:true,passive:true}); });
+  const again=function(){ if(on) place(); };
+  place(); requestAnimationFrame(again); [120,300,600].forEach(function(ms){ timers.push(setTimeout(again,ms)); }); timers.push(setTimeout(function(){ stop(); rxCurUpdate(); },700)); // 合わせ終わり：落ち着いた位置を錨に記す
+}
 /* ===== 用語ミニ表（方案 4-3・Q-027：日本語で）。回級 glossary:[{term,yomi,gloss,note}] を「読む」の回首・要点の前に、畳んだ details で出す。
  * 4.3.0.2（S4-037）：データは 4.3.0 で配布済みなのに app が一度も読んでいなかった。表示だけ。検索（ix.glossary・落点）は 4.3.2 で。
  * 開關 RX_FLAGS.glossary（既定 true）：false なら表を出さない（検索側も同じ開關を見る約束）。 */
@@ -219,7 +354,7 @@ function rxSummaryBlock(Lc){
     const ans=el('div',{class:'rx-sum-a jp hide'},[ rxPropLine(p,{noTriple:true}) ]), hint=el('span',{class:'rx-q-h',text:t('rxShow')});
     const btn=el('button',{class:'rx-sum-q jp','aria-expanded':'false',onclick:function(){
       const open=ans.classList.toggle('hide')===false; btn.setAttribute('aria-expanded',String(open)); hint.textContent=t(open?'rxHideAns':'rxShow'); }},[ // 開いたら「答えを隠す」
-      el('span',{class:'rx-q-t',text:p.recall}), hint ]);
+      p.core?rxCoreBadge():null, el('span',{class:'rx-q-t',text:p.recall}), hint ].filter(Boolean)); // 要点でも核心の問いに小標（契約裁定 3：核心が前、真題挂钩は印さない）
     const row=el('div',{class:'rx-sum-i'+(i>=FIRST?' rx-sum-x':'')},[btn,ans]); box.appendChild(row); return row;
   });
   if(rows.length>FIRST){
@@ -230,12 +365,28 @@ function rxSummaryBlock(Lc){
   return box;
 }
 
-/* 命题一行：★（重点徽标）＋命题文；有 triple 时只在按 order 首次出现的卡片里展开三栏，其余处给一条跳转。 */
+let rxPrqSeq=0;
+function rxCoreBadge(){ return el('span',{class:'rx-core jp',title:t('rxCoreTitle'),text:t('rxCore')}); } // 「核心」の小標：命題行・要点の問い・先修の札で同じ部品（遮って思い出す時は行ごと遮られる）
+function rxPrereqRow(c){ // 先に確認（卡片級の先修：Q-030、先修_合并与裁定 10-18）：このカードを読む前に押さえる核心命題への札（最多 3）。自分のカードが本拠の命題は出さない；核心でない・解決できない id は飛ばす（宽松校验は S1：ix.prereq ができたらそちらを読む）
+  const ix=App.rx.ix, ce=ix.cards[c.id], lec=ce?ce.lec:null;
+  const pos=function(cid){ const e=ix.cards[cid]; if(!e) return null; const L=ix.lecById[e.lec]; return [ix.lectures.indexOf(L), RX.orderOf(L).indexOf(cid)]; }; // （回の順、回の中の順）
+  const me=pos(c.id), before=function(cid){ const p=pos(cid); return !!(p && me) && p[1]>=0 && me[1]>=0 && (p[0]<me[0] || (p[0]===me[0] && p[1]<me[1])); }; // indexOf が -1（順序に無いカード）は「前」と見なさない（CR432c 顺手） // 厳密に前のカードだけ（先修_合并与裁定：先修所在的卡要排在本卡之前；CR432-2）
+  const ids=(c.prereq||[]).filter(function(pid){ const e=ix.props[pid]; if(!e || !e.prop.core) return false; const home=RX.firstCardOf(ix,pid); return !!home && home!==c.id && before(home); }).slice(0,3);
+  if(!ids.length) return null;
+  const chips=ids.map(function(pid){ const e=ix.props[pid], home=RX.firstCardOf(ix,pid), other=(e.lec!==lec)?ix.lecById[e.lec]:null, id='rxprq-'+(++rxPrqSeq);
+    const badge=rxCoreBadge(); badge.id=id+'-c'; const kai=other?el('span',{class:'rx-prq-k',id:id+'-k',text:t('rxKaiN').replace('{n}',other.kai)}):null, tx=el('span',{class:'rx-prq-t',id:id+'-t',lang:'ja',text:e.prop.text});
+    // 読み上げ名＝動作（画面の言語）＋可視の「核心」・回次・命題（ja）：可視文字を含めないと WCAG 2.5.3（CR432-3）。rxPropRef と同じ組み方
+    return el('button',{class:'rx-prq jp',title:e.prop.text,'aria-labelledby':id+'-a '+id+'-c'+(kai?' '+id+'-k':'')+' '+id+'-t',onclick:function(){ rxGoCard(home,pid,{anchor:'prop',hold:true}); }},[ // 落点＝本拠の行（C-N01 の anchor/hold）。別の回は rxGoCard が描いてから落ちる
+      badge, kai, tx, el('span',{class:'rx-prq-a','aria-hidden':'true',text:'↗'}), el('span',{id:id+'-a',hidden:'',lang:App.lang==='zh'?'zh-Hans':'ja',text:t('rxPrereqGo')}) ].filter(Boolean)); });
+  return el('div',{class:'rx-prereq'},[ el('span',{class:'rx-prq-l jp',text:t('rxPrereq')}) ].concat(chips));
+}
+/* 命题一行：★（重点徽标）＋「重点」＋「核心」＋命题文；有 triple 时只在按 order 首次出现的卡片里展开三栏，其余处给一条跳转。 */
 function rxPropLine(p,opt){
   opt=opt||{};
   const line=el('div',{class:'rx-prop','data-prop':p.id},[
     el('span',{class:'rx-stars','aria-hidden':'true',text:rxStars(p.imp)}),
     p.imp>=3?el('span',{class:'rx-imp jp',text:t('rxImp')}):null,
+    p.core?rxCoreBadge():null, // 「核心」＝この回を理解する土台になる命題（Q-030：★ とは別の軸、★ →「重点」→「核心」→ 命題文の順）
     el('span',{class:'rx-pt jp',text:p.text})
   ].filter(Boolean));
   if(!p.triple || opt.noTriple) return line;
@@ -268,7 +419,8 @@ function rxGoCard(cardId,propId,opts){ // opts.reveal：遮っていれば解く
   if(propId){ const c0=document.getElementById('rxc-'+cardId), H=App.rxHome; // 覚える：このカードでは短い参照なら、本拠のカードの本拠の行へ（方案 2-3）
     if(c0 && !c0.querySelector('[data-prop="'+propId+'"]') && H && H.lec===ce.lec){ const h=H.map[propId];
       if(h==='gaps'){ rxGoGaps(propId,opts); return; } if(h && App.rx.ix.cards[h]) cardId=h; } }
-  const n=document.getElementById('rxc-'+cardId); if(!n) return;
+  let n=document.getElementById('rxc-'+cardId); if(!n && App.rx.ix.cards[cardId]){ renderRxLecture(App.rx.ix.cards[cardId].lec,cardId); n=document.getElementById('rxc-'+cardId); } // 本拠のカードが別の頁（窄幅の翻頁）：その頁を描いてから（PS18：検索の落点）
+  if(!n) return;
   const dt=n.closest('details'); if(dt) dt.open=true; // 発展のカードは畳まれている
   if(propId){ const r0=n.querySelector('[data-prop="'+propId+'"]'), bs=r0&&r0.closest('details.rx-basis'); if(bs) bs.open=true; } // 読む：「根拠を見る」に畳まれていれば開いてから
   if(opts.reveal && n.classList.contains('rx-hidden') && n.__rxHide) n.__rxHide(false); // 検索の落点（opts.reveal）だけ目標のカードの遮りを解く（覚えた遮りからも外す）。目次・根拠・三栏の跳び先は遮ったまま（复验 N-B：総指揮裁定）
@@ -281,7 +433,7 @@ function rxGoGaps(pid,opts){ opts=opts||{}; // 本拠が「講義と標準のず
   const e=App.rx.ix.props[pid], Lc=e&&App.rx.ix.lecById[e.lec]; if(!Lc) return;
   const sel='[data-prop="'+pid+'"]', on=function(){ const g=[].slice.call(document.querySelectorAll('#view .rx-lecture[data-lec="'+Lc.id+'"] #rx-gaps')).filter(function(x){ return !x.closest('.nav-leave-fwd,.nav-leave-back'); })[0]; return g&&g.querySelector(sel); }; // 離場層の古い頁は数えない
   if(!on()){ if(rxViewOf(Lc)==='read') App.rxViewTmp={lec:Lc.id,view:'mem'}; // 「読む」にずれは無い：臨時に「覚える」へ（偏好には書かない。総指揮裁定 2026-10-14）
-    renderRxLecture(Lc.id); }
+    renderRxLecture(Lc.id,null,{page:'last'}); } // ずれは最後の頁（翻頁のとき）
   const r=on(); if(!r) return;
   window.scrollBy(0,r.getBoundingClientRect().top-rxRowTarget());
   App.rxLand={card:null,gaps:true,prop:pid,until:Date.now()+(opts.hold?3000:1600),hold:!!opts.hold}; // gaps:true の落点は #rx-gaps 内の [data-prop] の行（S1 の検索語の色付けもこの行）
@@ -380,13 +532,20 @@ function rxRail(Lc){
 }
 /* 読みかけ：回次ページで最初に見えているカードと、その中の位置を覚える（書き手だけ・間引き）。首页の「続きから読む」で戻る */
 let rxReadTimer=null;
+function rxCurUpdate(){ // 今の錨（上端線に 24px 以上かかっているカード＋相対位置）を同期で記す：幅の境界をまたぐとき（rxRelayout）に使う。幅が変わる前の記録は rxCurPrev に残す（WebKit は視口が変わった時点で scrollY が戻り、その滚り事件で新しい幅の記録が入るため）
+  const pg=document.querySelector('#view .rx-lecture[data-lec]'); if(!pg) return null;
+  const top=(parseFloat(getComputedStyle(document.body).paddingTop)||52)+8;
+  const card=Array.prototype.find.call(pg.querySelectorAll('.rx-card'),function(c){ return c.getBoundingClientRect().bottom>top+24; });
+  const cur={lec:pg.getAttribute('data-lec'),card:card?card.id.replace(/^rxc-/,''):null,off:card?Math.round(top-card.getBoundingClientRect().top):0,w:innerWidth,t:Date.now()};
+  if(App.rxCur && App.rxCur.w!==innerWidth) App.rxCurPrev=App.rxCur; App.rxCur=cur; return cur;
+}
 function rxReadSave(){
+  const cur=rxCurUpdate(); if(!cur) return; // 錨は毎回（CR432-6：速い滚りの直後に境界をまたいでも古い錨を使わない）
   if(rxReadTimer) return;
-  rxReadTimer=setTimeout(function(){ rxReadTimer=null;
+  rxReadTimer=setTimeout(function(){ rxReadTimer=null; // 持久化だけ節流（書き手だけ）
     const pg=document.querySelector('#view .rx-lecture[data-lec]'); if(!pg || !isRxCourse() || !writerOk) return;
-    const top=(parseFloat(getComputedStyle(document.body).paddingTop)||52)+8;
-    const card=Array.prototype.find.call(pg.querySelectorAll('.rx-card'),function(c){ return c.getBoundingClientRect().bottom>top; });
-    lsSet(nk('rx:read'),{lec:pg.getAttribute('data-lec'),card:card&&window.scrollY>200?card.id.replace(/^rxc-/,''):null,off:card?Math.round(top-card.getBoundingClientRect().top):0});
+    const c=rxCurUpdate(); if(!c) return;
+    lsSet(nk('rx:read'),{lec:c.lec,card:(c.card&&window.scrollY>200)?c.card:null,off:c.off});
   },600);
 }
 window.addEventListener('scroll',rxReadSave,{passive:true});
@@ -404,6 +563,7 @@ function rxCard(c){
   const body=el('div',{class:'rx-card-bd'});
   const card=el('article',{class:'rx-card rx-k-'+c.kind,id:'rxc-'+c.id},[head,body]);
   const P=function(pid){ return rxPL(pid,c.id,opt); };
+  const pr=rxPrereqRow(c); if(pr) body.appendChild(pr); // 先に確認（卡片級の先修）はカード本文の頭
   if(c.names) body.appendChild(el('p',{class:'rx-names jp',text:c.names}));
   (c.fields||[]).forEach(function(f){
     const lines=(f.props||[]).map(P).filter(Boolean);
@@ -435,6 +595,7 @@ function rxCardRead(c){ // 「読む」：讲解块・図・表・症例・症�
   const ix=App.rx.ix, head=el('div',{class:'rx-card-hd'},[ el('h3',{class:'jp',text:c.title||''}) ]), body=el('div',{class:'rx-card-bd'});
   const card=el('article',{class:'rx-card rx-read rx-k-'+c.kind,id:'rxc-'+c.id},[head,body]);
   const ex=(ix.explain&&ix.explain[c.id])||[], seenTri={}, first=[];
+  const pr=rxPrereqRow(c); if(pr) body.appendChild(pr); // 「読む」でも先修行はカード本文の頭（塊級の先修は 4.3.3）
   ex.forEach(function(b){ // 讲解块：一段ずつ。直下に、挂かる命題のうち三栏のあるものの「試験では」を一行ずつ（カード内で重ねない：M8）
     body.appendChild(el('div',{class:'rx-explain jp','data-explain':b.id,text:b.text||''}));
     const tl=[]; (b.props||[]).forEach(function(pid){ const e=ix.props[pid]; if(first.indexOf(pid)<0) first.push(pid); if(!e || !e.prop.triple || seenTri[pid]) return; seenTri[pid]=1; tl.push(rxTriExamLine(e.prop)); });
@@ -585,17 +746,18 @@ function rxSchedRecord(evs){ // 一笔作答の事件（一つ・または配列
   // 戻り値：true＝全部書けた／false＝何も残っていない（待答のまま・帯）／'partial'＝戻しも書けず一部が残った（契約外：判題は出し「未完整保存」を示す。重答は求めない）
   evs=(Array.isArray(evs)?evs:[evs]).filter(function(ev){ return ev && ev.props && ev.props.length; });
   if(!isRxCourse() || !evs.length) return false;
+  if(quotaStopped()) return false; // 容量の 90% 以上：新しい作答は記録しない（待答のまま・帯と案内。WLR1 WL-08）
+  if(!quotaAdmit) return quotaAdmitted(rxSchedRecord,this,[evs]); // 準入した一笔は鍵ごとの閘で止めない（WLR2 必修 2）。平台の失敗は従来どおり逆順に戻す
   const kS=nk('rx:sched'), kT=nk('rx:stats'), kL=nk('rx:log'), today=rxToday();
   const po=function(v){ return !!v && typeof v==='object' && !Array.isArray(v); };
-  const snap=function(k){ try{ return {v:localStorage.getItem(k)}; }catch(e){ return null; } }, r0={}; [kS,kT,kL].forEach(function(k){ r0[k]=snap(k); });
-  if(!r0[kS] || !r0[kT] || !r0[kL]){ noteSave(kS,false); return false; } // 読めないまま書くと上書きで記録を消しうる：書かない
-  const parse=function(x){ try{ return x==null?null:JSON.parse(x); }catch(e){ return null; } };
-  let sched=parse(r0[kS].v); if(!po(sched)) sched={v:1,props:{}}; if(!po(sched.props)) sched.props={}; // 配列は JSON に残らない（記録が黙って消える）ので作り直す
-  let st=null, log=parse(r0[kL].v); if(!Array.isArray(log)) log=[];
+  const r0={}; r0[kS]=lsRead5(kS,function(v){ return po(v) && po(v.props); }); r0[kT]=lsRead5(kT,function(v){ return po(v) && (v.byTamper==null || po(v.byTamper)) && (v.byConceptTamper==null || po(v.byConceptTamper)); }); r0[kL]=lsRead5(kL,Array.isArray);
+  for(const k of [kS,kT,kL]) if(r0[k].st!=='none' && r0[k].st!=='ok') return dataBad(k); // 読めない・壊れている・形が分からない：上書きで記録を消しうるので書かない（五態の厳格な読み。無いときだけ初期値から）
+  let sched=r0[kS].v||{v:1,props:{}};
+  let st=null, log=r0[kL].v||[];
   evs.forEach(function(ev){
     ev.props.forEach(function(pid){ sched.props[pid]=RX.schedUpdate(sched.props[pid],!!ev.ok,!!ev.unsure,today); });
     if(!ev.ok && ev.tamper){
-      if(!st){ st=parse(r0[kT].v); if(!po(st)) st={v:1}; if(!po(st.byTamper)) st.byTamper={}; if(!po(st.byConceptTamper)) st.byConceptTamper={}; } // 壊れていても作答は止めない
+      if(!st){ st=r0[kT].v||{v:1}; if(!st.byTamper) st.byTamper={}; if(!st.byConceptTamper) st.byConceptTamper={}; }
       st.byTamper[ev.tamper]=(st.byTamper[ev.tamper]||0)+1;
       (ev.concepts||[]).forEach(function(c){ const k=c+'|'+ev.tamper; st.byConceptTamper[k]=(st.byConceptTamper[k]||0)+1; });
     }
@@ -612,7 +774,7 @@ function rxSchedRecord(evs){ // 一笔作答の事件（一つ・または配列
   if(!fail){ [kS,kT,kL].forEach(function(k){ noteSave(k,true); }); return true; }
   // 同じ処理の中で逆順に戻す（前に無かった鍵は消す）。待ちは残さない（跨処理・跨タブ・跨重載の待ち状態を持たない：合成稿 v3.3 原則 3）
   let back=true;
-  const rb=wrote.slice().reverse(); for(let i=0;i<rb.length;i++){ const k=rb[i]; if(!writerOk){ back=false; break; } if(!(r0[k].v==null?lsDel(k):lsSetRaw(k,r0[k].v))) back=false; } // 一笔ごとに書き手か確かめて書き戻す（lsDel・lsSetRaw の writeAllowed が札を読む）。書き手でなくなったらそこで止め、未完整保存（'partial'）として知らせる：別のタブがもう書いたかもしれない値を古い控えで上書きしない（WLR-B 三：強夺との残る隙間は CHANGELOG に登記、4.3.1 で不強夺）
+  wrote.slice().reverse().forEach(function(k){ if(!(r0[k].raw==null?lsDel(k):lsSetRaw(k,r0[k].raw))) back=false; });
   noteSave(fail,false); // 保存の故障は帯で知らせる（CR-11）
   return back?false:'partial';
 }
@@ -719,6 +881,7 @@ function rxValidState(r){ // 取り込む新課の状態：入れ子の構造と
  * 失敗時：書き手を外れていたら巻き戻さない（新しい書き手のデータを上書きしない）；戻しきれたときだけ「元のまま」と言う。 */
 function rxImportKeys(){ return RX_KEYS.concat(['examDate']); }
 function rxApplyImport(obj){
+  if(!quotaAdmit) return quotaAdmitted(rxApplyImport,this,arguments); // 直接呼ばれても：取り込みは軟い閘で止めない（applyImportPayload と同じ。WLR3 必改 1）
   if(importBlocked()) throw Object.assign(new Error('import blocked'),{restoreFailed:true}); // 直接呼ばれても同じ守卫（前回が途中で止まっていれば拒む）
   if(!holdsWriter()) throw writerOk ? Object.assign(new Error(t('storageBlocked')),{plain:true}) : Object.assign(new Error('not writer'),{ownershipLost:true}); // 書き手のまま札が読めない＝保存の故障：そう知らせる（失権なら黙って帯に任せる）
   if(!obj || obj._kind!=='quiz-progress-export') throw new Error(t('impBadFile'));

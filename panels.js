@@ -46,8 +46,9 @@ function openModal(node,keepEls){ // keepEls：対話框の間も操作できる
   setTimeout(function(){ try{ (card||m).focus(); }catch(e){} },0);
   if(typeof navSync==='function') navSync(); // 対話框が開いているあいだは「戻る」でまず閉じる（U-38）
 }
-function closeModal(){
+function closeModal(force){
   const root=document.getElementById('modalRoot'); const m=root.firstElementChild;
+  if(force!==true && typeof updateGateOn!=='undefined' && updateGateOn && m && m.querySelector && m.querySelector('[data-update-gate]')) return; // 更新後の確認門は門のボタンでしか閉じない（外側の押下・Esc・戻る：WLR1 合并裁定 三-8）
   document.body.classList.remove('ro-notice-open');
   if(!m) return;
   if(!m.__inertPopped){ m.__inertPopped=true; setBackdropInert(false); } // 一度きりの巻き戻し (reduced-motion 早退・closing 二重呼びの両方に安全)
@@ -101,7 +102,7 @@ function ioBlock(withReset){ withReset=(withReset!==false); // 设置面板 & �
         return el('span',{style:'display:contents'},[ btn, inp ]); })()
     ])
   ];
-  if(lsGet(nk('importBackup'),null)){ // 直前の取り込みが戻せる間だけ出す
+  if(importBackupHasSig()){ // 直前の取り込みが戻せる間だけ出す：要約の無い退避（降級した取り込み・戻しも失敗した取り込み・4.2.0 以前の退避）は照合できず必ず断るので出さない（快審第三十五批 三・総指揮定 甲）
     arr.push(el('button',{class:'btn ghost sm',style:'margin-top:8px',text:t('impUndo'),onclick:undoImport}));
   }
   if(withReset){ arr.push(
@@ -148,7 +149,15 @@ function buildExportV2(includeRaw){ // v1 本体＋extras 全鍵＝完全バッ�
     const v=lsGet(nk(k),null);
     if(v!==null) payload.extras[k]=v;
   });
+  if(!includeRaw) stripExamRaws(payload.extras); // 手書きの答えを含めない書き出し：進行中の模試の記述（perItem.*.raw）も外す（Codex FX1-09：これまで extras にそのまま出ていた）
   return payload;
+}
+function stripExamRaws(extras){ // 書き出しの写しだけを変える（保存済みの模試は触らない）。続きから再開すると記述欄が空になる＝「手書きの答えを含めない」の意味どおり
+  const e=extras.examInProgress;
+  if(!e || typeof e!=='object' || !e.perItem || typeof e.perItem!=='object') return;
+  const pi={};
+  Object.keys(e.perItem).forEach(function(id){ const st=e.perItem[id]; if(st && typeof st==='object'){ const c=Object.assign({},st); delete c.raw; pi[id]=c; } else pi[id]=st; });
+  extras.examInProgress=Object.assign({},e,{perItem:pi});
 }
 function restoreRaw(data,keys){ // 退避した生データを本課の各鍵へ書き戻す。書き手でなくなったら即やめる。戻り値＝全部戻せたか（keys 省略＝旧課の鍵一式）
   if(!holdsWriter()) return false;
@@ -203,6 +212,7 @@ function wrongCourseText(courseId){ // 取り込めない理由と、できる�
   return t('impWrongCourse')+(name?tf('impSwitchHint',{c:name}):'');
 }
 function applyImportPayload(obj){ // 検証→自動バックアップ（必須）→全件書き込み→最後に欠席鍵を削除。どこかで失敗したら元へ戻して投げる
+  if(!quotaAdmit) return quotaAdmitted(applyImportPayload,this,arguments); // 軟い容量の閘は新しい作答だけを止める：利用者が選んだ取り込み（退避・書き込み・戻し）は 4.2.0 と同じく実際の上限だけで決まる（WLR3 必改 1）
   if(importBlocked()) throw Object.assign(new Error('import blocked'),{restoreFailed:true});
   if(!holdsWriter()) throw writerOk ? Object.assign(new Error(t('storageBlocked')),{plain:true}) : Object.assign(new Error('not writer'),{ownershipLost:true}); // 書き手のまま札が読めない＝保存の故障：そう知らせる（失権なら黙って帯に任せる）
   if(isRxCourse()){ const r=rxApplyImport(obj); dataReplaced(); return r; } // 新課は rx-views.js（同じ印つきバックアップと書き手確認を使う）。成功したら離页で古い値を書き戻さない
@@ -381,21 +391,25 @@ function askConfirm(title,text,okText,danger){ // 同期の confirm() の代わ�
     obs.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   });
 }
-function afterConfirm(){ // 確かめたあと、一度タスクを譲ってから書き手を確かめ直す（同じタスクの中では、ほかのタブが書いた札がまだ見えない）
-  return new Promise(function(res){ setTimeout(function(){ res(holdsWriter()); },0); });
+function afterConfirm(cleanup){ // 確かめたあと、一度タスクを譲ってから書き手を確かめ直す（同じタスクの中では、ほかのタブが書いた札がまだ見えない）。cleanup＝只删的整理入口でもよい（WLR1 WL-06）
+  return new Promise(function(res){ setTimeout(function(){ res((cleanup && lockedForCleanup()) || holdsWriter()); },0); });
 }
-async function doResetProgress(){ if(!canWrite()) return; // 二段リセットの軽い方＝学習進捗のみ
+async function doResetProgress(){ if(!lockedForCleanup() && !canWrite()) return; // 二段リセットの軽い方＝学習進捗のみ。持锁で札だけ書けない（越えたあと）なら只删的整理として進む（WLR1 WL-06）
   if(!(await askConfirm(t('resetProg'),t(isRxCourse()?'resetProgConfirmRx':'resetProgConfirm'),t('resetProg'),true))) return;
-  if(!(await afterConfirm())) return; // 確かめている間に書き手が移った：書かない（帯が知らせる）
-  try{ const s0=App.session; App.session=null; App.readerReturn=null; if(s0){ s0.runningSince=0; clearCareTimer(); clearRunnerTimer(); } if(App.rxRun){ if(typeof rxClearTimer==='function') rxClearTimer(); App.rxRun=null; } }catch(e){} // 消す前に会話を終える（模試・新課の練習）：離页・自動保存で旧い模試を書き戻さない（WLR1 WL-04：4.2.0 からの穴・合并裁定 一-3①）。pauseSessionClock は呼ばない：計時中だと persistExam で消したばかりの模試を書き戻す
-  App.progress=emptyProgress(); saveProgress(); lsDel(nk('examInProgress')); lsDel(nk('sched')); RX_KEYS.forEach(function(k){ lsDel(nk(k)); }); delProgressBackups(); pendingMigration=null; closeModal(); goHome(); // sched＝旧課の間隔復習（進捗の一部）。導航栈も首页へ：「戻る」で旧い練習画面に戻って押し直し、重置前の作答前の値で調度を書き戻さない（WLR1 合并裁定 一-3②）
+  if(!(await afterConfirm(true))) return; // 確かめている間に書き手が移った：書かない（帯が知らせる）
+  const cleanup=!writerOk, del=cleanup?lsDelLocked:lsDel;
+  try{ const s0=App.session; App.session=null; App.readerReturn=null; if(s0){ s0.runningSince=0; clearCareTimer(); clearRunnerTimer(); } if(App.rxRun){ if(typeof rxClearTimer==='function') rxClearTimer(); App.rxRun=null; } }catch(e){} // 消す前に会話を終える（模試・新課の練習：WLR1 WL-04・合并裁定 一-3①）。pauseSessionClock は呼ばない：計時中だと persistExam で消したばかりの模試を書き戻していた（S2 指摘、952bbc5 の回退）
+  del(nk('examInProgress')); del(nk('sched')); RX_KEYS.forEach(function(k){ del(nk(k)); }); del(nk('progress')); del(nk('importBackup')); delProgressBackups(del); // 持锁后先删再写（合成稿 v3.3：容量を超えていても、削除だけは通るので戻れる）。sched＝旧課の間隔復習（進捗の一部）。取り込みの退避も消す：記録を消したあとは照合が必ず通らず取り消しに使えないのに容量だけ占める（快審第三十五批 改訂稿 五・総指揮定）
+  if(cleanup) becomeWriter(); // 消して空いた：同じ授锁のまま名乗り直す（札が書ければ書き手になり、進度は無い＝空から読み直す）
+  progressBad=false; App.progress=emptyProgress(); if(writerOk) saveProgress(); pendingMigration=null; closeModal(); goHome(); // 導航栈も首页へ（goHome と同じ）：「戻る」で旧い練習画面に戻って押し直し、重置前の作答前の値で調度を書き戻さない（WLR1 合并裁定 一-3②） // 壊れて読めなかった進度もここで作り直す（五態の厳格な読みの出口）
 }
-async function doReset(){ if(!canWrite()) return; // 重い方＝この課の端末内データ全消去（文案どおりに動く）
+async function doReset(){ if(!lockedForCleanup() && !canWrite()) return; // 重い方＝この課の端末内データ全消去（文案どおりに動く）。越えたあと札だけ書けないときも只删で進む（WLR1 WL-06）
   if(!(await askConfirm(t('reset'),t(isRxCourse()?'resetConfirmRx':'resetConfirm'),t('reset'),true))) return;
-  if(!(await afterConfirm())) return; // 確かめている間に書き手が移った：消さない
-  COURSE_KEYS.forEach(function(k){ lsDel(nk(k)); });
-  lsDel(nk('importBackup'));
-  delProgressBackups();
+  if(!(await afterConfirm(true))) return; // 確かめている間に書き手が移った：消さない
+  const del=writerOk?lsDel:lsDelLocked;
+  COURSE_KEYS.forEach(function(k){ del(nk(k)); });
+  del(nk('importBackup'));
+  delProgressBackups(del);
   dataReplaced(); location.reload(); // 離页で記憶の進度を書き戻さない（全消去が戻っていた）
 }
 function oldProgressExport(raw){ // 迁移前的旧进度按标准导出外壳写出，才能经「ファイルを読み込む」导回（复原用，含手写答案）
@@ -668,6 +682,7 @@ function getHand(){ return lsGet('quiz:hand','right'); }
 /* 只読のタブ（U-25・画面の層だけ）：書く操作を押したら説明と「こちらで続ける」。保存の故障（帯に接管ボタンが無い状態）では出さない */
 let roNoticeAt=0;
 function roNotice(){
+  if(typeof updateGateOn!=='undefined' && updateGateOn){ showUpdateGate(false); return; } // 確認門がまだ：只読の説明ではなく門を出す（三-8）
   if(document.querySelector('#modalRoot [data-recovery]')){ pulseWriterBanner(); return; } // 恢復框（保存できなかった下書きの复制）を説明で置き換えない（CR-32）
   if(storageBroken || lockRetrying || (!document.getElementById('writerBanner') && !writerWas)) return; // 再読み込み直後の帯が出る前の一瞬は出さない（交接で書き手を失った直後は帯を待たない：CR-01）
   const ev=window.event; // 利用者の操作（本物のクリック・キー）の最中だけ出す。canWrite() は確認だけにも使われ、脚本からの問い合わせで対話框を開くとそのタブの後続の操作を塞ぐ（s1c C9）
@@ -701,15 +716,15 @@ function suggestedPace(){ const left=daysUntilExam(); if(left==null||left<=0) re
 /* ---------- bookmarks（书签题，存本机；星标在解说层切换） ---------- */
 function getBookmarks(){ return lsGet(nk('bookmarks'),{}); }
 function isBookmarked(id){ return !!getBookmarks()[id]; }
-function toggleBookmark(id){ if(!canWrite()) return isBookmarked(id); const b=getBookmarks(); if(b[id]) delete b[id]; else b[id]=true; if(!lsSet(nk('bookmarks'),b)) return isBookmarked(id); return !!b[id]; } // 書けたときだけ新しい状態を返す（書けなければ元のまま：帯が知らせ、押し直せる。WLR1 WL-05）
+function toggleBookmark(id){ if(!canWrite()) return isBookmarked(id); const r=lsRead5(nk('bookmarks'),lsObj); if(r.st!=='none' && r.st!=='ok'){ dataBad(nk('bookmarks')); return isBookmarked(id); } const b=r.v||{}; if(b[id]) delete b[id]; else b[id]=true; if(!lsSet(nk('bookmarks'),b)) return isBookmarked(id); return !!b[id]; } // 書けたときだけ新しい状態を返す（書けなければ元のまま：帯が知らせ、押し直せる。WLR1 WL-05） // 読めない・壊れた印は上書きしない（五態の厳格な読み）
 /* ---------- 模試結果の履歴（保存＋回看; 追加キー examHistory, PROGRESS 契約は不変更） ---------- */
 function getExamHistory(){ return lsGet(nk('examHistory'),[]); }
 function saveExamHistory(sess,agg){ // 戻り値＝書けたか。書けなければ黙って捨てない（総指揮裁定：未保存の帯）
   try{
     const answered=sess.list.length, correct=agg.totals.correct;
     const unc=sess.list.filter(function(q){ const st=sess.perItem[q.id]; return st&&st.uncertain; }).length;
-    const k=nk('examHistory'); let raw; try{ raw=localStorage.getItem(k); }catch(e){ noteSave(k,false); return false; } // 読めない（無いのではない）：空とみなして旧い結果を消さない（CR-31）
-    const h=raw==null?[]:JSON.parse(raw); if(!Array.isArray(h)){ noteSave(k,false); return false; }
+    const k=nk('examHistory'), r=lsRead5(k,Array.isArray); if(r.st!=='none' && r.st!=='ok') return dataBad(k); // 読めない・壊れている：空とみなして旧い結果を消さない（CR-31・五態の厳格な読み）
+    const h=r.v||[];
     h.unshift({ at:Date.now(), total:sess.list.length, answered:answered, correct:correct,
       pct:answered?Math.round(correct/answered*100):0,
       wrongIds:(agg.wrongIds||[]).slice(0,200), unc:unc, ms:examElapsed() });
@@ -881,7 +896,7 @@ function switchHomeTab(tab){ // iOS 風スライダー: thumb をずらし、内
   const sw=document.querySelector('.hsw'); if(sw){ sw.setAttribute('data-active',tab); sw.querySelectorAll('.hsw-b').forEach(function(b){ b.setAttribute('aria-pressed',String(b.getAttribute('data-tab')===tab)); }); }
   const tc=document.getElementById('homeTabContent');
   if(!tc){ renderHome(); return; }
-  const next=(tab==='review') ? reviewTabNode(examResumable()) : examTabNode(examResumable());
+  const next=isRxCourse() ? (tab==='review' ? rxReviewTabNode() : rxExamTabNode()) : ((tab==='review') ? reviewTabNode(examResumable()) : examTabNode(examResumable())); // 新課も同じ切替（部品は rx-views）
   const reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce){ tc.innerHTML=''; tc.appendChild(next); return; }
   tc.classList.add('hometab-out');                 // 退場: 淡出+微沈(.15s)
@@ -892,6 +907,7 @@ function switchHomeTab(tab){ // iOS 風スライダー: thumb をずらし、内
   },150);
 }
 const FLAG_DECO='<svg width="210" height="210" viewBox="0 0 210 210" fill="none"><circle cx="150" cy="60" r="78" stroke="var(--accent)" stroke-width="1.4" opacity=".26"/><circle cx="150" cy="60" r="54" stroke="var(--accent)" stroke-width="1.4" opacity=".24"/><circle cx="150" cy="60" r="30" fill="var(--accent-wash)" stroke="var(--accent)" stroke-width="1.4" opacity=".5"/></svg>';
+function homeTabWrap(side,main){ return el('div',{class:'htab'},[ el('div',{class:'htab-side'},side), el('div',{class:'htab-main'},main) ]); } // 演習｜復習の中身：側（旗卡・小卡）と主（面板・一覧）。窄屏はこの順に縦、≥1024 は主｜側の二栏（新課の宽栅格に臨床の部品を入れる：総指揮 10-18）
 function flagNode(o){ // hero 解剖: pill → 大見出し(丸ゴ900) → 説明 → 全幅ピルCTA → 続行チップ
   const card=el('div',{class:'flag'},[
     el('span',{class:'fpill',text:o.pill}),
@@ -909,8 +925,7 @@ function examTabNode(hasExam){
                      : flagNode({icon:'exam',pill:t('flagExamPill'),title:t('actExam'),desc:t('actExamD'),cta:t('flagExamCta'),onCta:startExam}) ];
   kids.push(el('div',{class:'subrow'},[ el('button',{class:'subcard',onclick:renderExamHistory},[ el('span',{class:'scic',html:NEW_ICONS.clock}), el('span',{class:'sctx'},[ el('b',{text:t('histTitle')}), el('small',{class:'jp',text:t('histSub')}) ]) ]), el('button',{class:'subcard',onclick:renderQuestionMarks},[ el('span',{class:'scic',html:NEW_ICONS.star}), el('span',{class:'sctx'},[ el('b',{text:t('subMarked')}), el('small',{class:'jp',text:t('subMarkedD')}) ]) ]) ]));
   if(feat('spaced')) kids.splice(1,0,spHomeNode()); // 旧課の今日の復習（S1-d）：試験カードのすぐ下
-  kids.push(rangePanelNode());
-  return el('div',null,kids);
+  return homeTabWrap(kids,[ rangePanelNode() ]); // 側＝試験の旗卡・今日の復習・小卡、主＝回をえらぶ（宽屏は二栏：合成版式）
 }
 function reviewTabNode(hasExam){
   const lr=App.course?lsGet(nk('lastRead'),null):null;
@@ -921,7 +936,7 @@ function reviewTabNode(hasExam){
     el('button',{class:'subcard',onclick:renderFlashcards},[ el('span',{class:'scic',html:NEW_ICONS.cards}), el('span',{class:'sctx'},[ el('b',{text:t('subCards')}), el('small',{class:'jp',text:t('subCardsD')}) ]) ]),
     el('button',{class:'subcard',onclick:renderReaderMarks},[ el('span',{class:'scic',html:NEW_ICONS.book}), el('span',{class:'sctx'},[ el('b',{text:t('subBook')}), el('small',{class:'jp',text:t('subBookD')}) ]) ])
   ]);
-  return el('div',null,[ flag, subs, lookbackNode() ]);
+  return homeTabWrap([ flag, subs ],[ lookbackNode() ]);
 }
 function lookbackNode(){ // 学習の振り返り: 分野別 | 今週+苦手トップ + 演習への橋渡し
   const panel=el('div',{class:'spanel'},[ el('div',{class:'sph'},[ el('b',{text:t('lookbackTitle')}), el('small',{class:'jp',text:t('lookbackSub')}) ]) ]);

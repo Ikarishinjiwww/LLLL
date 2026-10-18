@@ -195,10 +195,11 @@ function goBack(){ // 返回上一级: 先关浮层(与 Esc 统一); 栈底 no-o
   viewStack.pop(); navGen++;
   const top=viewStack[viewStack.length-1];
   currentView=top.render;
-  if(typeof top.render==='function') top.render();
+  // 復元中（同期の作用域だけ）：読本の節首定位（readerAnchorSec）は譲る（CR432c-2）。2.5 秒の時間窓は使わない——後続の読本・跳節の錨合わせまで止めていた（CR432d-1）
+  try{ App._navRestoring=true; if(typeof top.render==='function') top.render(); } finally { App._navRestoring=false; }
   restoreFrame(top);
 }
-function setView(node,wide){ try{ setViewInner(node,wide); } finally { try{ navSync(); }catch(e){} } } // 描いたあとに履歴・題名を合わせる（U-38）
+function setView(node,wide){ try{ setViewInner(node,wide); } finally { try{ navSync(); }catch(e){} try{ if(writerPreparing) prepUI(true); }catch(e){} } } // 描いたあとに履歴・題名を合わせる（U-38）。準備中に描き直した記述欄も読み取り専用・「準備中」を引き継ぐ（WLR2 応修 4）
 function setViewInner(node,wide){
   const wrap=document.querySelector('.wrap'); if(wrap) wrap.classList.toggle('wide',!!wide); document.body.classList.toggle('wide-view',!!wide); document.body.classList.remove('reader-view','rx-lec-view','rx-wide'); App.tocOpen=null; // rx-lec-view・rx-wide（宽屏样张）＝新課回次页（顶栏の目次ボタンを出す）は renderRxLecture が setView の後で付ける
   const dir=navDir; navDir='none';
@@ -309,14 +310,54 @@ function nk(suffix){ return 'quiz:'+(App.course?App.course.id:'_')+':'+suffix; }
  * 新課は契約で常に有効なので、この欄は読まない。 */
 const FEATURE_KEYS=['answerFirst','spaced','optionMarks']; // printExport（旧課の印刷・書き出し）は 2026-10-15 に機能ごと下ろした
 function feat(name){ const c=App.course; return !!(c && c.contract!==RX.CONTRACT && c.features && c.features[name]===true); }
+/* 五態の厳格な読み（合成稿 v3.3「只有确实不存在才初始化」）：書く前に読む学習データの鍵は、無い（none）ときだけ初期値から作る。
+ * 読めない（unreadable）・JSON が壊れている（corrupt）・形が分からない（unknown）ものは上書きしない（失敗即停）。ok＝形の検査 */
+function lsRead5(key,ok){
+  let raw; try{ raw=localStorage.getItem(key); }catch(e){ return {st:'unreadable'}; }
+  if(raw==null) return {st:'none', v:null, raw:null};
+  let v; try{ v=JSON.parse(raw); }catch(e){ return {st:'corrupt', raw:raw}; }
+  return (ok && !ok(v)) ? {st:'unknown', raw:raw} : {st:'ok', v:v, raw:raw};
+}
+function lsObj(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
+let dataBadAt=0;
+function dataBad(key){ // 読めない・壊れた学習データに書こうとした：書かずに未保存として知らせる（同じ画面で何度も出さない）
+  if(writerOk) noteSave(key,false); pulseWriterBanner();
+  if(Date.now()-dataBadAt>8000){ dataBadAt=Date.now(); try{ toast(t('dataUnreadable')); }catch(e){} }
+  return false;
+}
+let progressBad=false; // 進度が読めない・壊れている（読み込み時）：空の進度を表示するが、書かない（上書きで消さない）
 function lsGet(key,def){ try{ const v=localStorage.getItem(key); return v==null?def:JSON.parse(v); }catch(e){ return def; } }
-function lsSet(key,val){ if(!writeAllowed(key)){ if(writerOk) noteSave(key,false); return false; } try{ localStorage.setItem(key,JSON.stringify(val)); noteSave(key,true); return true; }catch(e){ noteSave(key,false); return false; } }
-function lsDel(key){ if(!writeAllowed(key)){ if(writerOk) noteSave(key,false); return false; } try{ localStorage.removeItem(key); noteSave(key,true); return true; }catch(e){ noteSave(key,false); return false; } }
-function lsSetRaw(key,raw){ if(!writeAllowed(key)){ if(writerOk) noteSave(key,false); return false; } try{ localStorage.setItem(key,raw); noteSave(key,true); return true; }catch(e){ noteSave(key,false); return false; } } // 退避しておいた生の文字列を書き戻す（取り込みの巻き戻し・取り消し）
+/* 軟い容量の閘（合成稿 v3.3・補助）：この起源の localStorage の使用量（key＋value の文字数）を数え、学習データの鍵を「増やす」書き込みは見積もり容量の 90% を超えるなら止める（新しい作答の記録を止め、書き出し・整理を案内）。75% を超えたら一度だけ知らせる。
+ * 減らす・同じ長さの書き込み、削除、戻し（lsSetRaw）、利用者が選んだ取り込みは止めない（整理・リセット・取り消し・復元の道を残す。取り込みは 4.2.0 と同じく実際の上限だけ：WLR3 必改 1）。保証ではなく可用性の補助：二つのタブがそれぞれ閘を通って合計で超えることはある */
+let LS_CAP=2621440; // 見積もり容量（文字数）：5 MiB を UTF-16 で数えた値。各ブラウザの実際は S2 の R4b で確かめる
+const lsSize={}; let lsUsed=0, lsUsedOk=false, quotaWarned=false, quotaNoticeAt=0, quotaHalt=false; // quotaHalt＝軟い閘で停記中（常駐の帯：WLR2 応修 5）
+function lsScan(){ for(const k in lsSize) delete lsSize[k]; lsUsed=0; // 起動時・別のタブが全消去したとき：数え直す
+  try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k==null) continue; const v=localStorage.getItem(k)||''; lsSize[k]=k.length+v.length; lsUsed+=lsSize[k]; } lsUsedOk=true; }catch(e){ lsUsedOk=false; } quotaRecheck(); }
+function quotaRecheck(){ if(quotaHalt && (!lsUsedOk || lsUsed<LS_CAP*0.9)){ quotaHalt=false; try{ renderWriterBanner(); }catch(e){} } } // 整理・削除で 90% を下回った：停記の帯を外す
+function lsNote(k,v){ if(k==null) return; const n=(v==null)?0:(k.length+String(v).length); lsUsed+=n-(lsSize[k]||0); if(v==null) delete lsSize[k]; else lsSize[k]=n;  quotaRecheck(); }
+function quotaRoom(key,s){ // 書いてよいか（副作用なし）。取り込みは入口で準入（quotaAdmitted）するので、ここを通らない（WLR3 必改 1）
+  if(!lsUsedOk || !isCourseKey(key)) return true;
+  const grow=key.length+s.length-(lsSize[key]||0);
+  return grow<=0 || lsUsed+grow<=LS_CAP*0.9; }
+let quotaAdmit=0; // 作答単元の入口（quotaStopped）で 90% 未満と確かめて準入した単元の中：鍵ごとの閘で半笔に割らない（WLR2 必修 2・口径一.5。4.2.0 は同じ条件で全部書く）。取り込みは入口で無条件に準入（WLR3 必改 1）
+function quotaAdmitted(fn,self,args){ quotaAdmit++; try{ return fn.apply(self,args); }finally{ quotaAdmit--; } } // 入口の関数を「準入済み」で入り直す（入口で一度だけ包む）
+function quotaGate(key,s){ // true＝書いてよい
+  if(quotaAdmit>0 || quotaRoom(key,s)) return true;
+  quotaHalt=true; if(writerOk) noteSave(key,false); renderWriterBanner(); pulseWriterBanner(); // 停記の常駐の帯（WLR2 応修 5）
+  if(Date.now()-quotaNoticeAt>8000){ quotaNoticeAt=Date.now(); try{ toast(t('quotaStop')); }catch(e){} }
+  return false; }
+function quotaStopped(){ // 作答単元の入口（WLR1 WL-08）：見積もり容量の 90% 以上なら新しい作答を記録しない（書き込みが伸びるかどうかに依らない：日志の截尾などで伸びない作答も止める）。止めたら未保存の帯と案内
+  if(!lsUsedOk || lsUsed<LS_CAP*0.9) return false;
+  if(!quotaHalt){ quotaHalt=true; renderWriterBanner(); } pulseWriterBanner(); if(Date.now()-quotaNoticeAt>8000){ quotaNoticeAt=Date.now(); try{ toast(t('quotaStop')); }catch(e){} } // 書き手でも常駐の帯で停記を知らせる（閃くだけ・8 秒に一度の知らせでは足りない：WLR2 応修 5・原則 2）
+  return true; }
+function quotaWarn(){ if(!quotaWarned && lsUsedOk && lsUsed>LS_CAP*0.75){ quotaWarned=true; try{ toast(t('quotaWarn')); }catch(e){} } }
+function lsSet(key,val){ if(!writeAllowed(key)){ if(writerOk) noteSave(key,false); return false; } const s=JSON.stringify(val); if(!quotaGate(key,s)) return false; try{ localStorage.setItem(key,s); lsNote(key,s); noteSave(key,true); if(isCourseKey(key)) quotaWarn(); return true; }catch(e){ noteSave(key,false); return false; } }
+function lsDel(key){ if(!writeAllowed(key)){ if(writerOk) noteSave(key,false); return false; } try{ localStorage.removeItem(key); lsNote(key,null); noteSave(key,true); return true; }catch(e){ noteSave(key,false); return false; } }
+function lsSetRaw(key,raw){ if(!writeAllowed(key)){ if(writerOk) noteSave(key,false); return false; } try{ localStorage.setItem(key,raw); lsNote(key,raw); noteSave(key,true); return true; }catch(e){ noteSave(key,false); return false; } } // 戻し・取り消しは容量の閘を通さない（閘で止めると戻せなくなる） // 退避しておいた生の文字列を書き戻す（取り込みの巻き戻し・取り消し）
 
 /* ---------- 単一書き手：同じ課を複数のタブで開いたとき、記録を書けるのは「書き手」の文書一つだけ ----------
  * 排他は Web Locks（課ごとのロック）で取る。開いた順に待ち行列へ並び、先頭が書き手。ほかのタブは読むだけで、
- * 上部の帯の「こちらで続ける」で steal して引き継ぐ。書き手が閉じれば次のタブが自動で引き継ぐ。
+ * 上部の帯の「こちらで続ける」で書き手に譲ってもらう（強奪はしない：合成稿 v3.3 決定 2＝B）。書き手が閉じれば次のタブが自動で引き継ぐ。
  * 書き手になる経路はすべて becomeWriter() を通り、必ず手元の記憶を捨ててストレージから読み直してから書く。
  * さらに書き込みのたびに同期的にフェンス札（writer 鍵の owner）を確かめ、通知が届く前に古い書き手が書く窓を狭める。
  * Web Locks の無い環境（安全でない文脈・古い Safari）では、最後に名乗った文書が書き手（フェンス札だけで排他）。
@@ -324,15 +365,22 @@ function lsSetRaw(key,raw){ if(!writeAllowed(key)){ if(writerOk) noteSave(key,fa
  * 書き手は pagehide でロックを返す（握ったまま離れると WebKit で次の文書の読み込みが止まる）。そのとき札に leaving とタブ印を残し、
  * 同じタブ（再読み込みで戻ってくる本人）以外は少しのあいだ譲る。
  * 「こちらで続ける」は協調的な引き継ぎ：BroadcastChannel で書き手に頼み、書き手は未保存を書き切って書くのをやめ、札に引き継ぎ先を
- * 書いてからロックを返す。頼んだ側は待ち行列から順にロックを受け取り、読み直してから書く。返事がなければ（凍結など）steal し、札が二の矢。
+ * 書いてからロックを返す。頼んだ側は待ち行列から順にロックを受け取り、読み直してから書く。返事がなければ（凍結など）強奪せず、約 3 秒で頼みを作廃して「そのタブに戻るか閉じて」と知らせる（合成稿 v3.3）。取得後は一律 400 ms 待ってから読み直す。
  * 知らせには送り手・代（札の n＝書き手になるたびに増える）・頼みの印を付ける。届く順は送り手ごとにしか揃わないので、新旧は受け取った時刻ではなく
  * 代で決める：その後に新しい書き手が決まった引き継ぎ・頼み・知らせは済んだものとして無視する（遅れて届いた古い知らせで、済んだ引き継ぎを巻き戻さない）。
  * 札そのものも遅れて届くことがある（WebKit ではタブをまたぐ localStorage の書き込みの届く順がロックの順とずれ、前の書き手が交出前に書いた札が
  * 次の書き手の札を上書きする）。ロックを持つ書き手は、自分より古い代の札を見たら遅れた書き込みとみなして札を書き直す（同じ代・新しい代なら本当に奪われた）。 */
 const DOC_ID=Math.random().toString(36).slice(2)+Date.now().toString(36); // 文書ごとに一意（タブを複製しても別の ID）
 const DOC_BORN=Date.now(), HANDOFF_GRACE=4000, HANDOFF_TIMEOUT=1500, LOCK_RETRY_MAX=3;
+const HANDOFF_REQ_TTL=3000; // 合成稿 v3.3：「譲って」は時刻つき、約 3 秒で作廃（凍った書き手が目を覚まして、もう待つのをやめた頼みに譲らない）。頼んだ側もこの時間で見張りをやめる
+const WRITER_SETTLE_MS=400, RO_BANNER_DELAY=1000; // 合成稿 v3.2〜3.3：取得写锁后一律等满 400 ms 再读数据・开写（跨标签传播实测 5〜41 ms，留约 10 倍）。只読の帯はその上（約 1 秒）待ってから出す（開くたびに閃かせない）
+let noLocks=false; // Web Locks が無い：安全に書き手を一つに決められないので只読（合成稿 v3.3 四）
+let writerPreparing=false, prepTimer=null, prepNoticeAt=0; // 準備中＝ロックは取ったが 400 ms 待っている間（只読の画面の道は通らない）
+let lockSettled=false; // いま持っているロックについて、授けられてから 400 ms を待ち終えた（WLR1 WL-01：書き手になる入口はすべてこれが前提）
+let PREV_TAB_TOKEN=null; // このタブで前の文書が使っていた印（同じタブで整頁遷移して戻った：導航型 navigate。V-09）。札の leaving がこの印なら、ロックを得た今は「このタブの前の文書が去った」と分かる
 let TAB_TOKEN=(function(){ // 再読み込みをまたいで同じタブだと分かる印（複製・新規タブは別の印；複製が reload と報告されても起動時の名乗りで替える）
   let nav=''; try{ const e=performance.getEntriesByType('navigation')[0]; nav=e?e.type:''; }catch(e){}
+  try{ PREV_TAB_TOKEN=sessionStorage.getItem('quiz:tabLeft'); sessionStorage.removeItem('quiz:tabLeft'); }catch(e){} // 前の文書が去るときに残した印だけを認め、一度読んだら消す。複製タブは元のタブが開いている間の sessionStorage を写すので、この印を持たない（WLR2 応修 6：複写された quiz:tab を前の文書と見なしていた）
   try{ let tk=sessionStorage.getItem('quiz:tab'); if(!tk || nav!=='reload'){ tk=DOC_ID; sessionStorage.setItem('quiz:tab',tk); } return tk; }catch(e){ return DOC_ID; }
 })();
 const WRITER_BC=(function(){ try{ return (typeof BroadcastChannel==='function')?new BroadcastChannel('reviewx-writer'):null; }catch(e){ return null; } })();
@@ -340,7 +388,7 @@ let unsavedKeys={}; // 書き手なのに書けなかった本課の鍵（札が
 function hasUnsaved(key){ return key ? !!unsavedKeys[key] : Object.keys(unsavedKeys).length>0; }
 function noteSave(key,ok){ if(!isCourseKey(key)) return; const before=hasUnsaved(); if(ok) delete unsavedKeys[key]; else unsavedKeys[key]=1; if(before!==hasUnsaved()) renderWriterBanner(); } // 只読のタブが書かないのは数えない（呼ぶ側で書き手のときだけ）
 let replacingData=false; // 取り込み・取り消し・全消去のあとの再読み込み：離页で記憶の古い値を書き戻さない
-function dataReplaced(){ replacingData=true; clearUnsaved(); try{ if(App.session){ pauseSessionClock(App.session); App.session=null; } if(App.rxRun){ if(typeof rxClearTimer==='function') rxClearTimer(); App.rxRun=null; } }catch(e){} } // 記憶の会話も終える：visibilitychange・blur が pagehide より先に来ても古い模試を書かない（WLR1 合并裁定 三-7）。新課の限時の練習も止める：再読み込みまでに到点して置き換えたデータへ時間切れを書かない（WLR-B 四・WLR2 七、軽重置と同じ） // 取り込み・取り消し・全消去で存档を置き換えた（続けて再読み込みする）：この文書は離页で記憶の古い値を書き戻さない（合成稿 v3.3「替换数据后不写回」）
+function dataReplaced(){ replacingData=true; clearUnsaved(); try{ if(App.session){ pauseSessionClock(App.session); App.session=null; } if(App.rxRun){ if(typeof rxClearTimer==='function') rxClearTimer(); App.rxRun=null; } }catch(e){} } // 記憶の会話も終える：visibilitychange・blur が pagehide より先に来ても古い模試を書かない（WLR1 合并裁定 三-7）。新課の限時の練習も止める：再読み込みまでに到点して置き換えたデータへ時間切れを書かない（WLR2 応修 7・WLR-B 四、軽重置と同じ） // 取り込み・取り消し・全消去で存档を置き換えた（続けて再読み込みする）：この文書は離页で記憶の古い値を書き戻さない（合成稿 v3.3「替换数据后不写回」）
 function onPageHide(){ if(!replacingData){ if(writerOk && hasUnsaved(nk('progress'))) saveProgress(); if(App.session && App.session.mode==='exam' && writerOk) persistExam(); } leaveWriter(); navGen++; } // 閉じる・移る直前（pagehide）：4.2.0 と同じく書けずにいた進度と模試を書く
 function clearUnsaved(){ const had=hasUnsaved(); unsavedKeys={}; if(had) renderWriterBanner(); } // 記憶を捨てて読み直したとき
 function forgetUnsaved(key){ if(!unsavedKeys[key]) return; delete unsavedKeys[key]; if(!hasUnsaved()) renderWriterBanner(); } // 書けなかった操作そのものが取りやめになった：待つものが無いので印を外す（「書けた」ではない：X15e-01）
@@ -357,7 +405,7 @@ function ownsFence(){ const f=readFence(); return !!(f && f.owner===DOC_ID); }
 function claimFence(){ // フェンス札を自分の名で書き、読み戻して確かめる。失敗＝保存できない
   try{ const f=readFence(); if(f===undefined) return false;
     const n=Math.max((f&&f.n)||0,cg().known)+1; // 札の伝わりが遅くても、知らせで知った代より小さい代を名乗らない
-    localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:n}));
+    localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:n,ver:APP_VERSION})); // ver＝この書き手の版（ver の無い札＝4.2.0 以前の書き手：更新後の確認門）
     if(!ownsFence()) return false;
     writerGen=n; noteGen(n); return true; }catch(e){ return false; }
 }
@@ -369,7 +417,7 @@ function fenceState(){ // 札を一度だけ読んで決める（X15b-02）：'m
   if(f===undefined) return 'broken';
   if(f && f.owner===DOC_ID) return 'mine';
   if(!staleFence(f)) return 'lost';
-  try{ localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen})); }catch(e){ return 'broken'; } // ロックを持つ書き手が札を書き直す
+  try{ localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION})); }catch(e){ return 'broken'; } // ロックを持つ書き手が札を書き直す
   const g=readFence();
   if(g===undefined) return 'broken';
   return (g && g.owner===DOC_ID)?'mine':'lost';
@@ -399,11 +447,13 @@ function yieldDelay(){ // ロックを受け取ったが譲るべきときの残
   if(h && h.kind==='handoff' && (!hand || h.gen>=hand.gen)) hand={to:h.to,gen:h.gen,at:h.at};
   if(hand) return hand.to===DOC_ID ? 0 : Math.max(0,hand.at+HANDOFF_TIMEOUT*2-now); // 自分あてなら待たない；ほかあてなら譲る
   let wait=0;
-  if(f && f.leaving && !(f.tab ? f.tab===TAB_TOKEN : f.leaving<DOC_BORN)) wait=Math.max(wait,f.leaving+HANDOFF_GRACE-now); // 同じタブの再読み込みは待たない（タブ印のない旧形式の札は生まれた時刻で見る）
-  if(h && h.kind==='leaving' && h.tab!==TAB_TOKEN) wait=Math.max(wait,h.at+HANDOFF_GRACE-now);
+  const sameTab=function(tk){ return tk===TAB_TOKEN || (!!PREV_TAB_TOKEN && tk===PREV_TAB_TOKEN); }; // 同じタブの前の文書（再読み込み・整頁遷移で戻った：V-09）
+  if(f && f.leaving && !(f.tab ? sameTab(f.tab) : f.leaving<DOC_BORN)) wait=Math.max(wait,f.leaving+HANDOFF_GRACE-now); // 同じタブの再読み込み・整頁遷移は待たない（ロックはもう得ている＝前の文書は去った。あとは一律 400 ms：合成稿 v3.3）。タブ印のない旧形式の札は生まれた時刻で見る
+  if(h && h.kind==='leaving' && !sameTab(h.tab)) wait=Math.max(wait,h.at+HANDOFF_GRACE-now);
   return Math.max(0,wait);
 }
 function becomeWriter(){ // 書き手になる唯一の入口
+  if(navigator.locks && navigator.locks.request && !(lockSettled && lockRelease)) return false; // 同じ授锁で 400 ms を待ち終えていなければ、認領も読み直しもしない（合成稿 v3.3 口径一.6）
   const hadExam=!!(App.session && App.session.mode==='exam');
   const claimed=claimFence(); // 先に札を取ってから読み直す（読んだ後・札を取る前に古い書き手が書いた分を取りこぼさない）
   if(!claimed){ storageBroken=true; setWriter(false); return false; } // 接管できなかった：会話・記憶は消さない（CR-21：消してから戻っていた）
@@ -423,33 +473,55 @@ function becomeWriter(){ // 書き手になる唯一の入口
   if(lost) showLostDrafts(lost);
   return true;
 }
-function requestWriter(steal){ // steal=「こちらで続ける」
+/* 更新後の確認門（合成稿 v3.3）：版が変わって最初の起動では書き込みを閉じ、「ほかに開いている reviewX のタブを再読み込みするか閉じて」と確かめてから開く（旧版のタブと交互に書かない）。
+ * 出すのは「確かめた版（quiz:ackVer）が今の版でなく、今の版でない書き手の札が残っている」とき：旧版がこの端末で書き手だった＝更新後。初めて使う端末では出さない。
+ * どのタブで確かめても（quiz:ackVer）ほかの新版タブも開く。新版のコードは旧版のページを閉じられない：これが門にできる上限 */
+const ACK_KEY='quiz:ackVer';
+let updateGateOn=false;
+function updateGateInit(){ // 起動時（lsScan の後、最初の requestWriter の前）
+  if(lsGet(ACK_KEY,null)===APP_VERSION) return;
+  if(!lsUsedOk){ try{ localStorage.getItem(ACK_KEY); }catch(e){ return; } updateGateOn=true; return; } // 鍵を数えられなかった：旧版の跡が無いと確かめられないので門を出す（確かめずに ack を書かない：WLR1 合并裁定 三-8）。ただし保存そのものが使えない（触るだけで例外）なら門は出さない：旧版も書けない。理由は「保存できません」の帯が知らせる（S2 B-009：更新の門を出すと原因を取り違える）
+  const older=Object.keys(lsSize).some(function(k){ if(!/^quiz:.+:writer$/.test(k)) return false; const f=lsGet(k,null); return !!f && f.ver!==APP_VERSION; });
+  if(!older){ lsSet(ACK_KEY,APP_VERSION); return; } // 旧版の書き手の跡が無い（初めて使う・同じ版）：門は要らない
+  updateGateOn=true;
+}
+function showUpdateGate(oldHolder){ // oldHolder＝並んでいる間に、ロックを持つのが旧版（札に ver が無い）と分かった：確かめても開かず、閉じるだけ（そのタブが閉じればロックが回ってくる）
+  if(document.querySelector('#modalRoot [data-update-gate]')) return;
+  openModal(modalShell(t('updateGateTitle'),[ el('div',{'data-update-gate':'1'},[ el('p',{class:'jp',text:t('updateGateBody')}),
+    el('div',{class:'row',style:'margin-top:14px;gap:10px'},[ el('button',{class:'btn',text:t('updateGateOk'),onclick:function(){ if(oldHolder) closeModal(true); else { if(!lsSet(ACK_KEY,APP_VERSION)) toast(t('updateGateAckFail')); openUpdateGate(); } }}) ]) ]) ])); // 門はこのボタンでしか閉じない（外側の押下・Esc・戻るでは閉じない：三-8）。確かめた版が書けなくても、このタブは開けて知らせる
+}
+function openUpdateGate(){ if(!updateGateOn) return; updateGateOn=false; if(document.querySelector('#modalRoot [data-update-gate]')) closeModal(true); if(App.course) requestWriter(); }
+function requestWriter(){ // ロックの待ち行列に並ぶ（強奪はしない：合成稿 v3.3 決定 2＝B）
   if(!App.course) return;
+  if(updateGateOn){ if(!writerOk) setWriter(false); showUpdateGate(false); return; } // 更新後の確認がまだ：書き込みは閉じたまま
   const cid=App.course.id;
-  if(!(navigator.locks && navigator.locks.request)){ becomeWriter(); return; } // フォールバック：最後に名乗った文書が書き手
+  if(!(navigator.locks && navigator.locks.request)){ noLocks=true; setWriter(false); return; } // Web Locks が無い：只読にして知らせる（以前は「最後に名乗った文書が書き手」）
   if(yieldTimer){ clearTimeout(yieldTimer); yieldTimer=null; }
   if(retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
   if(lockAbort){ try{ lockAbort.abort(); }catch(e){} lockAbort=null; }
-  const ac=new AbortController(); if(!steal) lockAbort=ac;
-  if(!steal && !writerOk) setWriter(false); // 待っている間は読むだけ（すぐ取れれば帯は出ない）
+  const ac=new AbortController(); lockAbort=ac;
+  if(!writerOk) setWriter(false); // 待っている間は読むだけ（すぐ取れれば帯は出ない）
   let granted=false, lost=false, req;
-  try{ req=navigator.locks.request('reviewx-writer:'+cid, steal?{steal:true}:{signal:ac.signal}, function(){
+  try{ req=navigator.locks.request('reviewx-writer:'+cid, {signal:ac.signal}, function(){
     granted=true; lockFailures=0;
     if(!App.course || App.course.id!==cid) return; // 課を離れた後に届いた
     if(lockAbort===ac) lockAbort=null;
     return new Promise(function(res){ // ロックを持ったまま一度タスクを譲ってから決める：先に届いている知らせ（引き継ぎ先）を読み込んでから（WebKit では順が逆になりうる）
       setTimeout(function(){
         if(lost || !App.course || App.course.id!==cid){ res(); return; } // その間に奪われた／課を離れた
-        const wait=steal?0:yieldDelay();
+        const wait=yieldDelay();
         if(wait){ res(); yieldTimer=setTimeout(function(){ yieldTimer=null; if(App.course && App.course.id===cid) requestWriter(false); },wait+50); return; } // ロックはすぐ返して待つ
-        lockCourse=cid; lockRelease=res; // 課を離れるまで持ち続ける
-        becomeWriter();
+        lockCourse=cid; lockRelease=res; lockSettled=false; // 課を離れるまで持ち続ける。この授锁の 400 ms はまだ
+        writerPreparing=true; prepUI(true);
+        prepTimer=setTimeout(function(){ prepTimer=null; writerPreparing=false; prepUI(false);
+          if(lost || !App.course || App.course.id!==cid || lockRelease!==res) return; // 待つ間に奪われた・課を離れた・返した
+          lockSettled=true; if(writerOk) return; becomeWriter(); },WRITER_SETTLE_MS); // もう書き手なら名乗り直さない（二度目の becomeWriter で代が二つ進み、模試が開き直されるのを防ぐ：WLR1 合并裁定 一-1①） // 排队で来ても、すぐ取れても、札や知らせに何が見えても、取得後は一律 400 ms 待ってから読み直して書き始める（N-S2-03：前の書き手の最後の一笔を読み落とさない）
       },0);
     });
   }); }catch(e){ req=Promise.reject(e); }
-  req.catch(function(err){ // 持っていたロックを steal された／自分で取りやめた／取れずに拒まれた
+  req.catch(function(err){ // 持っていたロックを（4.2.0 以前の版のタブに）steal された／自分で取りやめた／取れずに拒まれた
     lost=true;
-    if(lockCourse===cid){ lockCourse=null; lockRelease=null; }
+    if(lockCourse===cid){ lockCourse=null; lockRelease=null; lockSettled=false; }
     if(!App.course || App.course.id!==cid || ac.signal.aborted) return;
     if(writerOk) setWriter(false);
     if(granted){ requestWriter(false); return; } // steal された：待ち行列へ並び直す（引き継いだタブが閉じれば自動で戻る）
@@ -463,9 +535,11 @@ function lockFailed(cid){ // ロック API に拒まれた（SecurityError な�
   retryTimer=setTimeout(function(){ retryTimer=null; if(App.course && App.course.id===cid) requestWriter(false); },500*Math.pow(2,lockFailures-1));
 }
 function releaseWriter(){ // 課を離れる：ロックを返し、待ちも取りやめる
+  if(writerOk && typeof rxInterrupt==='function') rxInterrupt(); // 離页・切課で書き手を手放す：限時の練習は中断（往返キャッシュから戻って自動で記録しない：総指揮 (c)）
   if(yieldTimer){ clearTimeout(yieldTimer); yieldTimer=null; }
   if(retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
   if(handoffTimer){ clearTimeout(handoffTimer); handoffTimer=null; }
+  if(prepTimer){ clearTimeout(prepTimer); prepTimer=null; } if(writerPreparing) prepUI(false); writerPreparing=false; lockSettled=false;
   handoffReq=null; writerGen=0; unsavedKeys={};
   lockFailures=0; lockRetrying=false;
   if(lockAbort){ try{ lockAbort.abort(); }catch(e){} lockAbort=null; }
@@ -473,8 +547,9 @@ function releaseWriter(){ // 課を離れる：ロックを返し、待ちも取
   writerOk=false;
 }
 function leaveWriter(){ // pagehide：札に leaving とタブ印を残してからロックを返す（bfcache から戻れば pageshow で並び直す）
+  try{ sessionStorage.setItem('quiz:tabLeft',TAB_TOKEN); }catch(e){} // このタブで次に生まれる文書にだけ「前の文書はこの印」と渡す（WLR2 応修 6）
   if(writerOk){
-    try{ if(fenceMine()) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,leaving:Date.now(),tab:TAB_TOKEN})); }catch(e){} // 代は自分が確かめた代（読み直した札の n を写さない：X15b-01）
+    try{ if(fenceMine()) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION,leaving:Date.now(),tab:TAB_TOKEN})); }catch(e){} // 代は自分が確かめた代（読み直した札の n を写さない：X15b-01）
     try{ if(WRITER_BC && App.course) WRITER_BC.postMessage({t:'leaving',course:App.course.id,from:DOC_ID,gen:writerGen,tab:TAB_TOKEN}); }catch(e){}
   }
   releaseWriter();
@@ -493,8 +568,8 @@ function handOff(to,req){ // 協調的に譲る：未保存を書き切る→（
   if(fenceLost()){ setWriter(false); return; } // もう書き手でない（失権の知らせがまだ届いていない）：断らずに退く。頼みには今の書き手が応える
   const cid=App.course.id;
   const flush=function(){ let ok=true; // 譲る前に書けずにいたものを書き切る：練習の進度（書けなかったときだけ：X15d-02）と模試（記述の下書き・時計）
-    if(hasUnsaved(nk('progress'))) ok=(saveProgress()!==false) && ok;
-    if(App.session && App.session.mode==='exam') ok=(persistExam()!==false) && ok;
+    if(hasUnsaved(nk('progress')) && !progressBad) ok=(saveProgress()!==false) && ok; // 読めない進度（progressBad）は書かない＝書き切るものも無い：交接を断らない（S2 v5 P3 活性。データは変えない）
+    if(App.session && App.session.mode==='exam' && examStoreOk()) ok=(persistExam()!==false) && ok; // 読めない模試の記録には書かない＝書き切るものも無い：交接を断らない（WLR2 応修 8、progressBad と同じ。記憶の模試は譲った先には渡らない：口径二.2 と同類として登記）
     return ok; };
   let saved=true;
   try{ saved=flush(); }catch(e){ saved=false; }
@@ -507,33 +582,36 @@ function handOff(to,req){ // 協調的に譲る：未保存を書き切る→（
     return;
   }
   bcPost({t:'handing',course:cid,from:DOC_ID,gen:writerGen,to:to,req:req}); // 書き手は生きていて、この相手に譲る（ほかの頼み手は強奪せず待つ）
-  try{ const f=readFence(); if(f && f.owner===DOC_ID) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,handoffTo:to,at:Date.now()})); }catch(e){}
+  try{ const f=readFence(); if(f && f.owner===DOC_ID) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION,handoffTo:to,at:Date.now()})); }catch(e){}
   setWriter(false);
-  const r=lockRelease; lockRelease=null; lockCourse=null; r();
+  const r=lockRelease; lockRelease=null; lockCourse=null; lockSettled=false; r();
   requestWriter(false); // 引き継いだタブが閉じれば自動で戻る
 }
-function armHandoffTimer(ms,steal){ // 頼んだあとの見張り：steal＝返事が一つもなければ強奪；そうでなければ頼み直す
+function armHandoffTimer(ms,giveUp){ // 頼んだあとの見張り：giveUp＝返事が無ければ頼みを終えて知らせる（強奪はしない：合成稿 v3.3）；そうでなければ頼み直す
   if(handoffTimer) clearTimeout(handoffTimer);
   const cid=handoffReq&&handoffReq.cid;
   handoffTimer=setTimeout(function(){ handoffTimer=null;
-    if(writerOk || !handoffReq || !App.course || App.course.id!==cid) return;
-    if(steal){ handoffReq=null; requestWriter(true); } // 頼みはここで終える：強奪に負けても（同時に強奪した別のタブが取った等）待ち続けず、帯の「こちらで続ける」からやり直せる
+    if(writerOk || writerPreparing || !handoffReq || !App.course || App.course.id!==cid) return;
+    if(giveUp){ handoffReq=null; noReplyNotice(); } // 頼みはここで終える。待ち行列には並んだまま（相手が閉じればロックが回ってくる）。帯の「こちらで続ける」から頼み直せる
     else sendHandoff();
   },ms);
 }
-function sendHandoff(){ // 「譲って」を出す（書き手が 1.5 秒で何も言わなければ凍結とみなして steal、札が二の矢）
+function noReplyNotice(){ // 書き手のタブが応えない（iOS の背景で凍っている等）：強奪せず、只読のまま「そのタブに戻るか閉じて」と知らせる（合成稿 v3.3 決定 2＝B）
+  pulseWriterBanner(); toast(t('writerNoReply')); }
+function sendHandoff(){ // 「譲って」を出す（時刻つき：約 3 秒で作廃。書き手が応えなければ強奪せず知らせる）
   if(!handoffReq) return;
   handoffReq.superseded=false;
   readFence(); // 今の代を確かめてから頼む（頼みの代が古すぎると、済んだ頼みとして無視される）
-  if(!bcPost({t:'handoff',course:handoffReq.cid,from:DOC_ID,to:DOC_ID,gen:cg().known,req:handoffReq.id})){ handoffReq=null; requestWriter(true); return; }
-  armHandoffTimer(HANDOFF_TIMEOUT,true);
+  if(!bcPost({t:'handoff',course:handoffReq.cid,from:DOC_ID,to:DOC_ID,gen:cg().known,req:handoffReq.id,at:Date.now()})){ handoffReq=null; noReplyNotice(); return; } // 知らせが送れない：強奪せず只読のまま
+  armHandoffTimer(HANDOFF_REQ_TTL,true);
 }
 function onWriterMessage(e){ const m=(e && e.data)||{}; // 別のタブからの知らせ
   if(m.t==='tab-hello'){ if(m.tab===TAB_TOKEN && m.doc!==DOC_ID) bcPost({t:'tab-dup',tab:m.tab,to:m.doc}); return; } // 同じタブ印の文書が生まれた＝複製
-  if(m.t==='tab-dup'){ if(m.to===DOC_ID && m.tab===TAB_TOKEN){ TAB_TOKEN=DOC_ID; try{ sessionStorage.setItem('quiz:tab',TAB_TOKEN); }catch(_){} } return; }
+  if(m.t==='tab-dup'){ if(m.to===DOC_ID && m.tab===TAB_TOKEN){ TAB_TOKEN=DOC_ID; PREV_TAB_TOKEN=null; try{ sessionStorage.setItem('quiz:tab',TAB_TOKEN); }catch(_){} } return; } // 複製タブと分かった：複写された「前の文書の印」も元のタブのもの。本タブの前の文書としては扱わない（V-09 の修正が V3-11b を壊していた）
   if(!App.course || m.course!==App.course.id) return;
   const gen=(typeof m.gen==='number')?m.gen:-1;
   if(m.t==='handoff'){ // 頼みに応えるのは書き手だけ（ほかのタブは頼みだけでは道を譲らない）
+    if(typeof m.at==='number' && Date.now()-m.at>HANDOFF_REQ_TTL) return; // 作廃した頼み（凍っていて遅れて受け取った）：もう待っていない相手に譲らない
     if(writerOk && m.to!==DOC_ID && gen>=writerGen-1) handOff(m.to,m.req); // 頼んだ時点の代がいまの書き手かその一つ前。もっと古い頼みは、その後の書き手を経て済んでいる
   }
   else if(m.t==='handing'){ // 書き手が m.to に譲るところ
@@ -542,7 +620,7 @@ function onWriterMessage(e){ const m=(e && e.data)||{}; // 別のタブからの
     noteGen(gen);
     cg().hint={kind:'handoff',to:m.to,gen:gen,at:Date.now()}; // 自分あても記録（古い札の別あての引き継ぎ先より新しい）
     if(handoffReq){
-      if(m.to===DOC_ID) armHandoffTimer(HANDOFF_TIMEOUT*2,true); // 自分あて：ロックが回ってくるのを待つ（念のための上限つき）
+      if(m.to===DOC_ID) armHandoffTimer(HANDOFF_TIMEOUT*2,true); // 自分あて：ロックが回ってくるのを待つ（上限を過ぎたら知らせるだけ。並んだままなので回ってくれば書き手になる）
       else { handoffReq.superseded=true; armHandoffTimer(HANDOFF_TIMEOUT*2,false); } // 先を越された：新しい書き手が決まったら頼み直す
     }
   }
@@ -554,11 +632,15 @@ function onWriterMessage(e){ const m=(e && e.data)||{}; // 別のタブからの
   else if(m.t==='refused'){ if(m.to===DOC_ID && handoffReq && m.req===handoffReq.id && gen>=cg().known){ handoffReq=null; if(handoffTimer){ clearTimeout(handoffTimer); handoffTimer=null; } toast(t('handoffRefused')); } } // いまの頼みへの、いまの書き手からの断りだけ（その後に書き手が替わっていれば、新しい書き手への頼みは続ける）
   else if(m.t==='leaving'){ if(gen<cg().known) return; cg().hint={kind:'leaving',tab:m.tab,gen:gen,at:Date.now()}; }
 }
-function takeOverWriter(){ // 「こちらで続ける」
-  if(!navigator.locks || !navigator.locks.request){ becomeWriter(); return; } // フォールバック：名乗れば書き手
+function takeOverWriter(){ // 「こちらで続ける」：書き手のタブに譲ってもらう（強奪はしない：合成稿 v3.3 決定 2＝B）
+  if(!navigator.locks || !navigator.locks.request){ noLocks=true; setWriter(false); return; } // Web Locks が無い：只読のまま
   if(!App.course || (handoffReq && handoffTimer)) return; // 頼んで返事を見張っている最中（見張りのない頼みは残っていてもやり直せる）
-  if(!WRITER_BC){ requestWriter(true); return; } // 頼む手段がない：steal
-  if(!lockAbort) requestWriter(false); // 待ち行列に並んでいること（書き手が返したロックを順に受け取る）
+  if(updateGateOn){ showUpdateGate(false); return; } // 更新後の確認がまだ
+  if(writerPreparing){ prepNotice(); return; } // 準備中（授锁后 400 ms の間）：認領も読み直しもしない。待ち終えれば自動で書き手になる（WLR1 WL-01）
+  if(!writerOk && storageBroken && !prepTimer && lockSettled && lockRelease && lockCourse===App.course.id){ becomeWriter(); return; } // 一-1③：札が書けなかったとき（storageBroken）だけ、待ちの計時が走っていないとき // ロックは持っているが札が取れなかった（保存の故障：CR-21）：持ったまま名乗り直す（持ち続けたので別の書き手は書いていない）
+  const f0=readFence(); if(f0 && f0.owner!==DOC_ID && !f0.ver && !f0.leaving && !f0.handoffTo){ showUpdateGate(true); return; } // ロックを持つのは旧版（札に ver が無い）：頼まず只読のまま、旧版のタブを閉じてもらう（合成稿 v3.3）
+  if(!lockAbort) requestWriter(); // 待ち行列に並んでいること（書き手が返したロックを順に受け取る）
+  if(!WRITER_BC){ noReplyNotice(); return; } // 頼む手段がない：強奪せず知らせる（相手が閉じればロックが回ってくる）
   handoffReq={cid:App.course.id,id:DOC_ID+':'+(++reqSeq),superseded:false};
   sendHandoff();
 }
@@ -570,9 +652,20 @@ function fenceOk(){ // 書き手で、札が確かに別の文書のものにな
 }
 function canWrite(){ // 書く操作の前に：内存の印だけでなく札まで同期で確かめる（CR-07：失権の知らせより先に別の文書が札を取った窓で、判分だけ出て記録が捨てられていた）
   if(fenceOk()) return true;
+  if(writerPreparing){ prepNotice(); return false; } // 準備中（取得写锁后的 400 ms）：作答は受け付けず判定も出さない。只読の説明は出さず「準備中」とだけ知らせる
   pulseWriterBanner(); if(typeof roNotice==='function') roNotice();
   return false;
 } // 只読の側で書く操作を押した：帯を光らせ、説明と「こちらで続ける」を出す（U-25：画面の層だけ。書き手の判定は変えない）
+function prepUI(on){ // 準備中の画面（合成稿 v3.3 実施注記・WLR1 WL-07）：記述欄は読み取り専用にして「準備中」と示す（前の 0.4 秒に打った字が黙って消えない）。開いている只読の説明は閉じる。帯の「こちらで続ける」は押せないようにする（一-1②）
+  try{ document.body.classList.toggle('writer-prep',!!on);
+    const tb=document.getElementById('writerTakeover'); if(tb) tb.disabled=!!on;
+    document.querySelectorAll('textarea.answer, .rx-run textarea').forEach(function(ta){
+      if(on){ if(!ta.readOnly){ ta.readOnly=true; ta.setAttribute('data-prep','1'); const n=el('div',{class:'prep-note jp',role:'status',text:t('writerPrepShort')}); ta.parentNode && ta.parentNode.insertBefore(n,ta); } }
+      else if(ta.getAttribute('data-prep')){ ta.readOnly=false; ta.removeAttribute('data-prep'); } });
+    if(!on) document.querySelectorAll('.prep-note').forEach(function(n){ n.remove(); });
+    if(on && document.querySelector('#modalRoot .ro-notice') && typeof closeModal==='function') closeModal(); }catch(e){} }
+function prepNotice(){ const ev=window.event; // 利用者の操作の最中だけ（脚本からの確認では出さない：roNotice と同じ）
+  if(!((ev && ev.isTrusted) || window.__rxKeyGesture) || Date.now()-prepNoticeAt<600) return; prepNoticeAt=Date.now(); toast(t('writerPreparing')); }
 let writerWaiters=[];
 function whenWriter(ms){ // 書き手が決まるのを待つ（切課直後に書く操作を始める入口用：S4-014）。なれたら true、時間内になれなければ false
   if(writerOk) return Promise.resolve(true);
@@ -583,20 +676,28 @@ function whenWriter(ms){ // 書き手が決まるのを待つ（切課直後に�
 }
 let writerWas=false; // この文書で一度でも書き手だった（交接で失った側は、遅れて出る帯を待たずに只読の説明を出す：CR-01）。表示だけに使い、書き手の決め方には関わらない
 function setWriter(on){
-  writerOk=on; if(on) writerWas=true;
+  const was=writerOk; writerOk=on; if(on) writerWas=true;
+  if(was && !on && typeof rxInterrupt==='function') rxInterrupt(); // 書き手でなくなった：限時の練習は中断（総指揮 (c)）
   if(on && writerWaiters.length){ const ws=writerWaiters; writerWaiters=[]; ws.forEach(function(w){ clearTimeout(w.t); w.res(true); }); } // 解決は becomeWriter の描き直しの後（マイクロタスク）
   if(bannerTimer){ clearTimeout(bannerTimer); bannerTimer=null; }
   if(on || storageBroken || lockRetrying) renderWriterBanner();
-  else bannerTimer=setTimeout(function(){ bannerTimer=null; if(!writerOk) renderWriterBanner(); },400); // 再読み込み直後の一瞬の待ちでは帯を出さない
+  else { const fire=function(){ bannerTimer=null; if(writerOk) return; if(writerPreparing){ bannerTimer=setTimeout(fire,200); return; } renderWriterBanner(); }; bannerTimer=setTimeout(fire,RO_BANNER_DELAY); } // 再読み込み直後の待ちでは帯を出さない。準備中にかかったら飛ばして待ち終わりを見る（WLR1 合并裁定 三-5）
 }
+function writerBannerKey(){ // 帯の文の鍵（null＝帯を出さない）。書き手でも、書けずにいるもの（保存の故障）か軟い閘の停記があれば出す
+  const unsaved=writerOk && hasUnsaved(), quota=writerOk && quotaHalt;
+  if(writerOk && !unsaved && !quota) return null;
+  if(quota) return 'quotaStopBar'; // 横幅は短い版（快審第三十五批：toast は quotaStop の全文）。 停記：容量の案内（「ブラウザの設定」の文ではない：WLR2 応修 5）
+  const broken=storageBroken||lockRetrying||unsaved||noLocks;
+  return noLocks?'writerNoLocks':broken?((typeof isRxCourse==='function' && isRxCourse())?'storageBlockedRx':'storageBlocked'):'writerLocked'; }
 function renderWriterBanner(){
   let b=document.getElementById('writerBanner');
-  const unsaved=writerOk && hasUnsaved(); // 書き手でも書けずにいるものがある：保存の故障として知らせる（接管ボタンは出さない）
-  if(writerOk && !unsaved){ if(b) b.remove(); document.body.classList.remove('writer-ro','ro-notice-open'); if(document.querySelector('#modalRoot .ro-notice') && typeof closeModal==='function') closeModal(); return; } // 帯が消えたら、帯を遮罩の上に出すための ro-notice-open も外す（恢復框が開いたままでも、空けた余白と高さの縮めを戻す：CC-06） // 書き手になった：只読の説明は閉じる（U-25・画面の層）
+  const key=writerBannerKey(); // 書き手でも書けずにいるもの・停記があれば帯（接管ボタンは出さない）
+  if(key===null){ if(b) b.remove(); document.body.classList.remove('writer-ro','ro-notice-open'); if(document.querySelector('#modalRoot .ro-notice') && typeof closeModal==='function') closeModal(); return; } // 帯が消えたら、帯を遮罩の上に出すための ro-notice-open も外す（恢復框が開いたままでも、空けた余白と高さの縮めを戻す：CC-06） // 書き手になった：只読の説明は閉じる（U-25・画面の層）
   if(b) b.remove();
-  const broken=storageBroken||lockRetrying||unsaved;
-  const kids=[ el('span',{class:'writerbar-t jp',text:t(broken?((typeof isRxCourse==='function' && isRxCourse())?'storageBlockedRx':'storageBlocked'):'writerLocked')}) ]; // 新課は保存できるまで解答を記録しない（CR-10）ので、その事実に合う文（N-E）
-  if(!broken) kids.push(el('button',{class:'btn sm',id:'writerTakeover',text:t('writerTakeOver'),onclick:takeOverWriter}));
+  if(updateGateOn){ b=el('div',{class:'writerbar',id:'writerBanner',role:'status'},[ el('span',{class:'writerbar-t jp',text:t('updateGateTitle')}), el('button',{class:'btn sm',id:'updateGateOpen',text:t('updateGateOpen'),onclick:function(){ showUpdateGate(false); }}) ]); document.body.appendChild(b); document.body.classList.add('writer-ro'); syncWriterBarH(); return; } // 確認門が開いている間：帯も門の文に（「別のタブで開かれています」ではない：三-8）
+  const kids=[ el('span',{class:'writerbar-t jp',text:t(key)}) ]; // 新課は保存できるまで解答を記録しない（CR-10）ので、その事実に合う文（N-E）。停記は quotaStop（WLR2 応修 5）
+  if(key==='writerLocked') kids.push(el('button',{class:'btn sm',id:'writerTakeover',text:t('writerTakeOver'),onclick:takeOverWriter,disabled:writerPreparing?'disabled':null})); // 準備中は押せない（一-1②）
+  else if(storageBroken && !writerOk && lockSettled && lockRelease) kids.push(el('button',{class:'btn sm',id:'writerRetry',text:t('writerRetry'),onclick:takeOverWriter})); // ロックは持っているが札が書けなかった：持ったまま名乗り直す入口（WLR1 合并裁定 二・Claude WL-08。以前は帯にボタンが無く、到れなかった）
   b=el('div',{class:'writerbar',id:'writerBanner',role:'status'},kids);
   document.body.appendChild(b);
   document.body.classList.add('writer-ro');
@@ -608,8 +709,9 @@ function pulseWriterBanner(){ const b=document.getElementById('writerBanner'); i
 
 function emptyProgress(){ return {schemaVersion:PROGRESS_SCHEMA, seen:{}, wrong:{}, weakness:{}, stats:{exams:0}, attempts:[], cardMarks:{}, hideLearned:false, weakOnly:false}; } // 単語帳 覚えた/苦手 マーク + 覚えたを隠す/苦手だけ(進捗として保存/移行)
 function loadProgress(){ App.unsavedAns={}; // 読み直した：保存できずにいた作答の件数（告知用）も消える
-  const raw=lsGet(nk('progress'),null);
-  if(!raw){ App.progress=emptyProgress(); return; }
+  const r=lsRead5(nk('progress'),lsObj); progressBad=(r.st!=='none' && r.st!=='ok');
+  if(r.st!=='ok'){ App.progress=emptyProgress(); return; } // 無い＝空から。読めない・壊れている＝空を表示するだけで書かない（五態の厳格な読み）
+  const raw=r.v;
   if(raw.schemaVersion!==PROGRESS_SCHEMA){
     // 版本不匹配: 先让用户导出, 再迁移/重置, 绝不静默清空。
     // 弹窗可能被直接关掉, 之后的任何保存都会覆写原键 → 先把旧数据原样存进备份键（已有则不动）。
@@ -619,15 +721,20 @@ function loadProgress(){ App.unsavedAns={}; // 読み直した：保存できず
   }
   App.progress=C.normalizeProgress(Object.assign(emptyProgress(),raw),PROGRESS_SCHEMA); // 端末内のデータが壊れていても描画を止めない
 }
-function saveProgress(){ if(!App.course) return false; const ok=lsSet(nk('progress'),App.progress); if(ok) App.unsavedAns={}; return ok; } // 戻り値＝書けたか（譲る前の書き切りが確かめる）。進度は丸ごと書くので、書けたら前に書けずにいた作答も入っている
+function saveProgress(){ if(!App.course) return false; if(progressBad) return dataBad(nk('progress')); const ok=lsSet(nk('progress'),App.progress); if(ok) App.unsavedAns={}; return ok; } // 戻り値＝書けたか（譲る前の書き切りが確かめる）。進度は丸ごと書くので、書けたら前に書けずにいた作答も入っている
 function backupOldProgress(raw){ // 迁移前备份：旧数据原样存进 progress.bak.v<旧版>（已有则不动）。只由書き手写
   const bak=nk('progress.bak.v'+(raw.schemaVersion==null?0:raw.schemaVersion));
   if(lsGet(bak,null)===null) lsSet(bak,raw);
 }
-function delProgressBackups(){ // 迁移前备份 progress.bak.v* 的清理点：两档重置・完整导入成功后
+/* 只删的整理入口（WLR1 WL-06）：持锁且等满 400 ms、但札写不进（越过配额后的 WebKit：写全拒、删除可过：G4b）。
+ * 这时不是书写方，但锁在手里、别的新版标签不能写：允许重置删除本课的键，删完再名乗り一次（空出来就写得进札了） */
+function lockedForCleanup(){ return !writerOk && !!App.course && lockSettled && !!lockRelease && lockCourse===App.course.id && storageBroken; }
+function lsDelLocked(key){ if(writerOk) return lsDel(key); if(!lockedForCleanup() || !isCourseKey(key)) return false;
+  try{ localStorage.removeItem(key); lsNote(key,null); return true; }catch(e){ return false; } }
+function delProgressBackups(del){ // 迁移前备份 progress.bak.v* 的清理点：两档重置・完整导入成功后。del＝只删的整理入口から呼ぶとき lsDelLocked
   const pre=nk('progress.bak.'), keys=[];
   try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf(pre)===0) keys.push(k); } }catch(e){}
-  keys.forEach(function(k){ lsDel(k); });
+  keys.forEach(function(k){ (del||lsDel)(k); });
 }
 let pendingMigration=null;
 
@@ -671,7 +778,15 @@ function courseShort(c){
 /* 深色（第二批 U-43 样张）：各課の皮膚の色相から深色の値を引擎側で作る（app/courses/** と manifest は触らない）。
  * --accent-ink は浅色では「白文字の下地」と「強調の文字色」を兼ねるが、深色では明暗が逆になるので、実心ボタンの地は --cta-bg に分ける。
  * 文字色・ボタン地・補助文字は実測の対比度（4.6:1 以上）になるまで明度を動かす。設定の「自動／ライト／ダーク」は文案送审後（今は自動＝系統に従う）。 */
-var darkKeys=[];
+/* 読みの布局（総指揮 10-18 臨時方案 3）：画面の幅で切り替える。≥1024＝電脑：回（旧課は一回ぶんの読本）を一頁に鋪開、翻頁なし；
+ * 未満＝手機・iPad 縦：旧課読本と同じく塊ごとに翻頁。新課回頁は窄幅でカード境界の規則で分塊（rx-views rxPages）。 */
+const READ_WIDE_Q='(min-width:1024px)';
+function readWide(){ return !!(window.matchMedia && window.matchMedia(READ_WIDE_Q).matches); }
+(function(){ if(!window.matchMedia) return; var mq=window.matchMedia(READ_WIDE_Q), f=function(){ // 境界をまたいだら開いている読みの画面を描き直す（位置はカード・節の錨で保つ）
+    try{ if(App.reader && document.querySelector('#view .rdr') && typeof readerRelayout==='function'){ readerRelayout(); } // 読本：内存の錨で置き直す（CR432-7：持久化の lastRead は読まない）
+      else if(App.rxTocLec && document.querySelector('#view .rx-lecture') && typeof rxRelayout==='function'){ rxRelayout(); } }catch(e){} };
+  if(mq.addEventListener) mq.addEventListener('change',f); else if(mq.addListener) mq.addListener(f); })();
+var darkKeys=[], skinKeys=[]; // skinKeys＝前の課の皮膚で :root に流した鍵。課を替えるとき外してから次の皮膚を流す（持っていない鍵が前の課の値のまま残らないように）
 function themeDark(){ var p=lsGet('quiz:theme','auto'); if(p==='dark') return true; if(p==='light') return false; return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
 function hexRgb(h){ h=String(h||'').trim().replace('#',''); if(h.length===3) h=h.split('').map(function(c){ return c+c; }).join(''); var n=parseInt(h,16); return [n>>16&255,n>>8&255,n&255]; }
 function rgbHsl(c){ var r=c[0]/255,g=c[1]/255,b=c[2]/255, mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2, h=0, s=0;
@@ -691,7 +806,9 @@ function darkPalette(skin){
     '--fig-ink':'#4A3B44','--glow-rgb':'0,0,0','--glass-line':'rgba(255,255,255,.07)'};
   var L=.72; while(contrastOf(hslHex(H,S,L),P['--card'])<4.6 && L<.94) L+=.02; P['--accent-ink']=hslHex(H,S,L); // 強調の文字色（カード地で 4.6:1）
   var L2=.44; while(contrastOf('#FFFFFF',hslHex(H,S,L2))<4.6 && L2>.18) L2-=.02; P['--cta-bg']=hslHex(H,S,L2); // 実心ボタンの地（白文字で 4.6:1）
-  var L3=.66; while((contrastOf(c(L3,.10),P['--card'])<4.6 || contrastOf(c(L3,.10),P['--paper'])<4.6) && L3<.9) L3+=.02; P['--soft']=c(L3,.10);
+  P['--cta-fg']='#FFFFFF'; P['--cta-ring']='transparent'; P['--star']=P['--accent-deep']; P['--seg-on']=P['--cta-bg']; // 選択態の地も深色では CTA と同じ // 皮膚が浅色用に持つ字色・縁・★色は深色へ持ち込まない：深色の実心ボタンは白字、★は明るい accent-deep
+  var L5=.76; while(contrastOf(hslHex(H,S,L5),P['--card'])<4.6 && L5<.94) L5+=.02; P['--accent-deeper']=hslHex(H,S,L5); // 数字（進捗・正答率）の色：カード地で 4.6:1（薄荷・米白の深色で 4.09／4.25 だった：S2 10-18）
+  var L3=.66; while((contrastOf(c(L3,.10),P['--card'])<4.6 || contrastOf(c(L3,.10),P['--paper'])<4.6 || contrastOf(c(L3,.10),P['--accent-wash'])<5.0) && L3<.9) L3+=.02; P['--soft']=c(L3,.10); // 補助の字（11.5〜12.5px）は帯の上でも 5.0:1
   var pr=hexRgb(P['--paper']); P['--glass']='rgba('+pr[0]+','+pr[1]+','+pr[2]+',.82)';
   var L4=.2; while(contrastOf(hslHex(H,Math.min(S,.3),L4),P['--card'])<1.6 && L4<.5) L4+=.01; P['--modal-edge']=hslHex(H,Math.min(S,.3),L4); // 弹窗の縁：課の色相の低明度（パネルと約 1.6:1・境界だけ。光る輪郭にしない）
   return P;
@@ -708,7 +825,8 @@ function applySkin(meta){
   var root=document.documentElement;
   var skin=(meta&&meta.skin)||{};
   darkKeys.forEach(function(k){ root.style.removeProperty(k); }); darkKeys=[]; // 前回の深色値を外してから皮膚を流す
-  Object.keys(skin).forEach(function(k){ root.style.setProperty(k,skin[k]); });
+  skinKeys.forEach(function(k){ root.style.removeProperty(k); }); skinKeys=Object.keys(skin);
+  skinKeys.forEach(function(k){ root.style.setProperty(k,skin[k]); });
   var tc=document.querySelector('meta[name="theme-color"]');
   if(tc && skin['--theme']) tc.setAttribute('content',skin['--theme']);
   applyTheme(skin);
@@ -735,15 +853,17 @@ async function boot(){
   App.dev=/[?&]dev=1/.test(location.search);
   App.lang=lsGet('quiz:lang','ja'); applyLangButtons();
   App.rng=C.makeProdRng();
+  lsScan(); quotaWarn(); // 容量の閘：起動時に使用量を数える
+  updateGateInit(); // 更新後の確認門（最初の requestWriter の前）
   if(typeof installErrorBoundary==='function') installErrorBoundary(); // dev 部件（?dev=1）だけが持つ
   document.addEventListener('keydown',onKey);
   document.addEventListener('visibilitychange',onVisibility);
-  window.addEventListener('storage',function(e){ if(App.course && e.key===writerKey()) onWriterKeyChanged(); });
+  window.addEventListener('storage',function(e){ if(e.storageArea===localStorage){ if(e.key==null) lsScan(); else lsNote(e.key,e.newValue); if(e.key===ACK_KEY && e.newValue===JSON.stringify(APP_VERSION)) openUpdateGate(); } if(App.course && e.key===writerKey()) onWriterKeyChanged(); }); // 別のタブの書き込みも使用量に入れる（容量の閘）
   if(WRITER_BC){ WRITER_BC.addEventListener('message',onWriterMessage); bcPost({t:'tab-hello',tab:TAB_TOKEN,doc:DOC_ID}); } // 起動時に名乗る（複製タブなら印を替えてもらう）
   window.addEventListener('resize',syncWriterBarH);
   window.addEventListener('blur',function(){ if(App.session && App.session.mode==='exam' && writerOk) persistExam(); }); // 別の窓へ移る：並べた窓で引き継がれても記述の入力が残る
   window.addEventListener('pagehide',onPageHide); // 閉じる・移る直前に記述の入力も残す。navGen＋1＝待っている書く操作を無効に（往返キャッシュから戻っても発火させない：X12c-01）
-  window.addEventListener('pageshow',function(e){ if(e.persisted && App.course) requestWriter(false); });
+  window.addEventListener('pageshow',function(e){ if(e.persisted){ try{ sessionStorage.removeItem('quiz:tabLeft'); }catch(_){} } if(e.persisted && App.course) requestWriter(false); }); // 往返キャッシュから戻った＝この文書は去っていない：去る印を取り消す（WLR2 応修 6）
   wireChrome();
   (function(){ // V-07（S8 persona 首批）：吸顶の半透明栏から本文が透けて叠字。B＝スクロール後は実色（body.tb-scrolled）。Q-051 で B に確定、A（不透明度 .92）は撤去
     var upd=function(){ document.body.classList.toggle('tb-scrolled', window.scrollY>4); };

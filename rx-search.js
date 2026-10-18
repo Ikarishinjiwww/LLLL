@@ -128,7 +128,7 @@ function rxsRow(r,terms){ // 行の印は data-pid（data-prop は回のペー�
 function rxSearchLand(a){
   const ix=App.rx.ix, Lc=ix.lecById[a.lec]; if(!Lc) return;
   const top=viewStack[viewStack.length-1];
-  if(!top || top.key!=='rx-lec:'+a.lec) renderRxLecture(a.lec);
+  if(!top || top.key!=='rx-lec:'+a.lec) renderRxLecture(a.lec, a.card||(a.prop?RX.firstCardOf(ix,a.prop):null)); // 窄幅の翻頁：目標のカード（命題なら本拠）の頁を出す（PS18：1 頁目に落ちて行が無かった）
   const view=document.getElementById('view');
   let node=null, cardId=null;
   if(a.prop){
@@ -144,7 +144,9 @@ function rxSearchLand(a){
   if(node) cardId=node.closest('[id^="rxc-"]').id.slice(4);
   else if(a.card && document.getElementById('rxc-'+a.card)) cardId=a.card;
   else if(a.prop) cardId=RX.firstCardOf(ix,a.prop);
-  if(!cardId || !document.getElementById('rxc-'+cardId)) return; // 回のページは出ている：そこで止める
+  if(!cardId) return;
+  if(!document.getElementById('rxc-'+cardId)){ renderRxLecture(a.lec,cardId); if(!document.getElementById('rxc-'+cardId)) return; // 回のページは出ているがカードは別の頁（翻頁）：その頁を出してから。無ければそこで止める
+    if(a.prop){ const n2=[].slice.call(view.querySelectorAll('[id^="rxc-"] [data-prop="'+a.prop+'"]')); const wt=n2.filter(function(n){ const w=n.closest('.rx-prop-w'); return w && w.querySelector('.rx-tri,.rx-tri-tog'); }); node=(a.inTriple && wt[0]) || n2[0] || node; } } // 描き直したら命題の節点を探し直す（高亮・三栏の展開のため）
   const cel=document.getElementById('rxc-'+cardId);
   for(let d=(node||cel).closest('details'); d; d=d.parentElement&&d.parentElement.closest('details')) d.open=true;
   if(node && a.inTriple){ const w=node.closest('.rx-prop-w'); if(w){ w.querySelectorAll('details').forEach(function(d){ d.open=true; });

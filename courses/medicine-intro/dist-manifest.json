@@ -2,9 +2,9 @@
  "schema": "rx-dist-manifest/1",
  "built": "2026-10-18",
  "files": {
-  "content.json": "1bb96720f3c759329260d3d5fc8f9697897e7f46a546b3cda8c62032bcc6f229",
+  "content.json": "b201c1d93c2c484db820b5ae391daf425f9c9cb8dd3c1a3a4532237bbf8d6a84",
   "course.json": "023fffeb44594f91754e090a84b664ac618f9d21860c270f471f9b860a9c8dbf",
-  "quiz.enc.json": "c68e458fadb85833de1d199470da190945fb01bd741ab3d82e6b66948186dbd4",
+  "quiz.enc.json": "2adc69fbcafc38c51c73f3609c74a84dafe95c31f48d5fa21faf310f2109341a",
   "images/mi-L01-i01.jpg": "36233e4f2c82438394848fdee425992ad4e9606875769c2978944cea8fdc3dbe",
   "images/mi-L01-i02.jpg": "f951877220b46ce4efd939cb43e0e942a8c068b751ba67ba46a6b3782f2269af",
   "images/mi-L01-i03.jpg": "544d52b3692ddec131e89e418a99f2e4aab9f9dcba16d49c3a7a4355e5316625",

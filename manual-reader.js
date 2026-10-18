@@ -119,7 +119,7 @@ function renderReader(kai,sec){
         el('button',{class:'rdr-aa',html:'A<span style="font-size:15px">a</span>',title:t('rdrFont'),'aria-label':t('rdrFont'),'aria-expanded':'false',onclick:toggleFontPop}),
         rdrFontPop()
       ]),
-      el('button',{class:'rdr-bm'+(isReaderBookmarked(kai,sec)?' on':''),html:bm,'aria-label':t('rdrBookmark'),'aria-pressed':String(isReaderBookmarked(kai,sec)),onclick:function(e){ toggleReaderBookmark(kai,sec,e.currentTarget); }})
+      el('button',{class:'rdr-bm'+(isReaderBookmarked(kai,sec)?' on':''),html:bm,'aria-label':t('rdrBookmark'),'aria-pressed':String(isReaderBookmarked(kai,sec)),onclick:function(e){ toggleReaderBookmark(App.reader.kai,App.reader.sec,e.currentTarget); }}) // 鋪開で節を移ったあとも今の節に挟む（CR432-5：閉包の sec は初回描画の節だった）
     ])
   ]) ]);
   function tocList(chip){
@@ -138,26 +138,46 @@ function renderReader(kai,sec){
       } });
     return box;
   }
-  const main=el('main',{class:'rdr-main'},[ tocList(true) ]);
-  const art=el('article',null,[ sec===0?readerCover(unit,secs):readerSection(secs[sec-1]) ]);
+  const wide=readWide(); // 臨時方案 3：≥1024 は一回ぶん（扉＋全節）を一頁に鋪開して翻頁なし；未満は従来どおり節ごとに翻頁
+  const main=el('main',{class:'rdr-main'+(wide?' rdr-cont':'')},[ tocList(true) ]);
+  const art=wide ? el('article',null,[ el('section',{class:'rdr-secwrap',id:'rdr-sec-0'},[ readerCover(unit,secs) ]) ].concat(secs.map(function(s,i){ return el('section',{class:'rdr-secwrap',id:'rdr-sec-'+(i+1)},[ readerSection(s) ]); })))
+                 : el('article',null,[ sec===0?readerCover(unit,secs):readerSection(secs[sec-1]) ]);
   const reduceR=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(readerDir!=='none' && !reduceR) art.className='rdr-in-'+readerDir; // ページ送りの方向性入場(動効表: --curve, 局部内容)
+  if(!wide && readerDir!=='none' && !reduceR) art.className='rdr-in-'+readerDir; // ページ送りの方向性入場(動効表: --curve, 局部内容)
   readerDir='none';
   main.appendChild(art);
-  main.appendChild(readerPager(sec,pageCount));
-  setView(el('div',{class:'rdr'},[ hd, el('div',{class:'rdr-row'},[ tocList(false), main ]) ]));
-  document.body.classList.add('reader-view'); window.scrollTo(0,0);
+  if(!wide) main.appendChild(readerPager(sec,pageCount));
+  setView(el('div',{class:'rdr'+(wide?' rdr-wide':'')},[ hd, el('div',{class:'rdr-row'},[ tocList(false), main, wide?readerRail(unit):null ].filter(Boolean)) ]));
+  document.body.classList.add('reader-view');
+  if(wide && sec>0){ if(App._rdrNoSecAnchor) window.scrollTo(0, readerSecY(sec)); else readerAnchorSec(sec); } else window.scrollTo(0,0); // 鋪開：節の錨へ。続きから（カードに錨）のときは節へは一度だけ
   App.tocOpen=function(){ openReaderToc(unit,secs,sec); }; // 窄宽（左の目次が出ない幅）は顶栏の「目次」から節名つきの一覧（U-69）
 }
 /* 続きから：節の中の位置（いちばん上に見えているカードとその中のずれ）も覚える（節首にしか戻れなかった：U-50）。書き手だけ・間引き */
 let rdrReadTimer=null;
+App._rdrGen=App._rdrGen||0; // 錨合わせの代次号：古い計時器が新しい保留・記録を触らない（CR432c-1）
+function readerCurCompute(){ // 今の錨（上端線のカード＋相対位置、鋪開なら節も）を量るだけ（記さない）。錨合わせ中（App._rdrHold）は節を判定し直さず今の節のまま
+  if(!App.reader || !document.querySelector('#view .rdr')) return null;
+  const inHold=!!(App._rdrHold && Date.now()<App._rdrHold);
+  const hd=document.querySelector('.rdr-hd'), top=Math.max((parseFloat(getComputedStyle(document.body).paddingTop)||52), hd?hd.getBoundingClientRect().bottom:0)+8;
+  const card=Array.prototype.find.call(document.querySelectorAll('#view .rdr-main article .rc[id^="c-"]'),function(c){ return c.getBoundingClientRect().bottom>top; });
+  let sec=App.reader.sec; if(!inHold && document.querySelector('#view .rdr-wide')){ let k=0; document.querySelectorAll('#view .rdr-secwrap').forEach(function(w,i){ if(w.getBoundingClientRect().top<=top+40) k=i; }); sec=k; }
+  return {kai:App.reader.kai,sec:sec,card:card?card.id.replace(/^c-/,''):null,off:card?Math.round(top-card.getBoundingClientRect().top):0,w:innerWidth,t:Date.now()};
+}
+function readerCurUpdate(){ // 量って記す：書き手でなくても。幅の境界をまたぐとき（readerRelayout）に使う。幅が変わる前の記録は rdrCurPrev に
+  const cur=readerCurCompute(); if(!cur) return null;
+  if(App.rdrCur && App.rdrCur.w!==innerWidth) App.rdrCurPrev=App.rdrCur; App.rdrCur=cur; return cur;
+}
 function readerReadSave(){
+  readerCurUpdate(); // 錨は滚りごとに（錨合わせ中は節だけ判定し直さない：readerCurCompute）
+  { const c=App.rdrCur; if(c && App.reader && c.kai===App.reader.kai && c.sec!==App.reader.sec && document.querySelector('#view .rdr-wide')) readerSetSec(c.sec); } // 節が変わったらすぐ目次・しおり・頁表示を合わせる（持久化の 600ms を待たない：CR432d-6）
   if(rdrReadTimer) return;
   rdrReadTimer=setTimeout(function(){ rdrReadTimer=null;
     if(!App.reader || !App.course || !writerOk || !document.querySelector('#view .rdr')) return;
+    const inHold=!!(App._rdrHold && Date.now()<App._rdrHold); // 節・カードの錨合わせ中（描画直後に字体・図が届いて版面が伸びる）：節は判定し直さない（U38：WebKit で節が一つ手前に記録されていた）。カード・相対位置の持久化は続ける（W06：続きから読むに card が要る）
     const hd=document.querySelector('.rdr-hd'), top=Math.max((parseFloat(getComputedStyle(document.body).paddingTop)||52), hd?hd.getBoundingClientRect().bottom:0)+8;
     const card=Array.prototype.find.call(document.querySelectorAll('#view .rdr-main article .rc[id^="c-"]'),function(c){ return c.getBoundingClientRect().bottom>top; });
-    const v={kai:App.reader.kai,sec:App.reader.sec}; if(card && window.scrollY>200){ v.card=card.id.replace(/^c-/,''); v.off=Math.round(top-card.getBoundingClientRect().top); }
+    let secNow=App.reader.sec; if(!inHold && document.querySelector('#view .rdr-wide')){ let k=0; document.querySelectorAll('#view .rdr-secwrap').forEach(function(w,i){ if(w.getBoundingClientRect().top<=top+40) k=i; }); secNow=k; if(secNow!==App.reader.sec) readerSetSec(secNow); } // 鋪開：上端の線を越えた最後の節（錨合わせ中は判定し直さない）
+    const v={kai:App.reader.kai,sec:secNow}; if(card && window.scrollY>200){ v.card=card.id.replace(/^c-/,''); v.off=Math.round(top-card.getBoundingClientRect().top); }
     lsSet(nk('lastRead'),v);
   },600);
 }
@@ -169,12 +189,13 @@ window.addEventListener('scroll',function(){ if(rdrSpyRaf) return; rdrSpyRaf=req
   let cur=null; items.forEach(function(b){ const n=document.getElementById('c-'+b.dataset.card); if(n && n.getBoundingClientRect().top<=line) cur=b; });
   items.forEach(function(b){ const on=(b===cur); b.classList.toggle('on',on); if(on) b.setAttribute('aria-current','location'); else b.removeAttribute('aria-current'); }); }); },{passive:true});
 function resumeReader(lr){ // 続きから読む：節を開いてからカードに錨を下ろす（図が後から届いて伸びても数回合わせ直す。利用者が動いたら止める）
-  if(!lr) return; renderReader(lr.kai, lr.sec||0); if(!lr.card) return;
+  if(!lr) return; App._rdrNoSecAnchor=!!lr.card; try{ renderReader(lr.kai, lr.sec||0); } finally { App._rdrNoSecAnchor=false; } if(!lr.card) return; const gen=++App._rdrGen; App._rdrHold=Date.now()+1700; App._rdrHoldGen=gen;
   const want=function(){ const n=document.getElementById('c-'+lr.card); if(!n) return null; const hd=document.querySelector('.rdr-hd'), top=Math.max((parseFloat(getComputedStyle(document.body).paddingTop)||52), hd?hd.getBoundingClientRect().bottom:0)+8; return window.scrollY+n.getBoundingClientRect().top-top+(lr.off||0); };
-  let moved=false; const stop=function(){ moved=true; }, evs=['wheel','touchstart','keydown','pointerdown'];
+  let moved=false; const stop=function(){ moved=true; if(App._rdrHoldGen===gen) App._rdrHold=0; }, evs=['wheel','touchstart','keydown','pointerdown'];
   evs.forEach(function(ev){ window.addEventListener(ev,stop,{passive:true,capture:true}); });
-  [0,120,400,900,1600].forEach(function(ms,i,arr){ setTimeout(function(){ if(!moved){ const y=want(); if(y!=null && Math.abs(window.scrollY-y)>4) window.scrollTo(0,y); }
-    if(i===arr.length-1) evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); },ms); });
+  [0,120,400,900,1600].forEach(function(ms,i,arr){ setTimeout(function(){ const last=(i===arr.length-1); if(last) evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); // 監聴器は代次に関わらず外す（取って代わられても残さない：CR432d-7）
+    if(App._rdrGen!==gen) return; if(!moved){ const y=want(); if(y!=null && Math.abs(window.scrollY-y)>4) window.scrollTo(0,y); }
+    if(last){ if(App._rdrHoldGen===gen) App._rdrHold=0; readerCurUpdate(); } },ms); });
 }
 function readerResumeLabel(lr){ // 続読ボタンの文字：第N回 ＋ 節名（節の中なら）
   const u=(App.manual&&App.manual.units)?App.manual.units.find(function(x){ return x.kai===lr.kai; }):null, s=u&&lr.sec?(u.sections||[])[lr.sec-1]:null;
@@ -186,7 +207,70 @@ function openReaderToc(unit,secs,sec){
     const b=el('button',{class:'rx-toc-i jp'+(r.idx===sec?' rx-toc-sec':''),text:r.label,onclick:function(){ closeModal(); if(r.idx!==sec) gotoReader(r.idx); }});
     if(r.idx===sec) b.setAttribute('aria-current','page'); return b; })) ]));
 }
-function gotoReader(idx){ const cur=App.reader?App.reader.sec:0; readerDir=(idx>cur)?'fwd':(idx<cur?'back':'none'); renderReader(App.reader.kai,idx); }
+function readerTopLine(){ const hd=document.querySelector('.rdr-hd'); return Math.max((parseFloat(getComputedStyle(document.body).paddingTop)||52), hd?hd.getBoundingClientRect().bottom:0); }
+function readerRelayout(){ // 幅の境界をまたいだとき（core.js）：内存の錨で描き直して同じ所へ。持久化の lastRead は読まない（CR432-7）。錨は「幅が変わる前の記録」を先に（change の時点では新しい幅で組み直され scrollY だけ残る／WebKit は 0 に戻る：生の位置は錨にならない。CR432c-1）、無ければ今の DOM を量るだけ（記さない）。置き直しは描いた直後・次のフレーム・120／300／600ms、利用者が動いたら止める
+  const R=App.reader; if(!R) return;
+  const gen=++App._rdrGen;
+  const rec=[App.rdrCur,App.rdrCurPrev].filter(function(c){ return c && c.kai===R.kai && c.w!==innerWidth; })[0];
+  const a=rec||readerCurCompute()||{kai:R.kai,sec:R.sec,card:null,off:0};
+  App._rdrNoSecAnchor=!!a.card; try{ renderReader(a.kai,a.sec||0); } finally { App._rdrNoSecAnchor=false; }
+  if(!a.card) return;
+  App._rdrHold=Date.now()+1700; App._rdrHoldGen=gen;
+  let moved=false; const stop=function(){ moved=true; if(App._rdrHoldGen===gen) App._rdrHold=0; }, evs=['wheel','touchstart','keydown','pointerdown'];
+  evs.forEach(function(ev){ window.addEventListener(ev,stop,{passive:true,capture:true}); });
+  const place=function(){ if(moved || App._rdrGen!==gen) return; const n=document.getElementById('c-'+a.card); if(!n) return; const hd=document.querySelector('.rdr-hd'), top=Math.max((parseFloat(getComputedStyle(document.body).paddingTop)||52), hd?hd.getBoundingClientRect().bottom:0)+8; const y=window.scrollY+n.getBoundingClientRect().top-top+(a.off||0); if(Math.abs(window.scrollY-y)>4) window.scrollTo(0,Math.max(0,y)); };
+  place(); readerCurUpdate(); requestAnimationFrame(place); [120,300,600].forEach(function(ms){ setTimeout(place,ms); }); // 首回の置き直しの直後に錨を記す（その後すぐまたいでも新しい）
+  setTimeout(function(){ evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); if(App._rdrGen!==gen) return; if(App._rdrHoldGen===gen) App._rdrHold=0; readerCurUpdate(); },700);
+}
+function readerSecY(idx){ const n=document.getElementById('rdr-sec-'+idx); return n?Math.max(0, n.getBoundingClientRect().top+window.scrollY-readerTopLine()+8):window.scrollY; } // 節の上端を上端線に置く scrollY
+function readerAnchorSec(idx){ // 鋪開：節の錨へ動き、字体・図が後から届いて版面が伸びても数回合わせ直す（0／120／400／900／1600ms）。利用者が動いたら止める。その間は spy が節を判定し直さない（App._rdrHold、代次号つき）
+  if(App._navRestoring){ window.scrollTo(0,readerSecY(idx)); return; } // 歴史帧の復元中（戻る）：位置は restoreFrame が戻す。節首へは引かない（CR432c-2）
+  const gen=++App._rdrGen;
+  let moved=false, done=false; const stop=function(){ moved=true; if(App._rdrHoldGen===gen) App._rdrHold=0; }, evs=['wheel','touchstart','keydown','pointerdown']; // 利用者が動いたら錨合わせも spy の保留も終わり
+  evs.forEach(function(ev){ window.addEventListener(ev,stop,{passive:true,capture:true}); });
+  App._rdrHold=Date.now()+1700; App._rdrHoldGen=gen;
+  const place=function(){ if(moved || done || App._rdrGen!==gen) return null; if(App.reader && App.reader.sec===idx && document.getElementById('rdr-sec-'+idx)){ const y=readerSecY(idx); if(Math.abs(window.scrollY-y)>4) window.scrollTo(0,y); return y; } return null; };
+  const finish=function(){ if(done) return; done=true; evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); if(App._rdrGen!==gen) return; if(App._rdrHoldGen===gen) App._rdrHold=0; readerCurUpdate(); }; // 合わせ終わり（自分の代次のときだけ）：保留を解き、落ち着いた位置を錨に記す
+  const imgsOk=function(){ return Array.prototype.every.call(document.querySelectorAll('#view .rdr img'),function(i){ return i.complete || (i.hasAttribute('width') && i.hasAttribute('height')); }); }; // 版面を伸ばしうる図が届くまで収口しない（届く前に収口すると、後から図が節首を押し下げる：CR432d-2）。width・height を持つ図（.rc-img は全部）は届く前から同じ箱なので待たない——読本の図は loading=lazy で、視口の下の図は滚るまで届かず、待てば常に 1.7 秒の上限まで保留が続いてしまう
+  const check=function(){ const y=place(); if(y!=null && lastY!=null && Math.abs(y-lastY)<=1 && (!document.fonts || document.fonts.status==='loaded') && imgsOk()) finish(); lastY=y; }; // 節の錨が二回続けて同じ所にあり字体も揃っていれば、もう版面は伸びない：そこで終える（1.7 秒待たない——その後の滚りは利用者の動きとして節を判定し直す：scrollbar のドラッグ・別の code の scrollTo・S4 探針 C7）。document.fonts.ready は描画の時点では前の解決済みの約束を返すことがある（Chromium：status が loading でも即座に then）ので使わない
+  let lastY=place(); readerCurUpdate(); // 首回の scrollTo の直後に錨を記す（跳んだ直後にまたいでも新しい：CR432c-1）。首回の位置も比較に入れる（CR432d-2）
+  [120,250,400,600,900,1300,1600].forEach(function(ms){ setTimeout(check,ms); });
+  setTimeout(finish,1700); // 上限：字体が揃わなくても 1.7 秒で終える
+}
+function readerRail(unit){ // 広い画面の右欄（≥1440 だけ CSS で見せる：宽屏方案）：この回の進みぐあい・演習の入口（この回の題・苦手・しるし）・今日の復習。新課の回ページの右欄（rx-views rxRailNode）と同じ部品。全体を try で包む：右欄で失敗しても読本は描く（CR432e-5）
+  try{
+    const k=unit.kai;
+    const ids=(App.questions||[]).filter(function(q){ return qShowKai(q)===k; }).map(function(q){ return q.id; }); // 内容の回（content_kai||kai）：readerPracticeTarget と同じ口径。配布の回 q.kai で束ねる startReviewKai は神経で別の回の題が混じる／空になる（CR432e-1）
+    let seen=0; ids.forEach(function(id){ if(App.progress&&App.progress.seen&&App.progress.seen[id]) seen++; });
+    let marks=0; try{ marks=Object.keys(getBookmarks()).filter(function(id){ return App.idx&&App.idx.byId&&App.idx.byId[id]; }).length; }catch(e){}
+    const kids=[];
+    kids.push(el('div',{class:'rx-rail-card'},[ el('p',{class:'rx-rail-m jp',text:t('rdrRailProg')+'　'+tf('kaiSolved',{a:seen,b:ids.length})}), el('div',{class:'rx-rail-bar','aria-hidden':'true'},[ el('i',{style:'width:'+(ids.length?Math.round(seen/ids.length*100):0)+'%'}) ]) ]));
+    kids.push(el('div',{class:'rx-rail-card'},[ el('h3',{class:'rx-bh jp',text:t('rxPractice')}), el('div',{class:'rx-modes'},[
+      el('button',Object.assign({class:'rx-mode jp',onclick:function(){ try{ readerRailSolve(ids,k); }catch(e){} }},ids.length?{}:{disabled:'disabled','aria-disabled':'true'}),[ document.createTextNode(t('rdrRailSolve')), el('b',{text:ids.length+t('q')}) ]), // その回に題が無ければ押せない（CR432f-5）
+      el('button',{class:'rx-mode jp',onclick:function(){ try{ renderWrongList(); }catch(e){} }},[ document.createTextNode(t('weakTile')) ]), // 引数なしで呼ぶ（MouseEvent を可選引数に渡さない：CR432e-6）。押した処理は try で包む（CR432f-6）
+      el('button',{class:'rx-mode jp',onclick:function(){ try{ renderQuestionMarks(); }catch(e){} }},[ document.createTextNode(t('subMarked')), el('b',{text:marks+t('q')}) ]) ]) ]));
+    if(App.course&&App.course.features&&App.course.features.spaced===true&&typeof spQueue==='function'){ // 今日の復習（間隔復習のある旧課）：残りがあれば件数つきの押せる行、無ければ完了の一行——新課の右欄 rxReviewNode と同じ（CR432e-7）
+      const n=spQueue().length;
+      kids.push(n?el('button',{class:'btn rx-review',onclick:function(){ try{ if(typeof spReviewRun==='function') spReviewRun(); }catch(e){} },text:t('rxReviewToday')+'　'+tf('rxReviewN',{n:n})}):reviewDoneNode());
+    }
+    return el('aside',{class:'rdr-rail','aria-label':t('rxPractice')},[ el('div',{class:'rdr-rail-in'},kids) ]);
+  }catch(e){ return null; }
+}
+function readerRailSolve(ids,k){ // この回の内容の題で演習（CR432e-1）。守りは startReviewKai と同じ：newSession が canWrite（只読の標籤頁は始めない）を見る。旧課の題集に隠し／退役の札は無く、startReviewKai も App.idx（全題）から取る（CR432f-7 確認）
+  if(!ids.length) return;
+  const list=C.reviewSample(App.questions,{onlyIds:ids,count:ids.length,recentIds:App.recent},App.rng);
+  if(newSession('review',list,{kai:k})) renderRunner();
+}
+function readerSetSec(idx){ // 界面の同期だけ：節番号・目次／帯の選択・しおりの表示・頁の文字を今の節に合わせる。滚らない・書かない・描き直さない（滚るのは readerAnchorSec／gotoReader、書くのは readerReadSave の持久化：CR432f-2）
+  if(!App.reader) return; App.reader.sec=idx;
+  document.querySelectorAll('#view .rdr-chips button').forEach(function(b,i){ b.classList.toggle('on',i===idx); });
+  document.querySelectorAll('#view .rdr-toc .ti').forEach(function(b,i){ b.classList.toggle('on',i===idx); });
+  const bm=document.querySelector('#view .rdr-bm'); if(bm){ const on=isReaderBookmarked(App.reader.kai,idx); bm.classList.toggle('on',on); bm.setAttribute('aria-pressed',String(on)); } // しおりの表示も今の節に（CR432-5）
+  const pg=document.querySelector('#view .rdr-pg'); if(pg){ const u=App.manual.units.find(function(x){ return x.kai===App.reader.kai; }), secs=(u&&u.sections)||[]; const lab=(idx===0)?t('rdrIntro'):((secs[idx-1].sectionId+' '+(secs[idx-1].title||'')).trim()); pg.textContent=tf('kaiN',{n:App.reader.kai})+' · '+lab+' · '+(idx+1)+'/'+(secs.length+1); }
+}
+function gotoReader(idx){
+  if(readWide() && document.getElementById('rdr-sec-'+idx)){ readerSetSec(idx); readerAnchorSec(idx); if(App.course && writerOk) lsSet(nk('lastRead'),{kai:App.reader.kai,sec:idx}); return; } // 鋪開：翻頁ではなく錨へ。持久化は書き手だけ（CR432-4：readerReadSave と同じ守り）
+  const cur=App.reader?App.reader.sec:0; readerDir=(idx>cur)?'fwd':(idx<cur?'back':'none'); renderReader(App.reader.kai,idx); }
 function leaveReader(){ document.body.classList.remove('reader-view'); App.reader=null; }
 function curReaderFont(){ const v=parseFloat(document.documentElement.style.getPropertyValue('--rdr-fs')); return v||parseFloat(lsGet(nk('readerFs'),1))||1; }
 function setReaderFont(v){ v=Math.max(0.85,Math.min(1.3,parseFloat(v)||1)); document.documentElement.style.setProperty('--rdr-fs',String(v)); if(App.course) lsSet(nk('readerFs'),v); }
@@ -206,8 +290,9 @@ document.addEventListener('keydown',function(e){ // 読本：←／→ で前後
   if(e.key!=='ArrowLeft' && e.key!=='ArrowRight') return;
   const tg=(e.target&&e.target.tagName||'').toLowerCase(); if(tg==='input'||tg==='textarea'||tg==='select'||(e.target&&e.target.isContentEditable)) return;
   if((typeof overlayOpen==='function' && overlayOpen()) || document.getElementById('viewer') || document.querySelector('.rdr-fs-wrap.open')) return;
-  const p=document.querySelector('#view .rdr-pager'); if(!p) return;
-  const b=e.key==='ArrowLeft'?p.firstElementChild:p.lastElementChild; if(b && !b.disabled){ e.preventDefault(); b.click(); }
+  const p=document.querySelector('#view .rdr-pager');
+  if(p){ const b=e.key==='ArrowLeft'?p.firstElementChild:p.lastElementChild; if(b && !b.disabled){ e.preventDefault(); b.click(); } return; }
+  if(readWide() && document.querySelector('#view .rdr-wide')){ const idx=App.reader.sec+(e.key==='ArrowLeft'?-1:1); if(idx>=0 && idx<readerPageCount(App.reader.kai)){ e.preventDefault(); gotoReader(idx); } } // 鋪開（≥1024）：翻頁は無いので前後の節の錨へ（U58）
 });
 function toggleFontPop(e){ // Aa の浮層：もう一度押す・外側を押す・Esc で閉じる（外側のクリックは下の控件に通さない）
   const btn=e.currentTarget, wrap=btn.parentNode;
@@ -221,7 +306,7 @@ function toggleFontPop(e){ // Aa の浮層：もう一度押す・外側を押�
   setTimeout(function(){ if(wrap._fsClose===close){ document.addEventListener('click',onDoc,true); document.addEventListener('keydown',onKey,true); } },0);
 }
 function isReaderBookmarked(kai,sec){ return (lsGet(nk('readerBm'),[])||[]).indexOf(kai+':'+sec)>=0; }
-function toggleReaderBookmark(kai,sec,btn){ if(!canWrite()) return; const k=kai+':'+sec; let a=lsGet(nk('readerBm'),[])||[]; const i=a.indexOf(k); if(i>=0){ a.splice(i,1); } else { a.push(k); } if(!lsSet(nk('readerBm'),a)) return; if(btn){ btn.classList.toggle('on', i<0); btn.setAttribute('aria-pressed', String(i<0)); } toast(i>=0?t('rdrBmOff'):t('rdrBmOn')); } // 書けたときだけボタンを変え、成功を知らせる（書けなければ元のまま：帯が知らせ、押し直せる。WLR1 WL-05）
+function toggleReaderBookmark(kai,sec,btn){ if(!canWrite()) return; const k=kai+':'+sec, r=lsRead5(nk('readerBm'),Array.isArray); if(r.st!=='none' && r.st!=='ok'){ dataBad(nk('readerBm')); return; } let a=r.v||[]; const i=a.indexOf(k); if(i>=0){ a.splice(i,1); } else { a.push(k); } if(!lsSet(nk('readerBm'),a)) return; if(btn){ btn.classList.toggle('on', i<0); btn.setAttribute('aria-pressed', String(i<0)); } toast(i>=0?t('rdrBmOff'):t('rdrBmOn')); } // 書けたときだけボタンを変え、成功を知らせる（書けなければ元のまま：帯が知らせ、押し直せる。WLR1 WL-05） // 読めない・壊れたしおりは上書きしない（五態の厳格な読み）
 function readerKaiList(){ return (App.manual&&App.manual.units)?App.manual.units.map(function(u){return u.kai;}).sort(function(a,b){return a-b;}):[]; }
 function adjacentKai(kai,dir){ const ks=readerKaiList(), i=ks.indexOf(kai); if(i<0) return null; const t=ks[i+dir]; return (t==null)?null:t; } // dir=+1 次の回 / -1 前の回
 function readerPageCount(kai){ const u=(App.manual&&App.manual.units)?App.manual.units.find(function(x){return x.kai===kai;}):null; return u?((u.sections||[]).length+1):1; }

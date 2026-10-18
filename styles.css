@@ -467,7 +467,7 @@ button.searchbar{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .hsw-b .swic svg{width:18px;height:18px}
 .hsw-b .swt{min-width:0}
 .hsw-b .swt b{display:block;font-family:var(--disp);font-weight:900;font-size:16px;line-height:1.1}
-.hsw-b .swt small{display:block;font-family:var(--jp);font-size:11px;margin-top:2px;opacity:.85}
+.hsw-b .swt small{display:block;font-family:var(--jp);font-size:11px;margin-top:2px} /* 副題は不透明のまま（.85 の透明で未選択側が 3.1〜4.3 に落ちていた：S2 10-18） */
 .hometab{transition:opacity .24s var(--curve),transform .24s var(--curve)}
 .hometab.hometab-out{opacity:0;transform:translateY(8px);transition-duration:.15s} /* 退場は入場より短く; 入場は柔らかく上浮+淡入 */
 .stc{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:var(--r-3);padding:12px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow-sm)}
@@ -551,7 +551,7 @@ button.searchbar{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .subcard .sctx small{display:block;font-family:var(--jp);font-size:11.5px;color:var(--soft);line-height:1.5;margin-top:1px}
 @media(hover:hover){.subcard:hover{border-color:var(--accent)}}
 .lookgrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px}
-.lookh{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:9px}
+.lookh{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--soft);font-weight:700;margin-bottom:9px} /* --faint は紙の上で 1.9〜2.1（CR432-10）：--soft（≥4.5） */
 .chrow2{display:grid;grid-template-columns:minmax(64px,auto) 1fr 32px;gap:9px;align-items:center;margin:9px 0}
 .chrow2 .chn{font-family:var(--jp);font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chrow2 .chb i{display:block;height:100%}
@@ -781,7 +781,7 @@ body.reader-view .topbar{border-bottom:none} /* TopBar とパンくずを 1 本�
 .sethelp{font-size:12px;color:var(--soft);margin-bottom:10px;line-height:1.6}
 .setseg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r-2);overflow:hidden}
 .segbtn{font-family:var(--jp);font-weight:700;font-size:13px;color:var(--soft);background:var(--card);border:none;padding:9px 16px;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
-.segbtn.on{background:var(--cta-bg,var(--accent-ink));color:#fff}
+.segbtn.on{background:var(--seg-on,var(--cta-bg,var(--accent-ink)));color:#fff;box-shadow:inset 0 0 0 2px var(--cta-ring,transparent)} /* --seg-on：淡い課色の皮膚で選択態をもう一段濃く（薄荷：「読む」の選択態が現版より淡く見えた：S2 10-18）。無ければ CTA の地 */
 .dateinput{font-family:var(--ui);font-size:14px;border:1px solid var(--line);border-radius:var(--r-2);padding:8px 12px;color:var(--ink);background:var(--card)}
 
 .qnav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}
@@ -1108,16 +1108,18 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;height:300px;pointer
 .tb-r{margin-left:auto}
 /* 見本の色感を大面で守る: 濃色は文字級の小さな場所だけ */
 .chfill{background:var(--accent)}
-.qnum .n,.chip .c,.stc-pr .prh .prn,.chrow2 .chv,.kv .v{color:var(--accent-deeper)}
+.qnum .n,.chip .c,.stc-pr .prh .prn,.chrow2 .chv,.kv .v{color:var(--accent-ink)} /* 数字は文字色の強調（--accent-ink：カード地で 4.5:1 以上）。--accent-deeper は臨床で 3.0・薄荷で 2.8 だった（S2 10-18） */
 .buddyChat{top:auto;left:auto;right:16px;width:min(400px,calc(100vw - 32px));height:min(600px,calc(100vh - 130px));border:1px solid var(--line);border-radius:24px;overflow:hidden;background:var(--paper);box-shadow:0 24px 70px rgba(80,40,55,.22);transform:translateY(14px) scale(.97);transform-origin:100% 100%;opacity:0;pointer-events:none;transition:transform var(--t-2,200ms) var(--curve),opacity var(--t-2,200ms) ease}
 .buddyChat{height:min(600px,calc(100dvh - 130px))} /* Safari のツールバーが出ている間も収まる（mobile-native M-2） */
 .buddyChat.on{transform:none;opacity:1;pointer-events:auto}
 @media(max-width:520px){.buddyChat{right:12px;bottom:80px;width:calc(100vw - 24px);height:min(560px,calc(100vh - 150px))}} @media(max-width:520px){.buddyChat{height:min(560px,calc(100dvh - 150px))}}
 .buddyDim{background:rgba(59,51,58,.16)}
 @media(prefers-reduced-motion:reduce){.buddyChat{transition:none}}
-/* 進捗カード: hero 右列の stretch を解除（中身ぶんの高さだけに; 空腔をなくす） */
-.hero1b .h1r{align-self:start}
-.hero1b .h1r .stc{flex:0 0 auto;justify-content:flex-start}
+/* 進捗カード（総指揮 10-18）：二栏の hero では右列を伸ばし、底辺を演習｜復習の滑块の底辺にそろえる（上辺は問候と同じ）。中身の三行は縦に均等に配る。単栏（≤860）は中身ぶんの高さ */
+.hero1b .h1r{align-self:stretch}
+.hero1b .h1r .stc{flex:1 1 auto;justify-content:stretch}
+.hero1b .h1r .stc-pr{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+@media(max-width:860px){ .hero1b .h1r{align-self:start} .hero1b .h1r .stc{flex:0 0 auto} .hero1b .h1r .stc-pr{flex:0 0 auto;display:block} }
 
 .tb-btn{background:none;border:none;box-shadow:none;color:var(--soft)}
 @media(hover:hover){.tb-btn:hover{border:none;background:var(--accent-wash);color:var(--accent-ink)}}
@@ -1630,7 +1632,7 @@ body.writer-ro .wrap{padding-top:var(--writerbar-h,64px)}
 .rx-f{display:grid;grid-template-columns:7.5em 1fr;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line2)}
 .rx-f-l{font-size:12.5px;font-weight:700;color:var(--soft)}
 .rx-prop{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:2px 0}
-.rx-stars{color:var(--accent-deep);font-size:11px;letter-spacing:1px;min-width:2.6em}
+.rx-stars{color:var(--star,var(--accent-deep));font-size:11px;letter-spacing:1px;min-width:2.6em}
 .rx-imp{font-size:11px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent);border-radius:var(--r-pill);padding:0 6px}
 .rx-pt{flex:1 1 16em}
 .rx-pt,.rx-f-l,.rx-tri1-x,.rx-sum-q,.rx-rule-t{overflow-wrap:anywhere} .rx-f-b{min-width:0} /* 括弧に挟まれた長いラテン文字の語（MDMA（methylenedioxymethamphetamine））が 320 幅で欄を押し広げて頁が横に動いていた：最後の手段として語の中で折る。grid 項目の min-width:auto も止める（break-ui B-1） */
@@ -1708,9 +1710,9 @@ mark.rx-wrong{background:var(--no-wash);color:var(--no-deep);border-bottom:2px s
 .rx-run-f{position:sticky;bottom:0;z-index:4;display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding:16px 0 calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--paper) 40%)}
 .rx-run-f.lefthand{justify-content:flex-start}
 .rx-run-f:empty{display:none}
+.rx-run-f.flow{position:static} /* 押した肢を覆ってしまう時だけ流れに戻す（rxFootClear）：帯が視口外のときの控え（CR432-8）でも同じ */
 .rx-run.rx-q{overflow-anchor:none} /* 答えたあとの位置はこちらで保つ（rxKeepOpts）：吸底の帯の流れ上の位置が大きく動くと WebKit のスクロール錨が勝手に 150px ほど送る（c2 で実測） */
-.rx-run-f.c2{padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));gap:10px} .rx-run-f.c2:empty{display:flex;position:static;min-height:calc(60px + env(safe-area-inset-bottom,0px))} .rx-run-f.c2.flow{position:static} /* 押した肢を覆ってしまう時だけ流れに戻す（rxFootClear） */ /* 答える前は流れの中の空き（sticky の空帯だと WebKit が答えた瞬間に 150px ほど送る：実測） */ /* (c2)：答える前から同じ高さの帯を予約（空でも見える地色の帯）、答えたあとは一行（判定＋次へ）。最後の肢を覆わない・何も動かない */
-.rx-run-f.c2 .btn{min-height:44px;min-width:8em;flex:0 0 auto} .rx-run-f.c2 .rx-verdict{padding:6px 10px;font-size:13px;line-height:1.4;gap:6px} .rx-ok-chip{margin-left:auto;padding:0 8px;border-radius:999px;background:var(--ok-wash);border:1px solid var(--ok-line);color:var(--ok-deep);font-size:12px;font-weight:700;white-space:nowrap} /* 「わからない」行（44px・上 12px）と同じ枠に収める */ /* 答えたあと：判定と「次へ」は選択肢の直下に流し込む（貼り付かない・何も覆わない：V-08 (c)） */
+.rx-ok-chip{flex:none;padding:0 8px;border-radius:999px;background:var(--ok-wash);border:1px solid var(--ok-line);color:var(--ok-deep);font-size:12px;line-height:1.7;font-weight:700;white-space:nowrap} /* 「正解：X」札（正解が視口外のとき）：判定帯の「次へ」の左、旧課は判定の横 */ /* (c2) の吸底の空帯は帳簿 A′ で退役（判定と「次へ」は題文の下の帯へ） */
 .rx-run.rx-q{display:flex;flex-direction:column;min-height:calc(100vh - var(--topbar-h,52px) - 22px);min-height:calc(100dvh - var(--topbar-h,52px) - 22px - env(safe-area-inset-bottom,0px))} /* 短い問題でも「次へ」の位置が動かない（下端に固定） */
 .rx-run.rx-q .rx-run-f{margin-top:auto}
 .wrap:has(.rx-run.rx-q){padding-bottom:0}
@@ -1912,7 +1914,7 @@ body:has(#view .runner,#view .grading,#view .rdr,#view .rx-run) .buddyFloat{disp
 .rx-run-f .rx-verdict,.qnav .rx-verdict{flex:1 1 auto;min-width:0;margin:0;padding:9px 14px;font-size:14px;line-height:1.45}
 .rx-run-f .btn{flex:none}
 @media (max-width:599.98px){ .rx-run-f .btn{flex:0 0 auto;min-width:7.5em} }
-.runner .qnav{position:sticky;bottom:0;z-index:4;margin-top:18px;padding:14px 0 calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--paper) 36%)}
+.runner .qnav.flow{position:static} .runner .qnav{position:sticky;bottom:0;z-index:4;margin-top:18px;padding:14px 0 calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--paper) 36%)}
 .qnav.has-v{justify-content:flex-end}
 .qnav.has-v .qdots,.qnav.has-v .nbtn.spacer{display:none}
 .qnav.has-v .rx-verdict{margin-right:auto}
@@ -1951,13 +1953,14 @@ body:has(#view .runner,#view .grading,#view .rdr,#view .rx-run) .buddyFloat{disp
 .rx-run-f:not(:has(.rx-verdict)){border-top-color:transparent;box-shadow:none}
 @media (max-width:599.98px){ /* 旧課 runner も手机は操作条を画面下に：本文を縦の箱にして条を下端へ（sticky なので長い解説では視口下に吸い付く） */
   .runner .rbody.has-bar{display:flex;flex-direction:column;min-height:calc(100vh - var(--topbar-h,52px) - 96px);min-height:calc(100dvh - var(--topbar-h,52px) - 96px)}
-  .runner .rbody.has-bar>.qnav{margin-top:auto}
+  .runner .rbody.has-bar>.qnav:last-child{margin-top:auto}
+  .runner .rbody.has-bar>.qnav:nth-last-child(2):has(+.qnav-s){margin-top:auto} /* 吸底判定の哨兵（.qnav-s）が末子になるので、哨兵の直前の条も末子と同じ扱い（CR432e-4）。:has を解さない瀏覧器が一つ目の規則まで捨てないよう二つに分ける（CR432f） */
 }
 /* R-03：手机専用の作答レイアウトは「600px 未満」だけ（599.98px）。ちょうど 600px は iPad 側（min-width:600px） */
 /* R-02：真 iPhone Safari で条の下に約 60pt 本文がのぞいた（sticky の基準辺とツールバーのずれ）。条と同じ地色の不透明な裙を下へ約 120px 延ばす。
    ::after の絶対配置だとページの滚动量が増えるので、多層の box-shadow（滚动量に影響しない）で塗る */
-.rx-run-f{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--paper),0 120px 0 0 var(--paper)}
-.runner .qnav{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--card),0 120px 0 0 var(--card)}
+.rx-run-f{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5)} .rx-run-f.stuck{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--paper),0 120px 0 0 var(--paper)} /* 下へ伸びる同色の裙（R-02：真 iPhone で条の下に本文がのぞく）は画面下に吸い付いているときだけ（.stuck）：流れの中にあるときに付けると下の内容を 60〜190px 覆う（S2 10-18） */
+.runner .qnav{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5)} .runner .qnav.stuck{box-shadow:0 -8px 14px -12px rgba(var(--glow-rgb),.5),0 60px 0 0 var(--card),0 120px 0 0 var(--card)} /* 同上：旧課の操作条は選択肢の直後に置くようになった（B1）ので、流れの中にあるときは裙を付けない */
 .rx-run-f:not(:has(.rx-verdict)){box-shadow:none}
 /* R-04：顶栏の目次は文字ボタン（44×44 の枠に 12.5px の「目次／目录」）。目次のある回次页では「?」「設定」「日／中」を 520px 以下で「…」へ（課名を一字に潰さない） */
 #tocBtn{min-width:44px;padding:0 8px;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:var(--accent-ink);font-family:var(--jp)}
@@ -1989,17 +1992,7 @@ body:has(#view .runner,#view .grading,#view .rdr,#view .rx-run) .buddyFloat{disp
   .rx-stoc-i.on{color:var(--accent-ink);border-left-color:var(--accent-ink);background:var(--accent-wash);font-weight:700}
   .rx-lec-grid .rx-toc-btn{display:none}
   .rx-lec-grid .rx-tri{grid-template-columns:1fr} /* U-45 甲：宽屏の本文列でも講義・標準・試験の対照は縦に（三列だと一列 15 字前後に潰れる） */ body.rx-wide.rx-lec-view #tocBtn{display:none} /* ≥1200 は左に常設の目次：顶栏の目次ボタンと工具行の目次キーは出さない */
-  .rx-home-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;column-gap:36px;grid-template-areas:"imp imp" "hd hd" "main side";align-items:start}
-  .rx-home-grid>.a2hs-imp{grid-area:imp} .rx-home-grid>.rx-hd{grid-area:hd} .rx-home-grid>.rx-home-main{grid-area:main;min-width:0} .rx-home-grid>.rx-home-side{grid-area:side}
-  .rx-home-side{position:sticky;top:calc(var(--topbar-h,52px) + 20px);display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-3)}
-  .rx-home-side>*{margin:0}
-  .rx-home-side .rx-review,.rx-home-side .rx-mock{width:100%}
-  .rx-home-main .rx-lecs{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-  .rx-home-main .rx-lec{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;gap:4px;min-height:120px;padding:16px 18px}
-  .rx-home-main .rx-lec-n{font-size:13px}
-  .rx-home-main .rx-lec-t{font-size:17px;line-height:1.45}
-  .rx-home-main .rx-lec-m{flex-basis:auto;margin-top:auto;padding-top:10px}
-  .rx-home-main .rx-lec-bar{display:flex;align-self:stretch;height:5px;border-radius:var(--r-pill);overflow:hidden;background:var(--track);margin-top:6px}
+  /* 旧 .rx-home-grid（新課だけの二栏）は合成版式の .htab（四課共通・≥1024）へ：末尾の「合成版式」節 */
   .rx-lec-bar i{display:block;min-width:0} .rx-lec-bar .ma{background:var(--ok)} .rx-lec-bar .le{background:var(--accent)} .rx-lec-bar .ne{background:var(--track)}
 }
 @media(min-width:1440px){
@@ -2059,9 +2052,6 @@ body:has(#view .runner,#view .grading,#view .rdr,#view .rx-run) .buddyFloat{disp
 .rx-lec-bar i{display:block;min-width:0} .rx-lec-bar .ma{background:var(--ok)} .rx-lec-bar .le{background:var(--accent)} .rx-lec-bar .ne{background:var(--track)}
 /* 整課の書き出しは回一覧の下（三次的な操作） */
 
-@media(min-width:1200px){
-  .rx-home-main .rx-lec-bar{flex-basis:auto}
-}
 /* U-56：回次页の要点は最初の 3 件だけ、残りは「残り n 件」で開く */
 .rx-sum-x{display:none}
 .rx-sum-more{margin:10px 0 4px}
@@ -2212,7 +2202,6 @@ body.ro-notice-open .writerbar{z-index:51}
 
 /* 新課の検索（S1・Q-026）：ホームの入口は問候・試験日の下。宽屏の二栏では主栏の幅に揃える */
 .rx-hd .rx-srchbar{margin:14px 0 4px}
-@media (min-width:1200px){ .rx-home-grid>.rx-hd .rx-srchbar{max-width:calc(100% - 356px)} }
 /* ===== ux/render 第一步：回のページの「読む」「覚える」（S6 方案）。三栏まわりは軽く（内容形式の見直しで形が変わりうる：総指揮 2026-10-14） ===== */
 .rx-viewseg{margin:0 0 12px}
 .rx-viewseg .segbtn{min-width:6.5em}
@@ -2279,4 +2268,115 @@ html[data-theme="dark"] .rx-rules-row .rx-rules-a{color:var(--soft)} /* --faint 
   .rx-gloss-t .rx-gl-note{margin-top:2px}
   .rx-gloss-t .rx-gl-note[data-label]:not(:empty)::before{content:attr(data-label) '：'} /* 列名は rxGlossCols の第四語（data-label）から：CSS に文言を書かない */
 }
+/* ===== 皮膚の追加令牌（明るい主色調の課のため。他の課は既定のまま）：--cta-fg＝実心ボタン・選択中セグメント・濃い地の小片の字色（既定＝白）；--cta-ring＝選択中セグメントの内側の縁（既定＝透明。淡い地の選択態は塗りだけでは隣と 1.12:1：V-20）；--star＝★ 重要度の色（既定＝--accent-deep。淡い翠緑は白地で 2.3:1：V-19）。深色では darkPalette が三つとも戻す ===== */
+.btn,.act.primary,.chip.on,.tab.on,.cta,.bridge .bgo,.rdr-lede .pl,.rbb .bn.end .pill,.rflow .fp.last,.segbtn.on,.qnav .nbtn.next,.a2hsbar-go,.a2hs-num,.opt.sel .mk,.mcSearch button,.mc-send,.ql-o.on .ql-mk,.exam-ov-q.done,.echip.done,.flag .fic,.flag .fcta{color:var(--cta-fg,#fff)}
+/* ===== 読みの布局（臨時方案 3）：≥1024 は旧課読本を一回ぶん鋪開（節の間に余白と細線）；新課回頁の窄幅翻頁条は旧課の .rdr-pager を共用 ===== */
+.rdr-wide .rdr-secwrap+.rdr-secwrap{margin-top:40px;padding-top:28px;border-top:1px solid var(--line)}
+.rx-lecture .rx-pager{max-width:none;margin-top:28px}
 
+/* 準備中（取得写锁后的 400 ms：合成稿 v3.3 实施注记・WLR1 WL-07）：記述欄は読み取り専用、上に「準備中」の一行 */
+body.writer-prep textarea[data-prep]{opacity:.6;cursor:progress}
+.prep-note{font-size:12px;color:var(--faint);margin:0 0 4px}
+body.writer-prep #writerTakeover{display:none} /* 準備中は「こちらで続ける」を出さない（WLR1 合并裁定 一-1②） */
+/* ===== 合成版式（総指揮 10-18：新課の「画面を埋める宽栅格」に臨床の部品を入れる。四課共通・電脳 ≥1024。手机は従来の縦積み） =====
+ * ホーム：演習｜復習の中身を 主｜側 の二栏に。主（左・残り幅）＝回をえらぶ／回一覧＋振り返り、側（右・320px・吸顶）＝旗卡と小卡。側の旗卡は縦組み、小卡は一列。
+ * 読本（旧課）：新課の回ページと同じ寸法（容器 1120・目次 216・本文 820・間 36、中央寄せ）。この回の流れ・節签・Aa・しおりは従来どおり */
+@media(min-width:1024px){
+  .home2 .hero1b{grid-template-columns:minmax(0,1fr) 320px;column-gap:36px} /* 右列＝進捗卡を側栏（320）と同じ幅・同じ縦線にそろえる */
+  .home2 .htab{display:grid;grid-template-columns:minmax(0,1fr) 320px;column-gap:36px;align-items:start}
+  .home2 .htab-main{grid-column:1;grid-row:1;min-width:0}
+  .home2 .htab-side{grid-column:2;grid-row:1;position:sticky;top:calc(var(--topbar-h,52px) + 16px)}
+  .home2 .htab-side .flag .fin{flex-direction:column;gap:15px;align-items:stretch} .home2 .htab-side .flag .fr{width:100%}
+  .home2 .htab-side .subrow{grid-template-columns:1fr}
+  .home2 .htab-main>.spanel:first-child{margin-top:0}
+  .home2 .htab-main .rmap{grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
+  .home2 .htab-main .rx-lecs{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .home2 .htab-main .rx-lec{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;gap:4px;min-height:120px;padding:16px 18px}
+  .home2 .htab-main .rx-lec-n{font-size:13px}
+  .home2 .htab-main .rx-lec-t{font-size:17px;line-height:1.45}
+  .home2 .htab-main .rx-lec-m{flex-basis:auto;margin-top:auto;padding-top:10px}
+  .home2 .htab-main .rx-lec-bar{display:flex;flex-basis:auto;align-self:stretch;height:5px;border-radius:var(--r-pill);overflow:hidden;background:var(--track);margin-top:6px}
+  body.reader-view{--cmax:1120px}
+  .rdr-row{gap:36px;justify-content:center}
+  .rdr-toc{flex:0 0 234px} /* 旧課の目次は 234 のまま（216 にすると節名が一二字だけ折れる：S2 10-18）。234＋36＋820＝1090 ≤ 1120 */
+  .rdr-main{flex:0 1 820px;max-width:820px}
+}
+.rmap .kt .rx-lec-bar{flex-basis:auto;align-self:stretch;height:5px;margin:0;border-radius:var(--r-pill);overflow:hidden;background:var(--track);box-shadow:inset 0 0 0 1px rgba(var(--glow-rgb),.05)} /* 回格の三色掌握条（新課） */
+/* ===== 帳簿 阶段 3「答えたあと」（Q-055 A′・Q-060 方向 4；ux/ledger d19f49b・e387fbb・c964d6a を main の上に移植）：選択肢と逐肢反馈を帳簿の密行に、題文直下の判定帯、解説は押した肢の行の下、「次へ」は帯の右端 ===== */
+.rx-run .opts{gap:0;border:1px solid var(--line);border-radius:var(--r-2);background:var(--card);overflow:hidden}
+.rx-run .opts .opt{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:11px 12px 11px 0;gap:0;display:grid;grid-template-columns:38px minmax(0,1fr);align-items:start;background:var(--card);font-size:var(--rx-fs);line-height:1.6}
+.rx-run .opts .opt:last-child{border-bottom:0}
+.rx-run .opts .opt .mk{display:block;width:auto;height:auto;background:none;border:0;border-radius:0;padding:2px 0 0 12px;justify-self:start;font-family:var(--ui);font-weight:700;font-size:13px;line-height:1.6;color:var(--accent-ink);white-space:nowrap} /* 元の .mk は display:grid（丸い札）：::after の ○× が別の行になって行が 20px 高くなっていた */ /* 「A ×」は折らない（折れると行が高くなり下の行が動く＝位移 0 に反する） */
+.rx-run .opts .opt.on{background:var(--accent-wash);box-shadow:none}
+.rx-run .opts .opt.ok{background:var(--ok-wash);box-shadow:none} .rx-run .opts .opt.ok .mk{color:var(--ok-deep)} .rx-run .opts .opt.ok .mk::after{content:'○';margin-left:2px} /* 正解の行は淡い緑地（太字にすると折り返しが変わり、下の行が動く＝位移 0 に反する：RP25 で 27 処） */
+.rx-run .opts .opt.no{background:var(--no-wash);box-shadow:none} .rx-run .opts .opt.no .mk{color:var(--no-deep)} .rx-run .opts .opt.no .mk::after{content:'×';margin-left:2px}
+.rx-run .opts .opt.dim{color:var(--soft)} .rx-run .opts .opt.dim .mk{color:var(--soft)} .rx-run .opts .opt.dim .mk::after{content:'×';margin-left:2px}
+.rx-run .opts .opt .lbl{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap} /* 判定の札（正解・あなたの選択・正解ではない）は読み上げにだけ：帳簿では字母の ○× と判定帯が表し、浮かせると肢文の右端を覆う（Q-060） */
+.rx-run .rx-verdict-band{display:flex;align-items:center;gap:8px;height:44px;box-sizing:border-box;margin:0 0 10px;padding:0 0 0 12px;border-radius:var(--r-1);background:var(--accent-wash);font-size:12.5px;line-height:1.4;overflow:hidden;white-space:nowrap} /* 44px＝帯の中の「次へ」の点按目標（Q-060）。答える前の空位も同じ高さ */
+.rx-run .rx-verdict-band.rx-vb-empty{opacity:.55} /* 空位：薄く見せる */
+.rx-run .rx-vb-v{font-weight:800;flex:none} .rx-run .rx-vb-v.ok{color:var(--ok-deep)} .rx-run .rx-vb-v.no{color:var(--no-deep)} .rx-run .rx-vb-v.dk{color:var(--soft)}
+.rx-run .rx-vb-p{color:var(--soft);min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.rx-run .rx-verdict-band .rx-ok-chip{margin-left:auto}
+.rx-run .opts .rx-opt-d{padding:6px 12px 12px 38px;border-bottom:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;gap:5px}
+.rx-run .opts .rx-opt-d.no{background:var(--no-wash)} .rx-run .opts .rx-opt-d.ok{background:var(--ok-wash)}
+.rx-run .opts .rx-opt-d .rx-opt-w{font-size:13.5px;line-height:1.6;color:var(--soft)}
+.rx-run .opts .rx-opt-d .rx-var-c,.rx-run .opts .rx-opt-d .rx-why{margin:0}
+.rx-run .opts .rx-opt-d .rx-tamper{margin-left:0}
+.rx-run .opts .opt:has(+ .rx-opt-d){border-bottom:0} /* 行と解説の間に線を引かない */
+.rx-run .rx-verdict-band .btn{flex:none;margin-left:8px;min-height:44px;height:44px;min-width:64px;padding:0 16px;border-radius:0 var(--r-1) var(--r-1) 0;font-size:13.5px} /* V-14 方向 4（Q-060）：「次へ」は帯の右端、帯いっぱいの 44px＝点按目標 */
+.rx-run .rx-verdict-band .rx-vb-p+.btn,.rx-run .rx-verdict-band .rx-vb-v+.btn{margin-left:auto}
+/* ===== 旧課 runner の選択肢（B1 几何：V-16・ux/runner 648602f を移植）：札（.lbl）は読み上げ専用にして高さに影響させない（上の肢に札が付いても所選肢が動かない）。正誤は地の色＋右上の印（○／×）で示す（新課の .rx-run と同じ考え）。印は絶対配置、右の余白は答える前から確保して折り返しを変えない ===== */
+.runner .opts .opt{position:relative;padding-right:32px}
+.runner .opts .opt .lbl{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.runner .opts .opt.ok::after,.runner .opts .opt.no::after,.runner .opts .opt.dim::after{position:absolute;right:11px;top:11px;font-family:var(--ui);font-size:15px;font-weight:700;line-height:1}
+.runner .opts .opt.ok::after{content:'○';color:var(--ok-deep)} .runner .opts .opt.no::after{content:'×';color:var(--no-deep)}
+.runner .opts .opt.dim{color:var(--soft)} .runner .opts .opt.dim .mk{color:var(--soft)} .runner .opts .opt.dim::after{content:'×';color:var(--soft)}
+/* ===== 「核心」小標と先修の札（Q-030；文案は快審第三十七批で簽発）：核心は ★ と別の軸。小標＝実心の淡い方签（「重点」の描線の胶囊と形が違う）、点は課色 ===== */
+.rx-core{display:inline-block;font-size:11px;font-weight:700;line-height:1.5;color:var(--ink);background:var(--line2);border-radius:4px;padding:0 6px;white-space:nowrap;vertical-align:1px}
+.rx-core::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-ink);margin-right:4px;vertical-align:1px}
+.rx-sum-q .rx-core{flex:none;align-self:center} .rx-sum-q .rx-q-t{flex:1 1 auto;min-width:0}
+.rx-prereq{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}
+.rx-prq-l{font-size:12px;color:var(--soft);flex:none}
+.rx-prq{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-height:32px;padding:3px 10px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--card);color:var(--ink);font-size:12.5px;line-height:1.4;cursor:pointer;text-align:left}
+.rx-prq-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:18em}
+.rx-prq-k{flex:none;color:var(--soft);font-size:11px} .rx-prq-a{flex:none;color:var(--faint)}
+html[data-theme="dark"] .rx-prq-a{color:var(--soft)}
+@media(hover:hover) and (pointer:fine){ .rx-prq:hover{border-color:var(--accent-deep);background:var(--accent-wash)} }
+.rx-run .opts .rx-opt-d{position:relative} .rx-run .opts .rx-opt-d .rx-opt-dk{position:absolute;left:12px;top:7px;font-family:var(--ui);font-weight:700;font-size:12px;line-height:1.6;color:var(--soft)} /* 解説の字母は左の 38px の溝に（行を一つ取ると「B」と「根拠」の間が一行空く：S2 10-18） */
+.rx-run .rx-verdict-band.rx-vb-fixed{position:fixed;left:0;right:0;top:var(--topbar-h,52px);margin:0;border-radius:0;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.08);border-bottom:1px solid var(--line);padding-left:max(12px,env(safe-area-inset-left,0px))} /* 帯が視口外のときの判定・札・次へ（CR432c-3）：固定、所選肢を動かさない */
+:root{--sab:env(safe-area-inset-bottom,0px)} /* 下側の安全区（主屏模式の Home 指示条）：固定行の高さに足す。試験はこの変数を差し替えて 34px を模す（CR432d-3） */
+.rx-run .rx-verdict-band.rx-vb-fixed.bottom{top:auto;bottom:0;border-bottom:0;border-top:1px solid var(--line);height:calc(44px + var(--sab,0px));padding-bottom:var(--sab,0px);box-shadow:0 -2px 8px rgba(0,0,0,.08)}
+.rx-run-s,.qnav-s{height:1px;margin-top:-1px;visibility:hidden;pointer-events:none} /* 吸底判定の哨兵（操作条の直後、見た目の高さ 0） */
+.rx-run .rx-verdict-band.rx-vb-fixed .btn{margin-left:auto}
+/* ===== 宽屏（総指揮 10-18 伝達「可以」：前端専門組/宽屏样张_4.3.2.md）：容器は窓幅に合わせて最大 1600、本文列 820（命題文 約 39 字／行）は不動、余りは目次と右欄へ。旧課読本にも右欄。<1440・手机・深色は変えない ===== */
+.rdr-rail{display:none} /* 旧課読本の右欄は ≥1440 だけ */
+@media(min-width:1024px){
+  body.reader-view{--cmax:1138px} /* .wrap は border-box（左右 24 の padding 込み）：目次 234＋36＋本文 820＝1090 を内側に収めるには 1138（1120 だと本文が 802 に縮んでいた） */
+}
+@media(min-width:1200px){
+  body.rx-wide{--cmax:1138px} /* 同上：新課の回ページも 234｜820 を内側に */
+  .rx-lec-grid{grid-template-columns:234px minmax(0,820px)} /* 新課の目次も旧課読本と同じ 234（216 だと節名が二行に折れる：CR432d 不阻断・総指揮 10-18） */
+}
+@media(min-width:1440px){
+  body.rx-wide,body.wide-view,body.reader-view{--cmax:min(1648px,100%)} /* .wrap（border-box・左右 24 の padding）が窓幅いっぱい、内側は最大 1600：1470→1422・1512→1464・1728→1600。両側の余白は 24（1600 に達したら増える）。100vw ではなく 100%：常に滚动条を出す設定で横にはみ出さない（CR432e 小修） */
+  .rx-lec-grid{grid-template-columns:minmax(234px,300px) 820px minmax(272px,360px);column-gap:32px} /* 本文列は固定 820（minmax(0,820) だと目次・右欄が先に伸びて本文が縮む）。目次の下限は方案どおり 234：1440 では 234＋820＋272＋64＝1390 ≤ 1392 で入る（欄間 32）。幅が増えた分を目次（→300）と右欄（→360）が等分に取る（CR432e 小修） */
+  .rx-stoc-i{font-size:13.5px}
+  .home2 .hero1b,.home2 .htab{grid-template-columns:minmax(0,1fr) minmax(320px,380px);column-gap:40px}
+  .home2 .htab-main .rmap{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+  .home2 .hsw{max-width:820px} /* 演習｜復習の滑块は 820 まで（主欄が広がっても間延びしない：総指揮 10-18 (b)）。検索枠は主欄なり */
+  .rdr-row{gap:32px} /* 1440：234＋820＋272＋64＝1390 ≤ 1392 */
+  .rdr-toc{flex:1 1 234px;max-width:300px}
+  .rdr-main{flex:0 0 820px;max-width:820px} /* 本文列は縮めない */
+  .rdr-rail{display:block;flex:1.2 1 272px;max-width:360px;position:sticky;top:calc(var(--topbar-h,52px) + 56px);align-self:flex-start;padding-top:10px} /* 目次と同じ吸頂位置（.rdr-toc）、最初の卡の上端は「目次」の札の上端にそろえる（読本の道具列の直下に貼り付かない：総指揮 10-18） */
+  .rdr-rail-in{display:flex;flex-direction:column;gap:14px}
+  .rdr-rail .rx-rail-card{padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-3)}
+  .rdr-rail .rx-rail-m{margin:0 0 10px;font-size:13px;color:var(--soft)}
+  .rdr-rail .rx-rail-bar{display:flex;height:6px;border-radius:var(--r-pill);overflow:hidden;background:var(--track)}
+  .rdr-rail .rx-rail-bar i{display:block;min-width:0;background:var(--accent)}
+  .rdr-rail .rx-bh{margin:0 0 10px;font-size:15px;font-weight:700}
+  .rdr-rail .rx-modes{display:flex;flex-direction:column;flex-wrap:nowrap;gap:6px}
+  .rdr-rail .rx-mode{justify-content:space-between;width:100%}
+  .rdr-rail .rx-mode b{font-weight:400;font-size:12px;color:var(--soft)}
+  .rdr-rail .rx-review{width:100%;margin:0}
+  .rdr-rail .rx-done{margin:0}
+}

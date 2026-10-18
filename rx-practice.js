@@ -59,16 +59,22 @@ function rxRun(titleKey,items,lecId,opt){ // titleKey＝i18n の鍵：表示の�
   rxClearTimer();
   if(typeof navSkipLeave!=='undefined' && document.querySelector('#view .rx-lecture')) navSkipLeave=true; // 回ページから練習へ：旧画面を離場層に残さない（進練習の INP：272→152）
   App.rxRun={titleKey:titleKey,items:items,pos:0,lecId:lecId,cid:App.course.id,remake:(opt&&opt.remake)||null, // cid＝この練習の課（限時の再試行・記録が別の課に流れないよう照合：CR-23） // remake＝同じ練法でもう一轮（結果の「もう一度」）
-    deadline:(opt&&opt.secPerItem)?Date.now()+items.length*opt.secPerItem*1000:null};
+    deadline:(opt&&opt.secPerItem)?Date.now()+items.length*opt.secPerItem*1000:null, sec:(opt&&opt.secPerItem)||null};
   rxRunRender();
+}
+function rxInterrupt(){ // 限時の練習中に書き手でなくなった（総指揮 2026-10-15 定 (c)）：その場で終える。計時を止め、作答の状態と時限は捨てる（書き手が替わったあとに自動で記録する道を残さない：合成稿 原則 3）。題の並びだけ残して「中断」画面から最初からやり直せる
+  const R=App.rxRun; if(!R || !R.deadline || R.timedOut || R.interrupted) return;
+  rxClearTimer();
+  App.rxRun={interrupted:true, titleKey:R.titleKey, lecId:R.lecId, cid:R.cid, remake:R.remake, sec:R.sec, items:R.items.map(rxResetItem)};
+  if(currentView===rxRunRender) rxRunRender();
 }
 function rxResetItem(it){ const o=it.st||{}; it.st=o.order?{order:RX.shuffledOrder(o.order.length,App.rng)}:{}; if(it.kind==='q') it.st.picked=[]; if(it.kind==='fix') it.st.text=''; return it; } // 解き直し用：作答の状態だけ白紙に（選択肢は並べ直す）
 function rxClearTimer(){ if(App.rxTimer){ clearInterval(App.rxTimer); App.rxTimer=null; } }
 function rxTimeLeftText(R){ const s=Math.max(0,Math.round((R.deadline-Date.now())/1000)); return t('rxTimeLeft').replace('{m}',Math.floor(s/60)).replace('{s}',String(s%60).padStart(2,'0')); }
 function rxTimeUp(){ // 時間切れ：未回答は不正解として記録し、結果へ。記録が全部保存できてから時間切れを確定する（CR-12）
-  const R=App.rxRun; if(!R) return;
+  const R=App.rxRun; if(!R || R.interrupted) return; // 中断した練習は記録しない
   if(!App.course || App.course.id!==R.cid){ rxClearTimer(); return; } // 別の課へ移った練習は打ち切る（CR-23）
-  if(!fenceOk()){ rxClearTimer(); R.tuFail=true; rxRunRender(); return; } // 書けない（只読）：計時を止め「もう一度保存する」へ。書き手に戻っても自動では記録しない（書き手が替わった後の遅れた書き込みを作らない：wl-min 30efd59・WLR-B 必修 1）
+  if(!fenceOk()){ rxClearTimer(); R.tuFail=true; rxRunRender(); return; } // 書けない（只読・準備中）：計時を止め「もう一度記録する」へ。書き手に戻っても自動では記録しない（書き手が替わった後の遅れた書き込みを作らない：WLR1 合并裁定 三-9）
   const evs=[]; R.items.forEach(function(it){ if(!it.st.done) (it.props||[]).forEach(function(pid){ evs.push({mode:'mock',props:[pid],ok:false,unsure:false}); }); });
   if(evs.length && !rxRecord(evs)){ rxClearTimer(); R.tuFail=true; pulseWriterBanner(); rxRunRender(); return; } // 保存できなければ未回答のまま計時を止め、「もう一度記録する」を出す（合成稿 v3.3：自動では試し直さない。事務は戻してあるので押し直しても二重に数えない）
   rxClearTimer(); R.tuFail=false;
@@ -81,11 +87,20 @@ function rxRunRender(){
   const R=App.rxRun; if(!R){ goHome(); return; }
   registerFrame(rxRunRender,'rx-run');
   if(R.pos>=R.items.length) return rxRunEnd();
+  if(R.interrupted){ // 書き手が替わって中断した限時の練習（(c)）：未回答を時間切れとして記録はしない。最初からやり直すか離れるか
+    rxClearTimer();
+    setView(el('div',{class:'rx-run rbody'},[ sectionHead(t(R.titleKey),function(){ App.rxRun=null; goBack(); }),
+      el('p',{class:'rx-hint jp',role:'status',text:t('rxInterrupted')}),
+      el('div',{class:'row',style:'gap:10px;margin-top:12px'},[
+        el('button',{class:'btn',text:t('rxRestart'),onclick:function(){ if(!canWrite()) return; rxRun(R.titleKey,R.items.map(rxResetItem),R.lecId,{remake:R.remake,secPerItem:R.sec}); }}),
+        el('button',{class:'btn ghost',text:t('rxLeave'),onclick:function(){ App.rxRun=null; goBack(); }}) ]) ]));
+    return;
+  }
   if(R.tuFail){ // 時間切れの記録が保存できなかった：作答はもう受け付けず、押し直しだけを出す
     rxClearTimer();
     setView(el('div',{class:'rx-run rbody'},[ sectionHead(t(R.titleKey),function(){ App.rxRun=null; goBack(); }),
       el('p',{class:'rx-hint jp',role:'status',text:t('rxTimeUpFail')}),
-      el('button',{class:'btn',text:t('rxTimeUpRetry'),onclick:function(){ if(!canWrite()) return; rxTimeUp(); }}) ])); // 書けないときは canWrite の知らせ（只読の説明）を出して何もしない（30efd59）
+      el('button',{class:'btn',text:t('rxTimeUpRetry'),onclick:function(){ if(!canWrite()) return; rxTimeUp(); }}) ])); // 書けないときは canWrite の知らせ（只読の説明・準備中）を出して何もしない（三-9）
     return;
   }
   const it=R.items[R.pos];
@@ -101,25 +116,28 @@ function rxRunRender(){
   const next=function(){ const back=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('.rx-run');
     R.pos++; rxStep=true; rxRunRender(); window.scrollTo(0,0);
     if(back){ const b=document.querySelector('.rx-run-b'); if(b) b.focus({preventScroll:true}); } }; // 键盘で次へ：焦点を新しい問題へ（BODY に落とさない）
-  const run=el('div',{class:'rx-run rx-q rbody'+(it.st.done?'':' rx-ask')+(step?' qstep-next':'')}); // reduce は styles.css:346 の全停止で止まる
-  if(it.kind==='q') foot.classList.add('c2'); // (c2)：答える前から吸底の帯の高さを予約（空のまま見える帯）。Q-051 で確定（(c) 流し込みは撤去）
-  it.render(body,function(){ rxRunFoot(foot,it,next,body); if(it.kind==='q'){ run.classList.add('rx-answered'); rxKeepOpts(body,it); rxFootClear(body,foot,it); rxOkChip(body,foot); } else run.classList.remove('rx-ask'); rxRevealed(body,foot); }); // 選択式・国試：答える前の配置を保ったまま（rx-ask を外さない）——ページも押した肢も動かない（S8 V-08、総指揮 (c)／(c2)）
-  if(it.st.done) rxRunFoot(foot,it,next,body);
+  const run=el('div',{class:'rx-run rx-q rbody'+((it.st.done && it.kind!=='q')?'':' rx-ask')+((it.st.done && it.kind==='q')?' rx-answered':'')+(step?' qstep-next':'')}); // 選択式・国試は答えたあとも rx-ask（答える前の配置を保つ）：描き直し（根拠から戻る等）でも同じ布局にする（CR432c-3：題頭の余白が消えて 366px ずれていた） // reduce は styles.css:346 の全停止で止まる
+  App._rxVb={body:body,it:it,next:next}; // 固定の判定行（rxVbSync）が見る今の題
+  it.render(body,function(){ rxRunFoot(foot,it,next,body); if(it.kind==='q'){ run.classList.add('rx-answered'); rxKeepOpts(body,it); rxVbSync(); rxFootClear(body,foot,it); rxOkChip(body,foot); } else run.classList.remove('rx-ask'); rxRevealed(body,foot); rxFootStuck(); requestAnimationFrame(rxFootStuck); }); // 答えて操作条に中身が入ったら、どの題型でも吸底を判定し直す（哨兵の交差は変わらないので IntersectionObserver は鳴らない：○×で .stuck が付かなかった） // 選択式・国試：答える前の配置を保ったまま（rx-ask を外さない）——ページも押した肢も動かない（S8 V-08、総指揮 (c)／(c2)）
+  if(it.st.done){ rxRunFoot(foot,it,next,body); if(it.kind==='q'){ const o=body.querySelector('.opts'); if(o && it.st.keepTop) o.style.marginTop=it.st.keepTop+'px'; const late=function(){ if(!body.querySelector('.rx-verdict-band .rx-ok-chip')) rxOkChip(body,foot); rxVbSync(); }; if(App._navRestoring){ requestAnimationFrame(rxVbSync); setTimeout(late,50); } else requestAnimationFrame(late); } } // 答えた題の描き直し：正解の肢が視口外なら札も出し直す（S4 10-18：WebKit で帯は視口内・正解肢は視口外なのに札が無かった）。戻る（restoreFrame）のときは位置が戻ってから判る // 答えた題の再描画：留白を再現してから、固定の判定行を評価（CR432c-3） // 答えた題の再描画（根拠のカードから戻る等）：布局・位置の復元のあとで固定の判定行を評価し直す（CR432c-3）
   [ sectionHead(t(R.titleKey),function(){ rxClearTimer(); App.rxRun=null; goBack(); }),
     el('div',{class:'qnum'},[ timer, el('span',{class:'prog',text:(R.pos+1)+' / '+R.items.length}) ].filter(Boolean)),
     body, foot ].forEach(function(n){ run.appendChild(n); });
-  setView(run);
+  setView(run); rxFootWatch(foot); rxFootStuck(); requestAnimationFrame(rxFootStuck); run.addEventListener('animationend',function onEnd(e){ if(e.target!==run) return; run.removeEventListener('animationend',onEnd); rxVbSync(); rxFootStuck(); }); // 過場動画（run 自身の animation）が終わってから固定行・吸底をもう一度合わせる（動画中は祖先の transform で fixed の矩形がずれる）。子の animationend では動かない（CR432e 小修）
 }
 function rxRunFoot(foot,it,next,body){ // 操作条：左＝判定（role=status ごと題内から移す）・右＝次へ（利き手で鏡像）。文書の流れの中で sticky：短ければ選択肢のすぐ下、長ければ画面下に吸い付く（收尾清单 二）
   foot.innerHTML='';
+  const btn=el('button',{class:'btn',text:App.rxRun.pos+1<App.rxRun.items.length?t('rxNext'):t('rxFinish'),onclick:next});
+  const band=body&&body.querySelector('.rx-verdict-band:not(.rx-vb-empty)');
+  if(band){ band.appendChild(btn); return; } // 選択式・国試（帳簿 A′）：「次へ」は題文の下の判定帯の右端（V-14 方向 4・Q-060）。底の操作条は空のまま非表示（帯が視口外のときは固定の一行 rxVbSync：位置が確定したあとで判る）
   const v=body&&body.querySelector('.rx-verdict'); if(v) foot.appendChild(v);
-  foot.appendChild(el('button',{class:'btn',text:App.rxRun.pos+1<App.rxRun.items.length?t('rxNext'):t('rxFinish'),onclick:next}));
+  foot.appendChild(btn);
 }
 /* 揭示直後：連打で新しい控件を押さないよう 300ms だけ受け付けない／判定行を見える位置へ／焦点は「次へ」へ */
 function rxGuard(n){ if(!n) return; n.classList.add('rx-guard'); setTimeout(function(){ n.classList.remove('rx-guard'); },300); }
 function rxRevealed(body,foot){
   rxGuard(body); rxGuard(foot);
-  const b=foot.querySelector('.btn'); if(b){ const y=window.scrollY; b.focus({preventScroll:true}); if(window.scrollY!==y) window.scrollTo(0,y); } // 「次へ」へ焦点。WebKit は吸底の帯の中の要素に焦点を当てると preventScroll でも流れ上の位置へ送ることがある（c2 で 158px）：同じタスク内で戻す＝描かれない
+  const b=foot.querySelector('.btn')||(body&&body.querySelector('.rx-verdict-band .btn')); if(b){ const y=window.scrollY; b.focus({preventScroll:true}); if(window.scrollY!==y) window.scrollTo(0,y); } // 「次へ」へ焦点。WebKit は吸底の帯の中の要素に焦点を当てると preventScroll でも流れ上の位置へ送ることがある（c2 で 158px）：同じタスク内で戻す＝描かれない
   // R-06 の「正解を可視区へ scrollBy」は廃止：作答瞬間の位移 0 が放行門（予算 v1）。正解と所選は、押した肢を覆うなら操作条を流れに戻す（rxFootClear）・正解が視口外なら札（rxOkChip）で隠れない
 }
 function rxTamperName(code,name){ // 篡改型の名：中文界面は i18n の型码表（快审第三十一批 K-02 签发）、無ければデータの名（ja）
@@ -128,28 +146,61 @@ function rxTamperName(code,name){ // 篡改型の名：中文界面は i18n の�
 }
 function rxKeepOpts(body,it){ // 押した肢を同じ y に：auto margin（親指の届く下側）が消える分を、全部並べ終えてから補う
   const opts=body.querySelector('.opts'); const y0=it&&it.st&&it.st.optsY; if(!opts || y0==null) return;
-  const d=y0-Math.round(opts.getBoundingClientRect().top+scrollY); if(d>0) opts.style.marginTop=d+'px';
+  const top=function(){ return Math.round(opts.getBoundingClientRect().top+scrollY); };
+  const d=y0-top(); if(d<=0) return;
+  opts.style.marginTop=d+'px'; // auto margin を固定値に置き換えると、残っていた auto の分（答えた後も僅かに残る）が消えて d だけでは足りない（S8 V-13：第 5 題で 8px 上がった）→ もう一度測って差を足す
+  const d2=y0-top(); if(d2) opts.style.marginTop=(d+d2)+'px';
+  it.st.keepTop=parseFloat(opts.style.marginTop)||0; // 答えた題を描き直すとき（根拠のカードから戻る等）同じ留白を再現する（CR432c-3：戻った位置が 390px ずれていた）
 }
+function rxFootWatch(foot){ // 吸底の判定は哨兵（条の直後の 0 高さ）＋IntersectionObserver：哨兵が視口の下に外れていれば条は吸い付いている。視口の高さ・工具欄（iPhone Safari で innerHeight と見える底が違う）に依らない（CR432d-5）
+  if(App._rxFootIO){ App._rxFootIO.disconnect(); App._rxFootIO=null; }
+  const s=el('div',{class:'rx-run-s','aria-hidden':'true'}); foot.insertAdjacentElement('afterend',s);
+  if(typeof IntersectionObserver==='undefined'){ App._rxFootBelow=null; return; }
+  App._rxFootBelow=false;
+  App._rxFootIO=new IntersectionObserver(function(es){ const e=es[es.length-1]; App._rxFootBelow=!e.isIntersecting && e.boundingClientRect.top>=0; rxFootStuck(); });
+  App._rxFootIO.observe(s);
+}
+function rxFootStuck(){ // 新課の操作条（.rx-run-f）が画面下に吸い付いているときだけ .stuck（裙は吸い付いているときだけ：S2 10-18）
+  const f=document.querySelector('#view .rx-run-f'); if(!f) return; let below=App._rxFootBelow; if(below==null){ const r=f.getBoundingClientRect(); below=r.bottom>=innerHeight-2 && r.top<innerHeight; } // IntersectionObserver が無いときだけ幾何で
+  const stuck=getComputedStyle(f).position==='sticky' && f.childElementCount>0 && !!below; f.classList.toggle('stuck',stuck);
+}
+window.addEventListener('scroll',rxFootStuck,{passive:true}); window.addEventListener('resize',rxFootStuck);
 function rxFootClear(body,foot,it){ // (c2) 押した肢が視口の下端に貼り付いていると、答えた瞬間に吸底の操作条がその肢を覆う（S8 persona 740・S1 trial 375×667）：覆うなら操作条を流れに戻す（位移 0 のまま；判定と「次へ」は説明の下、ひと滚りで届く）
-  foot.classList.remove('flow'); const opts=body.querySelector('.opts'); if(!opts || !foot.classList.contains('c2') || getComputedStyle(foot).position!=='sticky') return;
+  foot.classList.remove('flow'); const opts=body.querySelector('.opts'); if(!opts || getComputedStyle(foot).position!=='sticky') return;
   const fr=foot.getBoundingClientRect(); const hit=((it&&it.st&&it.st.picked)||[]).some(function(oi){ const b=opts.querySelector('.opt[data-oi="'+oi+'"]'); if(!b) return false; const r=b.getBoundingClientRect(); return r.bottom>fr.top+1 && r.top<fr.bottom-1; });
   if(hit) foot.classList.add('flow');
 }
-function rxOkChip(body,foot){ // 正解の肢が視口に無いとき（長い選択肢で上か下に外れている）：判定の横に「正解：C」の札を出す。ページは動かさない
-  const opts=body.querySelector('.opts'); const ok=opts&&opts.querySelector('.opt.ok'), v=foot&&foot.querySelector('.rx-verdict'); if(!ok || !v) return;
-  const r=ok.getBoundingClientRect(), tb=document.querySelector('.topbar'), top=tb?tb.getBoundingClientRect().bottom:0, bar=(foot.classList.contains('c2')&&!foot.classList.contains('flow'))?foot.getBoundingClientRect().height:0;
-  if(r.top<top || r.top+44>innerHeight-bar){ const k=[].indexOf.call(opts.querySelectorAll('.opt'),ok); v.appendChild(el('span',{class:'rx-ok-chip',text:t('optAns')+'：'+('ABCDEF'[k]||'')})); }
+function rxVbSync(){ // 帯が視口の外（長い肢で下の方を押した・矮い視口・答えた題に戻った：CR432-8／CR432c-3）：判定・札・「次へ」の一行を固定で出す——顶栏の下、押した肢を覆うなら画面の下端（両方覆う極端は顶栏の下）。所選肢は動かさない。帯が見えれば隠す。role=status は帯だけ
+  const S=App._rxVb; const run=document.querySelector('#view .rx-run'); let fx=run&&run.querySelector('.rx-vb-fixed');
+  const body=S&&S.body, band=body&&body.isConnected&&body.querySelector('.rx-verdict-band:not(.rx-vb-empty)');
+  if(!run || !band){ if(fx) fx.remove(); return; }
+  if(rxBandInView(band)){ if(fx) fx.style.display='none'; return; }
+  const it=S.it, next=S.next, opts=body.querySelector('.opts');
+  if(!fx){ const v=band.querySelector('.rx-vb-v'); fx=el('div',{class:'rx-verdict-band rx-vb-fixed'},[ el('span',{class:'rx-vb-v '+(v?v.className.replace('rx-vb-v','').trim():''),text:v?v.textContent:''}), el('button',{class:'btn',text:App.rxRun.pos+1<App.rxRun.items.length?t('rxNext'):t('rxFinish'),onclick:next}) ]); run.appendChild(fx); }
+  fx.style.display='';
+  const tb=document.querySelector('.topbar'), top=tb?tb.getBoundingClientRect().bottom:0; // 顶栏の実測の下端（上側の安全区込み）
+  const picked=((it&&it.st&&it.st.picked)||[]).map(function(oi){ return opts&&opts.querySelector('.opt[data-oi="'+oi+'"]'); }).filter(Boolean);
+  const hits=function(y0,y1){ return picked.some(function(b){ const r=b.getBoundingClientRect(); return r.bottom>y0+1 && r.top<y1-1; }); };
+  fx.classList.remove('bottom'); fx.style.top=top+'px'; const hT=fx.getBoundingClientRect().height||44; fx.classList.add('bottom'); fx.style.top=''; const hB=fx.getBoundingClientRect().height||hT; // 上に置いたとき・下に置いたときの実際の高さ（中身と下側の安全区で変わる：CR432d-3）。位置は顶栏の下端・視口の下端から組む（過場動画で祖先に transform が掛かっている間、fixed の矩形は祖先基準になり信用できない：戻った直後に札が落ちた）
+  const rt={top:top,bottom:top+hT}, rb={top:innerHeight-hB,bottom:innerHeight};
+  const bottom=hits(rt.top,rt.bottom) && !hits(rb.top,rb.bottom); if(!bottom){ fx.classList.remove('bottom'); fx.style.top=top+'px'; }
+  const ok=opts&&opts.querySelector('.opt.ok'); const chip=fx.querySelector('.rx-ok-chip'); // 札：正解の肢が（固定の一行の下も含めて）視口に無いとき
+  const okOut=!!ok && (function(){ const r=ok.getBoundingClientRect(); const y0=bottom?top:rt.bottom, y1=bottom?rb.top:innerHeight; return r.top<y0 || r.top+44>y1; })();
+  if(okOut && !chip){ const k=[].indexOf.call(opts.querySelectorAll('.opt'),ok); fx.insertBefore(el('span',{class:'rx-ok-chip',text:t('optAns')+'：'+('ABCDEF'[k]||'')}),fx.querySelector('.btn')); } else if(!okOut && chip) chip.remove();
 }
-function showAnswerOpt(opt,bar,picked){ // 正解（＋自分の選択）を可視区へ：両方の合併範囲で必要な分だけ動かす。入らなければ正解だけ。下側は操作条の高さを除く（收尾第二轮 R-06）
-  if(!opt) return;
-  requestAnimationFrame(function(){ requestAnimationFrame(function(){ // 一帧多く待つ（真 Safari はツールバーの出入りで視口が変わる）
-    const tb=document.querySelector('.topbar'), top=(tb?tb.getBoundingClientRect().bottom:52)+8, bh=(bar&&bar.offsetHeight)||0, bottom=innerHeight-bh-8;
-    const ro=opt.getBoundingClientRect(), rp=(picked&&picked!==opt)?picked.getBoundingClientRect():null;
-    let a=ro.top, b=ro.bottom; if(rp){ a=Math.min(a,rp.top); b=Math.max(b,rp.bottom); }
-    if(b-a>bottom-top){ a=ro.top; b=ro.bottom; } // 二つは一屏に入らない：正解を優先
-    if(a>=top && b<=bottom) return; // もう見えている
-    window.scrollBy(0, a<top ? a-top : b-bottom);
-  }); });
+let rxVbRaf=0;
+window.addEventListener('scroll',function(){ if(!App._rxVb || rxVbRaf) return; rxVbRaf=requestAnimationFrame(function(){ rxVbRaf=0; rxVbSync(); }); },{passive:true}); // 滚って帯が見えたら隠す・隠れたら出す
+function rxBandInView(band){ const r=band.getBoundingClientRect(), tb=document.querySelector('.topbar'), top=tb?tb.getBoundingClientRect().bottom:0; return r.bottom>top+8 && r.top<innerHeight-8; } // 判定帯が視口に（一部でも）見えているか
+function rxOkChip(body,foot){ // 正解の肢が視口に無いとき（長い選択肢で上か下に外れている）：判定の横に「正解：C」の札を出す。ページは動かさない
+  const opts=body.querySelector('.opts'); const ok=opts&&opts.querySelector('.opt.ok'), band=body.querySelector('.rx-verdict-band:not(.rx-vb-empty)'), fv=foot&&foot.querySelector('.rx-verdict'); const v=(band&&rxBandInView(band))?band:(fv||band); if(!ok || !v) return; // 帳簿（A′）：札は見えている方の判定（帯が視口外なら吸底の控え）の、「次へ」の左（CR432-8）
+  const r=ok.getBoundingClientRect(), tb=document.querySelector('.topbar'), top=tb?tb.getBoundingClientRect().bottom:0, bar=(foot&&getComputedStyle(foot).position==='sticky')?foot.getBoundingClientRect().height:0;
+  if(r.top<top || r.top+44>innerHeight-bar){ const k=[].indexOf.call(opts.querySelectorAll('.opt'),ok); const chip=el('span',{class:'rx-ok-chip',text:t('optAns')+'：'+('ABCDEF'[k]||'')}); const nb=v.querySelector('.btn'); if(nb) v.insertBefore(chip,nb); else v.appendChild(chip); }
+}
+function rxVerdictBand(it,q){ // 帳簿 阶段 3（A′・Q-055）：題文の直下の帯＝判定｜あなたの選択：A（複数は「、」）｜正解が視口外なら「正解：X」札（rxOkChip が足す）｜「次へ」（rxRunFoot が足す）。読み上げは role=status
+  const st=it.st, letters=st.picked.map(function(oi){ return 'ABCDEF'[st.order.indexOf(oi)]||''; }).filter(Boolean).join('、');
+  const kids=[ el('span',{class:'rx-vb-v '+(st.dontKnow?'dk':st.ok?'ok':'no'),text:st.dontKnow?t('rxDkVerdict'):st.ok?t('rxRight'):t('rxMissed')}) ];
+  if(letters) kids.push(el('span',{class:'rx-vb-p',text:t('optPicked')+'：'+letters}));
+  return el('div',{class:'rx-verdict-band',role:'status'},kids);
 }
 function rxVerdict(ok,dk){ return el('div',{class:'rx-verdict jp '+(dk?'dk':ok?'ok':'no'),role:'status',text:dk?t('rxDkVerdict'):ok?t('rxRight'):t('rxMissed')}); } // dk＝「わからない」：記録は誤答のまま、表示は中性（U-90）
 /* 選択肢の身分（旧課 runner と同じ標示・同じ鍵）：正解／自分で選んだ誤り／それ以外 */
@@ -181,7 +232,7 @@ function rxOnKey(e){
   if(e.metaKey||e.ctrlKey||e.altKey) return;
   if((k==='Enter'||k===' ') && (tg==='button'||tg==='a')) return;
   const R=App.rxRun, it=R.items[R.pos]; if(!it) return;
-  if(it.st.done){ if(k==='Enter'||k==='ArrowRight') press(q('.rx-run-f .btn')); return; }
+  if(it.st.done){ if(k==='Enter'||k==='ArrowRight') press(q('.rx-verdict-band .btn')||q('.rx-run-f .btn')); return; }
   const kl=k.toLowerCase(), n=/^[1-9]$/.test(k)?parseInt(k,10):0;
   if(kl==='u'){ press(q('.rx-unsure')); return; }
   if(k==='0'||kl==='d'){ press(q('.rx-dk')); return; }
@@ -191,7 +242,7 @@ function rxOnKey(e){
   if(n && q('.rx-self')){ press(qa('.rx-self button')[n-1]); }
 }
 document.addEventListener('keydown',rxOnKey);
-function rxRunEnd(){
+function rxRunEnd(){ App._rxVb=null;
   registerFrame(rxRunEnd,'rx-run');
   rxClearTimer();
   const R=App.rxRun, ix=App.rx.ix;
@@ -332,7 +383,8 @@ function rxQItem(q){
     const st=it.st, ix=App.rx.ix;
     RX.questionParts(q).forEach(function(part){ // 国試事例題＝事例→設問→選択肢
       if(part==='case') box.appendChild(el('div',{class:'rx-case jp',text:q.case}));
-      if(part==='stem') box.appendChild(el('p',{class:'rx-stem jp',text:q.stem||''}));
+      if(part==='stem'){ box.appendChild(el('p',{class:'rx-stem jp',text:q.stem||''}));
+        box.appendChild(st.done?rxVerdictBand(it,q):el('div',{class:'rx-verdict-band rx-vb-empty','aria-hidden':'true'})); } // 帳簿 阶段 3（Q-055 A′）：判定の帯は題文の直下。答える前から同じ高さの空位を置く＝題文・肢は動かない
       if(part==='options'){
         const wrap=el('div',{class:'opts'});
         st.order.forEach(function(oi,k){
@@ -359,30 +411,25 @@ function rxQItem(q){
       box.appendChild(rxAnswerAids(it,function(){ st.picked=[]; st.dontKnow=true; submit(); }));
       return;
     }
-    box.appendChild(rxVerdict(st.ok,st.dontKnow));
-    // 逐肢反馈：判定・誤りの箇所・正しくは・改変の型・根拠（命題全文）。全肢を開いて出す（期末は同じ陳述の並べ替え：誤肢の「正しくは」を全部見せる。方案 4-4）。押すとたたむ
-    const fb=el('div',{class:'rx-fb'});
-    if(!st.fbOpen) st.fbOpen={};
+    // 解説（理由・誤りの箇所・正しくは・改変の型・根拠）は押した肢の行の直下へ（A′：別の一覧で肢を繰り返さない）。押した肢より下の肢は解説の分だけ下がる（位移口径：題頭・押した肢とその上は 0）
+    const wrap=box.querySelector('.opts'); // 解説を出す肢＝押した肢。間違えたとき・「わからない」のときは正解の肢も（CR432-1：正解の説明・根拠が消えていた）
+    const showOi=st.order.filter(function(oi){ return st.picked.indexOf(oi)>=0 || (!!q.options[oi].correct && !st.ok); }), multi=showOi.length>1, dets=[]; let anchor=null;
     st.order.forEach(function(oi,k){
+      if(showOi.indexOf(oi)<0) return;
       const f=RX.optionFeedback(ix,q,oi);
-      const open=(oi in st.fbOpen)?st.fbOpen[oi]:true;
       const why=f.correct?((q.options[oi]||{}).why||null):null; // 正肢の理由＝正肢自身の options[].why（方案 4-4。S1 の RX.whyCorrect(q) ができたら差し替え）。無ければ場所も取らない
-      const det=el('div',{class:'rx-fb-d'},[
+      const det=el('div',{class:'rx-opt-d '+(f.correct?'ok':'no'),'data-oi':String(oi)},[
+        multi?el('span',{class:'rx-opt-dk',text:'ABCDEF'[k]||''}):null, // 複選：どの肢の解説か（下にまとめるので字母を添える）
+        (!f.correct && f.wrong)?el('div',{class:'rx-opt-w jp'},[ rxMarkWrong(f.text,f.wrong) ]):null, // 誤りの箇所に印（行の本文は動かさない）
         why?el('div',{class:'rx-why jp',text:why}):null,
         f.fix?el('div',{class:'rx-var-c jp'},[ el('span',{class:'rx-var-lb',text:t('rxCorrectIs')}), document.createTextNode(f.fix) ]):null,
         f.tamper?el('div',{class:'rx-tamper jp',text:t('rxTamper')+'：'+rxTamperName(f.tamper.code,f.tamper.name)}):null,
         f.propId?rxEvidence(f.propId,[f.text, f.fix]):null
       ].filter(Boolean));
-      const item=el('div',{class:'rx-fb-i '+(f.correct?'ok':'no')+(open?'':' rx-fold')});
-      const head=el('button',{class:'rx-fb-h','aria-expanded':String(open),onclick:function(){
-        const now=item.classList.toggle('rx-fold'); st.fbOpen[oi]=!now; head.setAttribute('aria-expanded',String(!now)); det.hidden=now; }},[
-        el('span',{class:'rx-fb-k',text:'ABCDEF'[k]||''}), el('span',{class:'rx-fb-j',text:f.correct?'○':'×'}),
-        f.correct?el('span',{class:'jp rx-fb-t',text:f.text}):el('span',{class:'rx-fb-t'},[ rxMarkWrong(f.text,f.wrong) ]) ]);
-      det.hidden=!open;
-      item.appendChild(head); if(det.childNodes.length) item.appendChild(det);
-      fb.appendChild(item);
+      const btn=wrap&&wrap.querySelector('.opt[data-oi="'+oi+'"]'); if(!btn || !det.childNodes.length) return;
+      if(multi){ dets.push(det); anchor=btn; } else btn.insertAdjacentElement('afterend',det);
     });
-    box.appendChild(fb);
+    if(multi && anchor){ dets.reverse().forEach(function(d){ anchor.insertAdjacentElement('afterend',d); }); } // 解説が二つ以上（複選・誤答時の正解肢）：いちばん下の肢の下に字母つきでまとめる——上の肢の解説がその下の押した肢を動かさない（位移 0 の口径。RP25：医学 L02 第 4 題で 234px）
     function submit(){
       const o0=box.querySelector('.opts'); st.optsY=o0?Math.round(o0.getBoundingClientRect().top+scrollY):null; // 答える前の選択肢の位置（文書座標）
       if(!canWrite()) return; // 判分の直前にもう一度（CR-01）

@@ -6,9 +6,10 @@
  * 缓存按作用域与版本分开（rx-<作用域标记>-<版>-shell・-data）；只查・只清本作用域的缓存，查找时本版优先。
  *   旧版缓存不在激活时清：别的标签里的旧页面可能还要用；等到只剩一个窗口时的下一次导航，再清比本版旧的缓存。
  *   数据缓存（各课数据・看过的图・离线包）安装时从旧版继承。
- * 只处理本作用域内的同源 GET；跨源（字体等）与 POST 不碰。真题层只有密文（quiz.enc.json）会进缓存，明文只在页面内存。 */
+ * 只处理本作用域内的同源 GET；跨源（Google Fonts 等）与 POST 不碰。同源的自托管字体（fonts/*.woff2、名带内容哈希）走 DATA：安装时按 fonts/noto-subset.css 的 url() 预取（不挡安装），
+ *   以后 cache-first；继承旧版 DATA 时丢掉当前 CSS 不再引用的旧哈希字体。真题层只有密文（quiz.enc.json）会进缓存，明文只在页面内存。 */
 'use strict';
-const VERSION='4.3.0.2';
+const VERSION='4.3.2';
 const SCOPE=self.registration.scope;
 function scopeTag(path){ let h=5381; for(let i=0;i<path.length;i++) h=((h*33)^path.charCodeAt(i))>>>0; return h.toString(36); } // offline.js・tools/sw_unregister.js 同式
 const PFX='rx-'+scopeTag(new URL(SCOPE).pathname)+'-';
@@ -17,7 +18,7 @@ const OWN=new RegExp('^'+PFX+'(.+)-(shell|data)$');
 const LEGACY=/^rx-[0-9][0-9.]*-(shell|data)$/; // 作用域标记导入前的缓存名（rx-<版>-…）：同源其他部署也可能用，只动本作用域的项目
 /* 壳的部件＝index.html 里带 ?v= 的本地引用（publish 检查两边一致；dev.js 除外） */
 const PARTS=['styles.css','engine-core.js','i18n.js','core.js','session.js','manual-reader.js','panels.js','talk.js',
-  'rx-core.js','rx-views.js','rx-practice.js','quiz-envelope.js','rx-vault.js','rx-export.js','rx-search.js','offline.js'];
+  'rx-core.js','rx-views.js','rx-practice.js','quiz-envelope.js','rx-vault.js','rx-export.js','rx-search.js','offline.js','fonts/noto-subset.css'];
 const STATIC=['manifest.webmanifest','apple-touch-icon.png','favicon-16.png','favicon-32.png',
   'icon-192.png','icon-512.png','icon-192-maskable.png','icon-512-maskable.png'];
 const NET_WAIT=5000;    // 网络迟迟不回（信号弱）时改用缓存的等待上限（毫秒）
@@ -94,19 +95,31 @@ self.addEventListener('install',function(e){
       return timed(WARM_WAIT,function(signal){ return fetch(rq,{signal:signal}).then(function(r){ if(r.ok) return shell.put(rq,r); }); }).catch(function(){});
     }));
     const data=await caches.open(DATA);
+    const fonts=await fontUrls(); // 自托管字体＝壳里 fonts/noto-subset.css の url()（唯一の真源；別の清単は持たない）
     const inherit=async function(name,onlyScope){ // 旧版的数据缓存（离线包・看过的图）→ 本版
       const old=await caches.open(name);
       for(const req of await old.keys()){
         if(onlyScope && req.url.indexOf(SCOPE)!==0) continue;
+        if(fonts.size && /\.woff2(\?|$)/i.test(req.url) && !fonts.has(req.url)) continue; // 壳の CSS が取れず一覧が空なら絞らない（CR432 建議：継承の字体を全部落とさない） // 当前 CSS 不再引用的旧哈希字体不继承（S1 审阅建议 2：否则每换一次子集就多带 1.3MB 到以后所有版本）
         if(await data.match(req)) continue;
         const res=await old.match(req); if(res) await data.put(req,res).catch(function(){});
       }
     };
     for(const x of await ownCaches()){ if(x.name!==DATA && x.kind==='data') await inherit(x.name,false); }
     for(const k of await caches.keys()){ if(LEGACY.test(k) && /-data$/.test(k)) await inherit(k,true); } // 早期の無標記名：本作用域の項目だけ
+    await Promise.all(Array.from(fonts).map(function(u){ // 字体を安装時に先取り（S1 審閲建議 1：首访で未受控の頁が使った字体は DATA に入らない／子集の哈希が変わった直後に断網＝離線で 503 になる）。取れなくても安装は止めない
+      return data.match(u).then(function(hit){ if(hit) return; const rq=new Request(u,{cache:'reload'});
+        return timed(WARM_WAIT,function(signal){ return fetch(rq,{signal:signal}).then(function(r){ if(r.ok) return data.put(rq,r); }); }); }).catch(function(){}); }));
     await warmCore(data);
   })());
 });
+
+async function fontUrls(){ // 自托管字体の一覧：壳部件 fonts/noto-subset.css の url(...)（.woff2・本作用域）を絶対 URL の Set で。CSS が無ければ空
+  try{ const shell=await caches.open(SHELL); const r=await shell.match(new Request('fonts/noto-subset.css?v='+VERSION)); if(!r) return new Set();
+    const css=await r.text(), base=new URL('fonts/noto-subset.css',SCOPE).href, out=new Set(), re=/url\(\s*['"]?([^'")]+)['"]?\s*\)/g; let m;
+    while((m=re.exec(css))){ const u=new URL(m[1],base).href; if(/\.woff2(\?|$)/i.test(u) && u.indexOf(SCOPE)===0) out.add(u); }
+    return out; }catch(_){ return new Set(); }
+}
 
 /* 只剩一个窗口时，清掉本作用域里比本版旧的缓存（多标签时留给还开着的旧页面）。
  * 只由页面载入完成后发来的 rx-sweep 触发：导航途中，正在替换的旧文档与新文档都可能不在 matchAll 里，会少算窗口。 */
@@ -191,5 +204,6 @@ self.addEventListener('fetch',function(e){
   if(/\.json$/.test(rel)){ e.respondWith(dataFirst(e,req)); return; }
   if(/\.svg$/i.test(rel)){ e.respondWith(imageCached(e,req,true)); return; }
   if(/\.(png|jpe?g|webp|gif)$/i.test(rel)){ e.respondWith(imageCached(e,req,false)); return; }
+  if(/\.woff2$/i.test(rel)){ e.respondWith(imageCached(e,req,false)); return; } // 自托管の字体子集（fonts/*.woff2、名に内容ハッシュ）：画像と同じく初回に DATA へ入れて以後はそこから（版をまたいで継承；名が変われば新しい方を取る）
   e.respondWith(matchOwn(req).then(function(hit){ return hit||fetch(req).catch(offline); }));
 });

@@ -317,6 +317,7 @@ document.addEventListener('keydown',function(e){
   var b=last.querySelectorAll('.mcOpt')[+e.key-1]; if(b && !b.disabled){ e.preventDefault(); b.click(); }
 });
 function buddyAnswer(q,order,ow,pk){
+  if(!canWrite() || quotaStopped()) return; if(!quotaAdmit) return quotaAdmitted(buddyAnswer,this,arguments); // 準入したら一笔を割らずに書く（WLR2 必修 2）。書けない（只読・準備中・容量の 90% 以上）ときは選択肢も変えない：判定だけ出て記録されないのを防ぐ（WLR1 合并裁定 三-5）
   var btns=[].slice.call(ow.querySelectorAll('.mcOpt'));
   if(btns[0]&&btns[0].disabled) return;
   btns.forEach(function(b){ b.disabled=true; });

@@ -171,7 +171,8 @@ function examPerm(q){ return C.shuffleOptions(q.options.map(function(_,i){return
 /* examInProgress 读写: iv=2 内部版本号(仅管此键); 仅 phase∈{answering,grading} 视为有效进行中 */
 function readExam(){ const s=lsGet(nk('examInProgress'),null); if(!s||s.iv!==2) return null; if(s.phase!=='answering'&&s.phase!=='grading') return null; return s; }
 function examResumable(){ return !!readExam(); }
-function reconcileExam(){ const s=lsGet(nk('examInProgress'),null); if(s && s.iv!==2){ lsDel(nk('examInProgress')); } } // 旧格式硬作废(防陈旧隔离)
+function reconcileExam(){ const r=lsRead5(nk('examInProgress'),lsObj); if(r.st==='ok' && (r.v.iv===undefined || r.v.iv===1)){ lsDel(nk('examInProgress')); } } // 旧格式（iv 無し・iv:1）だけ硬作废(防陈旧隔离)。壊れた・知らない版（iv:3 など）は消さない（五態の厳格な読み：WLR1 WL-03）
+function examStoreOk(){ const st=lsRead5(nk('examInProgress'),function(v){ return lsObj(v) && v.iv===2; }).st; return st==='none' || st==='ok'; } // 模試の記録に書いてよいか：無いか、今の形（iv:2）のとき
 /* 计时: 累计在场时间 elapsedMs + 当前计时段起点 runningSince(暂停时为0) */
 function examElapsed(){ const s=App.session; if(!s) return 0; return (s.elapsedMs||0)+(s.runningSince?(Date.now()-s.runningSince):0); }
 function clockShouldRun(s){ return !!(s && ((s.mode==='exam' && s.phase==='answering') || s.mode!=='exam')); } // exam:仅答题阶段; 练习:整个 runner 期 (离页由 onVisibility 冻结 elapsed)
@@ -179,13 +180,18 @@ function pauseSessionClock(s){ if(s&&s.runningSince){ s.elapsedMs=(s.elapsedMs||
 function resumeSessionClock(s){ if(clockShouldRun(s) && !s.runningSince){ s.runningSince=Date.now(); } }
 function onVisibility(){ const s=App.session; if(!s) return; if(document.hidden){ pauseSessionClock(s); if(s.mode==='exam') persistExam(); } else resumeSessionClock(s); } // 隠れたら記述の入力もすぐ残す
 
-function startExam(){ if(!canWrite()) return;
+function startExam(){ if(!canWrite() || quotaStopped()) return; // 容量の 90% 以上は新しい模試を始めない（WLR1 WL-08）
+  if(!examStoreOk()){ examBadNotice(); return; } // 盤上の模試の記録が読めない・知らない版：始めない（保存できないまま模試を進めない：WLR2 応修 8）。知らせて、その記録だけを消す出口を出す
   if(examResumable()){ // 前の試験を消して始める：同期の confirm() は使わない（X13-01）。確かめたあと一度タスクを譲り、書き手を確かめ直してから
     askConfirm(t('cmExam'),t('examOverwriteConfirm'),t('examOverwriteOk'),true).then(function(ok){ return ok && afterConfirm(); }).then(function(ok){ if(ok) startExamNow(); });
     return;
   }
   startExamNow();
 }
+function examBadNotice(){ dataBad(nk('examInProgress')); // 五態の厳格な読み：読めない記録は上書きしない。消すのは利用者が選んだときだけ
+  askConfirm(t('cmExam'),t('examBadBody'),t('examBadDrop'),true).then(function(ok){ return ok && afterConfirm(); }).then(function(ok){ if(ok) examBadDropNow(); }); }
+function examBadDropNow(){ if(!holdsWriter()) return false; if(examStoreOk()) return true; // 読めない模試の記録だけを消す（進度・調度・履歴には触れない：軽重置で全部消さなくてよい出口。WLR2 応修 8）
+  const ok=lsDel(nk('examInProgress')); if(ok) forgetUnsaved(nk('examInProgress')); return ok; }
 function startExamNow(){
   const cfg=App.course.exam||{total:30,minSubjective:4,floatCount:1};
   const r=C.pickExamSet(App.questions,cfg,App.rng,App.recent);
@@ -209,6 +215,7 @@ function serializePerItem(){ const s=App.session, o={};
 function persistExam(){ const s=App.session; if(!s||s.mode!=='exam') return true; // 戻り値＝書けたか（交接前の書き切りが確かめる）
   if(replacingData) return true; // 存档を置き換えたあと（再読み込みの前）：どの経路（onVisibility・blur・pagehide）からも記憶の模試を書き戻さない（WLR1 合并裁定 三-7）
   if(s.phase==='finalized') return examFinalClean(s); // 定稿済みは書き戻さない（B-059）。ただし定稿時に消せなかった本場の記録は消し直す（X17-01）
+  if(!examStoreOk()) return dataBad(nk('examInProgress')); // 盤上の模試の記録が読めない・壊れている・知らない版：「無い」とみなして上書きしない（五態の厳格な読み：WLR1 WL-03）
   const perItem=serializePerItem();
   const ok=lsSet(nk('examInProgress'),{ iv:2, phase:s.phase, ids:s.list.map(function(q){return q.id;}), pos:s.pos,
     elapsedMs:examElapsed(), fp:s.fp||{}, perItem:perItem });
@@ -511,7 +518,7 @@ function flushExamToProgress(){ const s=App.session; // 4.2.0 の採点と記録
   App.progress.stats.exams=(App.progress.stats.exams||0)+1;
   return !feat('spaced') || spRecord(spList,spPre);
 }
-function finalizeExam(){ if(!canWrite()) return; const s=App.session; if(!s||s.mode!=='exam'||s.phase==='finalized') return;
+function finalizeExam(){ if(!canWrite() || quotaStopped()) return; if(!quotaAdmit) return quotaAdmitted(finalizeExam,this,arguments); const s=App.session; if(!s||s.mode!=='exam'||s.phase==='finalized') return; // 90% 以上は定稿しない（採点に留まる。整理してから定稿：WLR1 WL-08）。会話の守卫は独立の文（2b48e66 の注釈に呑まれていた：WLR2 応修 3）
   const pending=s.list.some(function(q){ return q.type==='subjective' && !(s.perItem[q.id]&&s.perItem[q.id].evaluated); });
   if(pending){ toast(t('finalizeLocked')); return; }
   // 定稿＝一つの写入単元（合成稿 v3.3）：間隔復習 → 進度の順に同じ処理の中で書く。どちらかが書けなければ、書けた間隔復習を戻し、記憶も定稿前に戻して採点の画面に留まる（草稿は消さない：CR-13）
@@ -542,7 +549,7 @@ const KEYS={ // 题型注册表(键盘侧); 走分发, 不写死两种, 未知 t
   },
   subjective:{
     onDigit:function(){ return false; }, // 记述题没有 1–4 选项: 不劫持、不崩溃
-    onEnter:function(q){ const s=App.session; if(s.mode==='exam'&&s.phase==='answering'){ goNext(); return true; } const st=s.perItem[q.id]||(s.perItem[q.id]={}); if(!st.revealed){ st.revealed=true; st.checked=st.checked||{}; renderRunner(); return true; } goNext(); return true; }
+    onEnter:function(q){ const s=App.session; if(s.mode==='exam'&&s.phase==='answering'){ goNext(); return true; } const st=s.perItem[q.id]||(s.perItem[q.id]={}); if(!st.revealed && writerPreparing){ prepNotice(); return true; } if(!st.revealed){ st.revealed=true; st.checked=st.checked||{}; renderRunner(); return true; } goNext(); return true; }
   }
 };
 function overlayOpen(){ // モーダル・talk 窓・コース浮きのいずれかが開いているか（キー経路と模試書き込みガードの共通判定）
@@ -609,14 +616,37 @@ function renderRunner(){
     body.appendChild(el('p',{class:'muted',text:'(unsupported question type: '+q.type+')'}));
     body.appendChild(el('button',{class:'btn sm',style:'margin-top:12px',text:t('next'),onclick:goNext}));
   }
-  if(body.querySelector('.reveal')){ body.appendChild(runnerBar(q)); body.classList.add('has-bar'); } // 答えたあと：判定＋前後の操作条（文書の流れの中で sticky）
+  let bar=null;
+  if(body.querySelector('.reveal')){ bar=runnerBar(q); body.classList.add('has-bar'); // 答えたあと：判定＋前後の操作条（文書の流れの中）
+    if(q.type==='choice') body.insertBefore(bar,body.querySelector('.reveal')); else body.appendChild(bar); } // 選択式：操作条は選択肢の直後、解説はその後（B1 几何：「次へ」が解説の下に沈まない）。記述式は自己採点の後
   if(qStep!=='none'){ body.classList.add(qStep==='next'?'qstep-next':'qstep-prev'); qStep='none'; }
   runner.appendChild(body);
   registerFrame(renderRunner,'runner'); // 先注册帧(定方向), 再 setView(套动画)
   setView(runner);
-  if(s._showAns===q.id){ s._showAns=null; if(typeof showAnswerOpt==='function') showAnswerOpt(body.querySelector('.opts .opt.ok'),body.querySelector('.qnav'),body.querySelector('.opts .opt.no')); }
+  if(bar && q.type==='choice'){ runnerBarClear(body,bar); if(typeof rxOkChip==='function') rxOkChip(body,bar); }
+  if(bar){ runnerBarWatch(bar); runnerBarStuck(); requestAnimationFrame(runnerBarStuck); } // 作答瞬間はページを動かさない（B1 几何：V-16 の上滚を去る）。吸底の操作条が所選肢を覆うなら流れに戻す（V-12 と同じ規則）。正解の肢が視口外なら判定に「正解：X」の札（新課と同じ部品）
   clearRunnerTimer();
   if(timerEl) startRunnerTimer(timerEl);
+}
+function runnerBarWatch(bar){ // 吸底の判定は哨兵＋IntersectionObserver（新課 rxFootWatch と同じ：視口の高さ・工具欄に依らない：CR432d-5）
+  if(App._qnavIO){ App._qnavIO.disconnect(); App._qnavIO=null; }
+  if(bar.nextElementSibling && bar.nextElementSibling.classList.contains('qnav-s')) bar.nextElementSibling.remove();
+  const s=el('div',{class:'qnav-s','aria-hidden':'true'}); bar.insertAdjacentElement('afterend',s);
+  if(typeof IntersectionObserver==='undefined'){ App._qnavBelow=null; return; }
+  App._qnavBelow=false;
+  App._qnavIO=new IntersectionObserver(function(es){ const e=es[es.length-1]; App._qnavBelow=!e.isIntersecting && e.boundingClientRect.top>=0; runnerBarStuck(); });
+  App._qnavIO.observe(s);
+}
+function runnerBarStuck(){ // 操作条（.qnav）が画面下に吸い付いているときだけ .stuck（下へ伸びる裙は吸い付いているときだけ：S2 10-18）
+  const bar=document.querySelector('#view .runner .qnav'); if(!bar) return; let below=App._qnavBelow; if(below==null){ const r=bar.getBoundingClientRect(); below=r.bottom>=innerHeight-2 && r.top<innerHeight; }
+  const stuck=getComputedStyle(bar).position==='sticky' && !!below; bar.classList.toggle('stuck',stuck);
+}
+window.addEventListener('scroll',runnerBarStuck,{passive:true}); window.addEventListener('resize',runnerBarStuck);
+function runnerBarClear(body,bar){ // 吸底の操作条（.qnav）が、押したばかりの肢（aria-pressed）を覆うなら、流れに戻す（位移 0・覆わない：新課 rxFootClear と同じ規則）
+  bar.classList.remove('flow'); if(getComputedStyle(bar).position!=='sticky') return;
+  const picked=body.querySelector('.opts .opt[aria-pressed="true"]'); if(!picked) return;
+  const fr=bar.getBoundingClientRect(), r=picked.getBoundingClientRect();
+  if(r.bottom>fr.top+1 && r.top<fr.bottom-1) bar.classList.add('flow');
 }
 function runnerBar(q){ // 新課の .rx-run-f と同じ作り：左＝判定（正解／不正解・role=status）、右＝前後キー。記述は判定なし（自己採点の達成率は本文に）
   const nav=navRowNode(), st=(App.session.perItem||{})[q.id]||{};
@@ -666,7 +696,7 @@ function renderChoiceBody(q,body){
     body.appendChild(buildReveal(q,false));
   }
 }
-function answerChoice(q,o){ if(!canWrite()) return;
+function answerChoice(q,o){ if(!canWrite() || quotaStopped()) return; if(!quotaAdmit) return quotaAdmitted(answerChoice,this,arguments); // 90% 以上は判定も出さず受け付けない（WLR1 WL-08）。準入したら一笔を割らずに書く（WLR2 必修 2）
   const s=App.session;
   if(s.mode==='exam' && s.phase==='answering'){ if(overlayOpen()) return; const est=s.perItem[q.id]||(s.perItem[q.id]={uncertain:false}); const oi=q.options.indexOf(o); est.picked=(est.picked===oi)?null:oi; const okx=persistExam()!==false; if(!examPaintChoice(q,est)){ keepScroll=true; renderRunner(); } if(!okx) pulseWriterBanner(); return; } // 保存できなければ記憶に残し帯を閃かせる（X15d-01・N-E）
   const st=s.perItem[q.id];
@@ -678,7 +708,6 @@ function answerChoice(q,o){ if(!canWrite()) return;
   recordAttempt(q,{type:'choice',correct:correct,ans:{selectedOption:o}});
   pushRecent(q.id);
   if(s.mode!=='exam') s._pulse={id:q.id,kind:correct?'ok':'no'}; // 练习即时反馈; 模考不置
-  if(s.mode!=='exam') s._showAns=q.id; // 答えたあと（正誤とも）：描画後に正解の選択肢を可視区へ（操作条の下に隠さない）
   if(s.mode==='exam') persistExam();
   keepScroll=true; renderRunner(); // 练习揭示就地展开 → 保位不滚顶 (修「滚动后点选项」顶栏闪 + 不跳回顶部)
 }
@@ -692,9 +721,8 @@ function renderSubjectiveBody(q,body,readOnly){
     ta.addEventListener('input',()=>{ st.raw=ta.value; });
     wrap.appendChild(ta);
     body.appendChild(wrap);
-    body.appendChild(el('button',{class:'btn',text:t('reveal'),onclick:function(){ st.revealed=true; st.raw=ta.value; st.checked=st.checked||{}; if(s.mode!=='exam'){ s.answeredCount=(s.answeredCount||0)+1; } keepScroll=true; renderRunner(); }}));
-    if(s.mode!=='exam' && feat('answerFirst')) body.appendChild(rxAnswerAids({st:st},function(){ if(!canWrite()) return; // 「わからない」：何も当てはまらない自己採点として記録してから答えを開く（あとで要点を押せば上書き）
-      st.revealed=true; st.raw=ta.value; st.checked={}; s.answeredCount=(s.answeredCount||0)+1; commitSubjective(q); keepScroll=true; renderRunner(); }));
+    body.appendChild(el('button',{class:'btn',text:t('reveal'),onclick:function(){ if(writerPreparing){ prepNotice(); return; } st.revealed=true; st.raw=ta.value; st.checked=st.checked||{}; if(s.mode!=='exam'){ s.answeredCount=(s.answeredCount||0)+1; } keepScroll=true; renderRunner(); }}));
+    if(s.mode!=='exam' && feat('answerFirst')) body.appendChild(rxAnswerAids({st:st},function(){ if(!subjUnknown(q,st,s,ta.value)) return; keepScroll=true; renderRunner(); })); // 「わからない」
     return;
   }
   if(st.raw && st.raw.trim()) body.appendChild(el('div',{class:'ta-ro'},[ el('div',{class:'tl',text:t('yourAns')}), el('p',{text:st.raw}) ]));
@@ -708,7 +736,7 @@ function renderSubjectiveBody(q,body,readOnly){
       el('div',null,[ el('div',{class:'rt jp',text:L(rb.point)}),
         el('span',{class:'rb-st',text:(on?'✓ '+t('hitConcept'):'○ '+t('missConcept'))+' · '+rb.concept}) ])
     ]);
-    if(!readOnly) row.addEventListener('click',function(){ const y=window.scrollY; st.checked[i]=!st.checked[i]; commitSubjective(q); renderRunner(); window.scrollTo(0,y); });
+    if(!readOnly) row.addEventListener('click',function(){ const y=window.scrollY; if(!rubricToggle(q,st,i)) return; renderRunner(); window.scrollTo(0,y); });
     body.appendChild(row);
   });
   const total=q.rubric.length, hit=Object.values(st.checked).filter(Boolean).length;
@@ -716,7 +744,10 @@ function renderSubjectiveBody(q,body,readOnly){
   body.appendChild(el('div',{class:'scoreline jp'},[ document.createTextNode(t('achieve')+'  '), el('b',{text:pct+'%'}), document.createTextNode('  （'+tf('ptsOf',{total:total,u:t('ofPoints'),hit:hit})+'）') ]));
   body.appendChild(buildReveal(q,false));
 }
-function commitSubjective(q){ if(!canWrite()) return;
+function rubricToggle(q,st,i){ if(quotaStopped()) return false; st.checked[i]=!st.checked[i]; commitSubjective(q); return true; } // 自己採点の要点を切り替えて記録。停記中は記憶も切り替えない（得点＝判定を見せたのに保存されていない、を作らない：WLR2 応修 5）
+function subjUnknown(q,st,s,raw){ if(!canWrite() || quotaStopped()) return false; // 「わからない」：何も当てはまらない自己採点として記録してから答えを開く（あとで要点を押せば上書き）。停記中は開かない（WLR2 応修 5）
+  st.revealed=true; st.raw=raw; st.checked={}; s.answeredCount=(s.answeredCount||0)+1; commitSubjective(q); return true; }
+function commitSubjective(q){ if(!canWrite() || quotaStopped()) return; if(!quotaAdmit) return quotaAdmitted(commitSubjective,this,arguments); // 90% 以上は受け付けない（WLR1 WL-08）。準入したら一笔を割らずに書く（WLR2 必修 2）
   const s=App.session; const st=s.perItem[q.id];
   const total=q.rubric.length, hit=Object.values(st.checked).filter(Boolean).length;
   const missed=[]; q.rubric.forEach((rb,i)=>{ if(!st.checked[i]) missed.push(rb.concept); });
@@ -853,7 +884,7 @@ function spState(raw,wrong,today){ // 保存済み（壊れた項目だけ捨て
   Object.keys(spObj(wrong)?wrong:{}).forEach(function(id){ items[id]={box:0,due:today,streak:0,lastOkDay:null,mastered:false,wrong:1,unsure:0,seen:1}; });
   return {v:1, items:items, seeded:{at:Date.now(), from:'wrong', n:Object.keys(items).length}};
 }
-function spReadable(){ try{ localStorage.getItem(nk('sched')); return true; }catch(e){ return false; } } // 調度が読めるか（読めないのは「無い」ではない：CR-19・CR-28）
+function spReadable(){ const st=lsRead5(nk('sched'),function(v){ return spObj(v) && v.v===1 && spObj(v.items) && Object.keys(v.items).every(function(k){ return spItemOk(v.items[k]); }); }).st; return st==='none' || st==='ok'; } // 調度に書いてよいか：無いか、読めて形が正しく版が 1 のとき（読めない・壊れている・形や版が分からないのは「無い」ではない：CR-19・CR-28・五態の厳格な読み・WLR1 WL-03） // 第三半（WLR1 WL-03・待定）：中の項目が一つでも認識できなければ書かない（4.2.0 は壊れた項目だけ捨てて書き戻していた）
 function spLoad(){ return spState(lsGet(nk('sched'),null),(App.progress&&App.progress.wrong)||{},RX.dayIndex(new Date())); }
 /* 期限が来た題：いまの題集にあり（has）、模試で隔離されていない（ql）もの。今日の復習の列と切替の浮きの件数が同じ規則で数える（X12-01 と同じ教訓） */
 function spDueIds(sc,has,ql,today){ return Object.keys(sc.items).filter(function(id){ return has(id) && ql.indexOf(id)<0 && sc.items[id].due<=today; }); }
@@ -879,7 +910,7 @@ function spPrefetchIds(){ // ほかの旧課の題 ID を背景で取る（切�
 function spItem(id){ const x=spLoad().items[id]; return x?Object.assign({},x):null; }
 function spRecord(list,pre){ // list：[{id, ok, unsure, base?, inst?}]。base＝その作答の直前の状態。pre＝呼び出し側が先に読んだ状態。inst＝同じ作答の入れ物（自己採点の押し直し）
   if(!feat('spaced') || !list.length) return false;
-  if(!spReadable()){ noteSave(nk('sched'),false); pulseWriterBanner(); return false; } // 読めない調度には書かない：作った初期値で存档を覆わない（CR-19・CR-28）
+  if(!spReadable()) return dataBad(nk('sched')); // 読めない・壊れた調度には書かない：作った初期値で存档を覆わない（CR-19・CR-28・五態の厳格な読み）
   const cur=pre||spLoad(), today=RX.dayIndex(new Date()), prev={};
   list.forEach(function(x){ prev[x.id]=('base' in x)?x.base:cur.items[x.id]; cur.items[x.id]=RX.schedUpdate(prev[x.id],!!x.ok,!!x.unsure,today); });
   const wrote=lsSet(nk('sched'),{v:1, items:cur.items, seeded:cur.seeded}); // 書けなければ lsSet が未保存を記す（書き手のとき）
@@ -920,12 +951,12 @@ function spHomeNode(){ // 旧課ホーム（演習タブ）の「今日の復習
 function finishSession(){
   clearCareTimer(); clearRunnerTimer();
   const s=App.session;
+  if(s.mode==='exam') return renderGrading(); // 模試の結果は定稿（finalizeExam）だけが作る。ここは普通の画面からは到らない死路だったが、進度を書いて模試の記録を消していた：万一到っても何も書かず採点へ（WLR1）
   const log=[]; s.list.forEach(function(q){ const st=s.perItem[q.id]; if(st&&st.answered){
     log.push({id:q.id,type:q.type,correct:st.correct,ans:{missedConcepts:st.missed}}); } });
   const agg=C.aggregateWeakness(log,App.idx.byId);
-  if(s.mode==='exam'){ App.progress.stats.exams=(App.progress.stats.exams||0)+1; saveProgress(); lsDel(nk('examInProgress')); }
   baseHome(); // 结果坐落在 [home, result]: 返回回首页(无法退回已结束的答题)
-  if(s.mode!=='exam') App._bloom=true; // 练习结果径向; 模考安静
+  App._bloom=true; // 练习结果径向（模試はここに来ない）
   renderResult(agg,log.length,s.list.length);
   showRestPop();
 }
