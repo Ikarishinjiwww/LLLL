@@ -1,10 +1,10 @@
 {
  "schema": "rx-dist-manifest/1",
- "built": "2026-10-18",
+ "built": "2026-10-25",
  "files": {
-  "content.json": "163a61e09c062148cbb711cc14067508e4c777ba5944540943143d47a630105a",
-  "course.json": "8670d026f3b135ec16840651b3eb5590679062583284271d5bf134ba8d402f5d",
-  "quiz.enc.json": "9210ccc65550f0b80b759e97277b0c4fb3aaad916f96eebe7793679a691d0e19",
+  "content.json": "a136729b72d3b4404720fd2ef729b1bacc6b975d65d55c0f6076c9276f75d0c1",
+  "course.json": "cb69528af8a5b96f1251eca80e9df4ee0063b6200836ed071eed333b614d1545",
+  "quiz.enc.json": "2862753a6ed8e74b7f58f1a3c1a471c2b602781087a95f1a9eee0bdb673e536a",
   "images/md-L01-i01.jpg": "ecb3f3536ada090a1f6d7f3892dd52a3d7443bcf2e8efc0bada41b2d0e2a3c8c",
   "images/md-L01-i02.jpg": "6e86be2fbfeb43429b65f5fb7c43dafeb8ab8536fecfffbf4c1f2e857bf7b944",
   "images/md-L01-i03.jpg": "42ccc257900909d7d3ee577103a159da962535c2376a04fe2ff29516ce55122e",
@@ -15,6 +15,10 @@
   "figures/md-L02-f02.svg": "9d5394913b80e90a78043278013d6a0a846236b140d8f0f58b86bc7c2d632134",
   "figures/md-L02-f03b.svg": "93a0a13a58ef769b3aa7f1e8c009d3f1e04e56908092dc6e5c4f1aedb3f99963",
   "figures/md-L03-f01b.svg": "b2e08f8b0fde41291aeddd9431abb8af100828d21dbe2c9edc8c95f765a19d99",
-  "figures/md-L03-f02.svg": "b5f72ff89aab3a761fde6a9facac5b069f723d0f843a5288f2a8a61ed7d722b6"
+  "figures/md-L03-f02.svg": "b5f72ff89aab3a761fde6a9facac5b069f723d0f843a5288f2a8a61ed7d722b6",
+  "figures/md-L04-f01.svg": "1fa870fe612f5771b7902febe4aad913a2442c0c0a08eff8f30a827b31b29617",
+  "figures/md-L04-f02.svg": "d9ee61cd49cac2d0849c52aa7e2d0784f751b4187f16b984aa134dc1a2252c4d",
+  "figures/md-L04-f03.svg": "6a31c42eb81f4eb8563a1d0320c44e38c9ed1e0740bdf1b543789440a4ab19cc",
+  "figures/md-L04-f04.svg": "cb64f15911604d8182c2cde830040bd92f4f2f03bd35624db32ede1c8564f9f9"
  }
 }

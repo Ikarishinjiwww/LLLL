@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 456" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">知的障害・境界知能と発達障害の2つの軸</title>
+  <desc id="d">縦軸をIQ、横軸を発達障害の特性の強さとして、知的障害・境界知能と発達障害の位置を示した図。IQの軸では、知的障害（ID）はIQ70未満、境界知能（BIF）はIQ70〜85の範囲に置かれる。正規分布でIQ70未満に当たる人は約2%で、境界知能は約14%を占める。発達障害は、それとは別の、特性の強さの軸で捉えられる。枠の左端の破線は、特性の強さにはっきりした境目がなく、正常から異常までの間にグレーゾーンがあることを示す。知的障害（または境界知能）と発達障害の両方がある人もいれば、どちらか一方だけの人もいる。発達障害は知的障害の一種ではなく、知的障害とは別の概念である。なお、知的障害は、IQ70未満を目安とし、社会性などの適応の障害もあるときに診断される。</desc>
+  <style>
+    .ax{fill:none;stroke:currentColor;stroke-width:1.4}
+    .lvl{fill:none;stroke:currentColor;stroke-width:1;stroke-dasharray:5 4;opacity:.6}
+    .key{fill:none;stroke:currentColor;stroke-width:2.6}
+    .keyd{fill:none;stroke:currentColor;stroke-width:2.6;stroke-dasharray:7 5}
+    .f1{fill:currentColor;fill-opacity:.10;stroke:none}
+    .f2{fill:currentColor;fill-opacity:.24;stroke:none}
+    .ah{fill:currentColor;stroke:none}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+  <!-- IQ の帯 -->
+  <rect class="f1" x="56" y="200" width="328" height="60"/>
+  <rect class="f2" x="56" y="260" width="328" height="60"/>
+  <path class="lvl" d="M56 200 L384 200 M56 260 L384 260"/>
+  <!-- 軸 -->
+  <path class="ax" d="M56 320 L56 60 M56 320 L382 320"/>
+  <polygon class="ah" points="56,52 51,62 61,62"/>
+  <polygon class="ah" points="392,320 382,315 382,325"/>
+  <text class="sm" x="16" y="40">IQ（上ほど高い）</text>
+  <text class="sm" x="48" y="205" text-anchor="end">85</text>
+  <text class="sm" x="48" y="265" text-anchor="end">70</text>
+  <text class="sm" x="384" y="344" text-anchor="end">発達障害の特性の強さ（右ほど強い）</text>
+  <!-- 帯の名前 -->
+  <text class="lab" x="68" y="225">境界知能（BIF）</text>
+  <text class="sm" x="68" y="248">IQ70〜85（約14%）</text>
+  <text class="lab" x="68" y="285">知的障害（ID）</text>
+  <text class="sm" x="68" y="308">IQ70未満（約2%）</text>
+  <!-- 発達障害の枠：IQ のどの高さにも伸びる。左端（特性の強さの境）は破線 -->
+  <path class="key" d="M264 66 L384 66 L384 320 L264 320"/>
+  <path class="keyd" d="M264 66 L264 320"/>
+  <text class="sm" x="256" y="122" text-anchor="end">境目ははっきりしない</text>
+  <text class="sm" x="256" y="142" text-anchor="end">（グレーゾーン）</text>
+  <text class="lab" x="324" y="92" text-anchor="middle">発達障害</text>
+  <text class="it" x="324" y="150" text-anchor="middle">発達障害だけ</text>
+  <text class="it" x="324" y="235" text-anchor="middle">両方ある</text>
+  <text class="it" x="324" y="295" text-anchor="middle">両方ある</text>
+  <!-- 結論と限定 -->
+  <text class="it" x="16" y="380">発達障害は知的障害の一種ではなく、</text>
+  <text class="it" x="16" y="402">別の概念である。</text>
+  <text class="sm" x="16" y="428">※知的障害は、IQ70未満を目安とし、社会性などの</text>
+  <text class="sm" x="30" y="448">適応の障害もあるときに診断される。</text>
+</svg>

@@ -237,6 +237,7 @@ function rxUnlockDialog(){
 /* 本机锁定：内存先锁（进行中的解锁作废）→ 事务里代次 +1 并删钥匙 → 广播新代次。
  * 结果一律在设置里显示（不看设置窗口此刻是否还在）；失败时带重试。切到别的课之后才失败的，记在该课实例上。 */
 async function rxForget(){
+  if(rxBlindActive() && !(await rxBlindAsk())) return; // 期末模試の最中：ロックすると模試が消える（rxVaultLockMem が首頁へ戻す）ので、ほかの離れ方と同じ確認を先に（CR433-16 必修 2）。続けるなら何もしない
   const R=App.rx, cid=App.course.id;
   if(R && R.vault){ R.vault.forgetting=true; R.vault.forgetFailed=false; }
   rxVaultLockMem({keepModal:true});
@@ -271,9 +272,9 @@ function rxQuizQ(it){ // 真题条目→出题对象（正解＝answer.no；选�
     options:(it.options||[]).map(function(o){ return {text:o.text,correct:o.no===a,prop:o.prop||null,variant:o.variant||null}; }) };
 }
 function rxQuizOf(lecId){ return ((App.rx.quiz&&App.rx.quiz.items)||[]).filter(function(q){ return q.id && q.id.indexOf(lecId+'-')===0; }); }
-function rxMockRun(){
+function rxMockRun(o){ // o.from＝'home'：首页の模試卡から（結果頁に「ホームへ戻る」：#28 の来路規則）。onclick に直掛けされた場合は第一引数が事件で from は取れず null＝鈕なし（旧 rxHomeExtras の .rx-mock は死码として 4.3.3 で撤去）
   const all=((App.rx.quiz&&App.rx.quiz.items)||[]);
   if(!all.length) return;
   const items=rxShuffle(all).map(function(q){ return rxQItem(rxQuizQ(q)); });
-  rxRun('rxModeMock',items,null,{secPerItem:60});
+  rxRun('rxModeMock',items,null,{secPerItem:60,blind:true,from:(o&&o.from)||null}); // 整場盲答（4.3.3 #11・FX1-06）。from＝来た所（首页から始めた模試は結果の「ホームへ戻る」：#40）
 }

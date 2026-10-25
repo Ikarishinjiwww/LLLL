@@ -43,11 +43,15 @@ function rxPracticeBar(Lc){
     el('div',{class:'rx-modes'},modes.map(function(m){
       if(m.locked) return el('button',{class:'rx-mode rx-mode-locked jp','data-mode':m.key,'aria-label':m.label+'（'+t('rxLocked')+'）',onclick:rxUnlockDialog},[
         el('span',{class:'rx-lock-i','aria-hidden':'true',html:NEW_ICONS.lock}), el('span',{text:m.label}) ]);
-      return el('button',{class:'rx-mode jp','data-mode':m.key,onclick:function(){ rxRun(m.lk,m.build(),Lc.id,{remake:m.build}); }},[
+      return el('button',{class:'rx-mode jp','data-mode':m.key,onclick:function(){ rxModeStart(m,Lc); }},[
         el('span',{text:m.label}), el('span',{class:'rx-mode-n',text:rxModeCountText(m)}) ]);
     })) ]);
 }
 
+function rxModeStart(m,Lc,opt){ // 練法を一つ始める（回ページの chip と首页の練法面板で共用：Q-074）。opt.from＝'home' なら結果の戻る鈕は「ホームへ戻る」
+  if(!m || m.locked || typeof m.build!=='function') return;
+  rxRun(m.lk,m.build(),Lc.id,{remake:m.build,from:opt&&opt.from});
+}
 function rxModeCountText(m){ // U-89: 一轮に実際に出る数。上限で切られるときは全体の数も（快审第十九批 K-19）
   const k=RX_CAP[m.key]?Math.min(m.n,RX_CAP[m.key]):m.n;
   return k<m.n ? tf('rxModeCount',{k:k,n:m.n}) : tf('qCount',{n:m.n});
@@ -58,14 +62,14 @@ function rxRun(titleKey,items,lecId,opt){ // titleKey＝i18n の鍵：表示の�
   if(!items.length || !canWrite()) return; // 只读标签不开始练习（单写者）
   rxClearTimer();
   if(typeof navSkipLeave!=='undefined' && document.querySelector('#view .rx-lecture')) navSkipLeave=true; // 回ページから練習へ：旧画面を離場層に残さない（進練習の INP：272→152）
-  App.rxRun={titleKey:titleKey,items:items,pos:0,lecId:lecId,cid:App.course.id,remake:(opt&&opt.remake)||null, // cid＝この練習の課（限時の再試行・記録が別の課に流れないよう照合：CR-23） // remake＝同じ練法でもう一轮（結果の「もう一度」）
-    deadline:(opt&&opt.secPerItem)?Date.now()+items.length*opt.secPerItem*1000:null, sec:(opt&&opt.secPerItem)||null};
+  App.rxRun={titleKey:titleKey,items:items,pos:0,lecId:lecId,cid:App.course.id,remake:(opt&&opt.remake)||null,from:(opt&&opt.from)||null, // from＝来た所（'home'＝首页から直接；結果の戻る文言に使う：Q-074） // cid＝この練習の課（限時の再試行・記録が別の課に流れないよう照合：CR-23） // remake＝同じ練法でもう一轮（結果の「もう一度」）
+    deadline:(opt&&opt.secPerItem)?Date.now()+items.length*opt.secPerItem*1000:null, sec:(opt&&opt.secPerItem)||null, blind:!!(opt&&opt.blind)}; // blind＝整場盲答（期末模試：4.3.3 #11）
   rxRunRender();
 }
 function rxInterrupt(){ // 限時の練習中に書き手でなくなった（総指揮 2026-10-15 定 (c)）：その場で終える。計時を止め、作答の状態と時限は捨てる（書き手が替わったあとに自動で記録する道を残さない：合成稿 原則 3）。題の並びだけ残して「中断」画面から最初からやり直せる
-  const R=App.rxRun; if(!R || !R.deadline || R.timedOut || R.interrupted) return;
+  const R=App.rxRun; if(!R || !R.deadline || R.timedOut || R.interrupted || R.graded) return; // 採点済みの期末模試（結果・見直し）は中断しない
   rxClearTimer();
-  App.rxRun={interrupted:true, titleKey:R.titleKey, lecId:R.lecId, cid:R.cid, remake:R.remake, sec:R.sec, items:R.items.map(rxResetItem)};
+  App.rxRun={interrupted:true, titleKey:R.titleKey, lecId:R.lecId, cid:R.cid, remake:R.remake, from:R.from, sec:R.sec, blind:R.blind, items:R.items.map(rxResetItem)}; // 盲答の作答は記録前なので全部捨てる（(c) と同じ：何も記録しない）
   if(currentView===rxRunRender) rxRunRender();
 }
 function rxResetItem(it){ const o=it.st||{}; it.st=o.order?{order:RX.shuffledOrder(o.order.length,App.rng)}:{}; if(it.kind==='q') it.st.picked=[]; if(it.kind==='fix') it.st.text=''; return it; } // 解き直し用：作答の状態だけ白紙に（選択肢は並べ直す）
@@ -73,10 +77,11 @@ function rxClearTimer(){ if(App.rxTimer){ clearInterval(App.rxTimer); App.rxTime
 function rxTimeLeftText(R){ const s=Math.max(0,Math.round((R.deadline-Date.now())/1000)); return t('rxTimeLeft').replace('{m}',Math.floor(s/60)).replace('{s}',String(s%60).padStart(2,'0')); }
 function rxTimeUp(){ // 時間切れ：未回答は不正解として記録し、結果へ。記録が全部保存できてから時間切れを確定する（CR-12）
   const R=App.rxRun; if(!R || R.interrupted) return; // 中断した練習は記録しない
+  if(R.blind && !R.graded){ rxBlindGrade(R,true); return; } // 期末模試：時間切れ＝その時点の解答で提出（未回答は不正解）
   if(!App.course || App.course.id!==R.cid){ rxClearTimer(); return; } // 別の課へ移った練習は打ち切る（CR-23）
   if(!fenceOk()){ rxClearTimer(); R.tuFail=true; rxRunRender(); return; } // 書けない（只読・準備中）：計時を止め「もう一度記録する」へ。書き手に戻っても自動では記録しない（書き手が替わった後の遅れた書き込みを作らない：WLR1 合并裁定 三-9）
   const evs=[]; R.items.forEach(function(it){ if(!it.st.done) (it.props||[]).forEach(function(pid){ evs.push({mode:'mock',props:[pid],ok:false,unsure:false}); }); });
-  if(evs.length && !rxRecord(evs)){ rxClearTimer(); R.tuFail=true; pulseWriterBanner(); rxRunRender(); return; } // 保存できなければ未回答のまま計時を止め、「もう一度記録する」を出す（合成稿 v3.3：自動では試し直さない。事務は戻してあるので押し直しても二重に数えない）
+  if(evs.length && !rxRecord(evs)){ rxClearTimer(); if(typeof rxDataNewer==='function' && rxDataNewer()){ R.newer=true; rxRunRender(); return; } R.tuFail=true; pulseWriterBanner(); rxRunRender(); return; } // 先の版の記録で書けない：押し直しても必ず失敗する＝「もう一度保存する」は出さない（CR433-10） // 保存できなければ未回答のまま計時を止め、「もう一度記録する」を出す（合成稿 v3.3：自動では試し直さない。事務は戻してあるので押し直しても二重に数えない）
   rxClearTimer(); R.tuFail=false;
   R.items.forEach(function(it){ if(!it.st.done){ it.st.done=true; it.st.ok=false; it.st.timeout=true; } });
   R.pos=R.items.length; R.timedOut=true; rxRunRender();
@@ -86,14 +91,22 @@ function rxRunRender(){
   const step=rxStep; rxStep=false;
   const R=App.rxRun; if(!R){ goHome(); return; }
   registerFrame(rxRunRender,'rx-run');
+  if(R.blind && R.graded && R.review!=null) return rxBlindReview(R); // 採点後の見直し（一題ずつ）
   if(R.pos>=R.items.length) return rxRunEnd();
   if(R.interrupted){ // 書き手が替わって中断した限時の練習（(c)）：未回答を時間切れとして記録はしない。最初からやり直すか離れるか
     rxClearTimer();
     setView(el('div',{class:'rx-run rbody'},[ sectionHead(t(R.titleKey),function(){ App.rxRun=null; goBack(); }),
       el('p',{class:'rx-hint jp',role:'status',text:t('rxInterrupted')}),
       el('div',{class:'row',style:'gap:10px;margin-top:12px'},[
-        el('button',{class:'btn',text:t('rxRestart'),onclick:function(){ if(!canWrite()) return; rxRun(R.titleKey,R.items.map(rxResetItem),R.lecId,{remake:R.remake,secPerItem:R.sec}); }}),
+        el('button',{class:'btn',text:t('rxRestart'),onclick:function(){ if(!canWrite()) return; rxRun(R.titleKey,R.items.map(rxResetItem),R.lecId,{remake:R.remake,secPerItem:R.sec,blind:R.blind,from:R.from}); }}), // 盲答（blind）も来た所（from）も引き継ぐ：首页から始めた模試を中断→やり直しても盲答のまま・結果は「ホームへ戻る」（#11・#40）
         el('button',{class:'btn ghost',text:t('rxLeave'),onclick:function(){ App.rxRun=null; goBack(); }}) ]) ]));
+    return;
+  }
+  if(R.newer){ // 端末の記録が先の版：書けない（押し直しても同じ）。知らせて離れるだけ（CR433-10）
+    rxClearTimer();
+    setView(el('div',{class:'rx-run rbody'},[ sectionHead(t(R.titleKey),function(){ App.rxRun=null; goBack(); }),
+      el('p',{class:'rx-hint jp',role:'status',text:t('dataNewer')}),
+      el('button',{class:'btn ghost',text:t('rxLeave'),onclick:function(){ App.rxRun=null; goBack(); }}) ]));
     return;
   }
   if(R.tuFail){ // 時間切れの記録が保存できなかった：作答はもう受け付けず、押し直しだけを出す
@@ -103,6 +116,7 @@ function rxRunRender(){
       el('button',{class:'btn',text:t('rxTimeUpRetry'),onclick:function(){ if(!canWrite()) return; rxTimeUp(); }}) ])); // 書けないときは canWrite の知らせ（只読の説明・準備中）を出して何もしない（三-9）
     return;
   }
+  if(R.blind) return rxBlindRender(R,step); // 期末模試：答えている間は判定・解説を出さない
   const it=R.items[R.pos];
   const body=el('div',{class:'rx-run-b',tabindex:'-1'});
   const foot=el('div',{class:'rx-run-f'+(getHand()==='left'?' lefthand':'')}); // 答えたあとの「次へ」：画面下に貼り付く（利き手の側）
@@ -119,7 +133,7 @@ function rxRunRender(){
   const run=el('div',{class:'rx-run rx-q rbody'+((it.st.done && it.kind!=='q')?'':' rx-ask')+((it.st.done && it.kind==='q')?' rx-answered':'')+(step?' qstep-next':'')}); // 選択式・国試は答えたあとも rx-ask（答える前の配置を保つ）：描き直し（根拠から戻る等）でも同じ布局にする（CR432c-3：題頭の余白が消えて 366px ずれていた） // reduce は styles.css:346 の全停止で止まる
   App._rxVb={body:body,it:it,next:next}; // 固定の判定行（rxVbSync）が見る今の題
   it.render(body,function(){ rxRunFoot(foot,it,next,body); if(it.kind==='q'){ run.classList.add('rx-answered'); rxKeepOpts(body,it); rxVbSync(); rxFootClear(body,foot,it); rxOkChip(body,foot); } else run.classList.remove('rx-ask'); rxRevealed(body,foot); rxFootStuck(); requestAnimationFrame(rxFootStuck); }); // 答えて操作条に中身が入ったら、どの題型でも吸底を判定し直す（哨兵の交差は変わらないので IntersectionObserver は鳴らない：○×で .stuck が付かなかった） // 選択式・国試：答える前の配置を保ったまま（rx-ask を外さない）——ページも押した肢も動かない（S8 V-08、総指揮 (c)／(c2)）
-  if(it.st.done){ rxRunFoot(foot,it,next,body); if(it.kind==='q'){ const o=body.querySelector('.opts'); if(o && it.st.keepTop) o.style.marginTop=it.st.keepTop+'px'; const late=function(){ if(!body.querySelector('.rx-verdict-band .rx-ok-chip')) rxOkChip(body,foot); rxVbSync(); }; if(App._navRestoring){ requestAnimationFrame(rxVbSync); setTimeout(late,50); } else requestAnimationFrame(late); } } // 答えた題の描き直し：正解の肢が視口外なら札も出し直す（S4 10-18：WebKit で帯は視口内・正解肢は視口外なのに札が無かった）。戻る（restoreFrame）のときは位置が戻ってから判る // 答えた題の再描画：留白を再現してから、固定の判定行を評価（CR432c-3） // 答えた題の再描画（根拠のカードから戻る等）：布局・位置の復元のあとで固定の判定行を評価し直す（CR432c-3）
+  if(it.st.done){ rxRunFoot(foot,it,next,body); if(it.kind==='q'){ const o=body.querySelector('.opts'); if(o && it.st.keepTop && it.st.keepW===innerWidth) o.style.marginTop=it.st.keepTop+'px'; /* 幅が変わっていたら古い留白は当てない（#17⑤） */ const late=function(){ if(!body.querySelector('.rx-verdict-band .rx-ok-chip')) rxOkChip(body,foot); rxVbSync(); }; if(App._navRestoring){ requestAnimationFrame(rxVbSync); setTimeout(late,50); } else requestAnimationFrame(late); } } // 答えた題の描き直し：正解の肢が視口外なら札も出し直す（S4 10-18：WebKit で帯は視口内・正解肢は視口外なのに札が無かった）。戻る（restoreFrame）のときは位置が戻ってから判る // 答えた題の再描画：留白を再現してから、固定の判定行を評価（CR432c-3） // 答えた題の再描画（根拠のカードから戻る等）：布局・位置の復元のあとで固定の判定行を評価し直す（CR432c-3）
   [ sectionHead(t(R.titleKey),function(){ rxClearTimer(); App.rxRun=null; goBack(); }),
     el('div',{class:'qnum'},[ timer, el('span',{class:'prog',text:(R.pos+1)+' / '+R.items.length}) ].filter(Boolean)),
     body, foot ].forEach(function(n){ run.appendChild(n); });
@@ -140,6 +154,10 @@ function rxRevealed(body,foot){
   const b=foot.querySelector('.btn')||(body&&body.querySelector('.rx-verdict-band .btn')); if(b){ const y=window.scrollY; b.focus({preventScroll:true}); if(window.scrollY!==y) window.scrollTo(0,y); } // 「次へ」へ焦点。WebKit は吸底の帯の中の要素に焦点を当てると preventScroll でも流れ上の位置へ送ることがある（c2 で 158px）：同じタスク内で戻す＝描かれない
   // R-06 の「正解を可視区へ scrollBy」は廃止：作答瞬間の位移 0 が放行門（予算 v1）。正解と所選は、押した肢を覆うなら操作条を流れに戻す（rxFootClear）・正解が視口外なら札（rxOkChip）で隠れない
 }
+function rxWhyProps(ix,pids){ // 解説を支える命題（options[].why_props）：小さな見出し＋短い参照（rxPropRef：★・冒頭・↗、押すとそのカードへ）。無ければ何も置かない
+  const ps=(pids||[]).map(function(id){ return ix&&ix.props&&ix.props[id]&&ix.props[id].prop; }).filter(Boolean); if(!ps.length) return null;
+  return el('div',{class:'rx-why-props'},[ el('div',{class:'rx-why-props-h jp',text:t('rxWhyProps')}) ].concat(ps.map(function(p){ return rxPropRef(p); })));
+}
 function rxTamperName(code,name){ // 篡改型の名：中文界面は i18n の型码表（快审第三十一批 K-02 签发）、無ければデータの名（ja）
   if(App.lang==='zh'){ const m=(T.zh&&T.zh.rxTamperNames)||{}; if(m[code]) return m[code]; }
   return name||(App.rx&&App.rx.ix&&App.rx.ix.tamper[code])||code;
@@ -150,7 +168,7 @@ function rxKeepOpts(body,it){ // 押した肢を同じ y に：auto margin（親
   const d=y0-top(); if(d<=0) return;
   opts.style.marginTop=d+'px'; // auto margin を固定値に置き換えると、残っていた auto の分（答えた後も僅かに残る）が消えて d だけでは足りない（S8 V-13：第 5 題で 8px 上がった）→ もう一度測って差を足す
   const d2=y0-top(); if(d2) opts.style.marginTop=(d+d2)+'px';
-  it.st.keepTop=parseFloat(opts.style.marginTop)||0; // 答えた題を描き直すとき（根拠のカードから戻る等）同じ留白を再現する（CR432c-3：戻った位置が 390px ずれていた）
+  it.st.keepTop=parseFloat(opts.style.marginTop)||0; it.st.keepW=innerWidth; // 答えた題を描き直すとき（根拠のカードから戻る等）同じ留白を再現する（CR432c-3：戻った位置が 390px ずれていた）。留白は幅に依るので幅も記す（#17⑤）
 }
 function rxFootWatch(foot){ // 吸底の判定は哨兵（条の直後の 0 高さ）＋IntersectionObserver：哨兵が視口の下に外れていれば条は吸い付いている。視口の高さ・工具欄（iPhone Safari で innerHeight と見える底が違う）に依らない（CR432d-5）
   if(App._rxFootIO){ App._rxFootIO.disconnect(); App._rxFootIO=null; }
@@ -161,7 +179,8 @@ function rxFootWatch(foot){ // 吸底の判定は哨兵（条の直後の 0 高�
   App._rxFootIO.observe(s);
 }
 function rxFootStuck(){ // 新課の操作条（.rx-run-f）が画面下に吸い付いているときだけ .stuck（裙は吸い付いているときだけ：S2 10-18）
-  const f=document.querySelector('#view .rx-run-f'); if(!f) return; let below=App._rxFootBelow; if(below==null){ const r=f.getBoundingClientRect(); below=r.bottom>=innerHeight-2 && r.top<innerHeight; } // IntersectionObserver が無いときだけ幾何で
+  // .rx-bl-nav＝期末模試（盲答）の下の三つのボタン（S6 の版式：.stuck で裙）
+  const f=document.querySelector('#view .rx-run-f, #view .rx-bl-nav'); if(!f) return; let below=App._rxFootBelow; if(below==null){ const r=f.getBoundingClientRect(); below=r.bottom>=innerHeight-2 && r.top<innerHeight; } // IntersectionObserver が無いときだけ幾何で
   const stuck=getComputedStyle(f).position==='sticky' && f.childElementCount>0 && !!below; f.classList.toggle('stuck',stuck);
 }
 window.addEventListener('scroll',rxFootStuck,{passive:true}); window.addEventListener('resize',rxFootStuck);
@@ -172,6 +191,7 @@ function rxFootClear(body,foot,it){ // (c2) 押した肢が視口の下端に貼
 }
 function rxVbSync(){ // 帯が視口の外（長い肢で下の方を押した・矮い視口・答えた題に戻った：CR432-8／CR432c-3）：判定・札・「次へ」の一行を固定で出す——顶栏の下、押した肢を覆うなら画面の下端（両方覆う極端は顶栏の下）。所選肢は動かさない。帯が見えれば隠す。role=status は帯だけ
   const S=App._rxVb; const run=document.querySelector('#view .rx-run'); let fx=run&&run.querySelector('.rx-vb-fixed');
+  if(fx) fx.style.display=''; // 判定のたびに display を戻してから量る（両端とも覆う分岐で none にしたまま、視口が高くなっても出なかった：CR433-3 第 5 条）
   const body=S&&S.body, band=body&&body.isConnected&&body.querySelector('.rx-verdict-band:not(.rx-vb-empty)');
   if(!run || !band){ if(fx) fx.remove(); return; }
   if(rxBandInView(band)){ if(fx) fx.style.display='none'; return; }
@@ -183,6 +203,7 @@ function rxVbSync(){ // 帯が視口の外（長い肢で下の方を押した�
   const hits=function(y0,y1){ return picked.some(function(b){ const r=b.getBoundingClientRect(); return r.bottom>y0+1 && r.top<y1-1; }); };
   fx.classList.remove('bottom'); fx.style.top=top+'px'; const hT=fx.getBoundingClientRect().height||44; fx.classList.add('bottom'); fx.style.top=''; const hB=fx.getBoundingClientRect().height||hT; // 上に置いたとき・下に置いたときの実際の高さ（中身と下側の安全区で変わる：CR432d-3）。位置は顶栏の下端・視口の下端から組む（過場動画で祖先に transform が掛かっている間、fixed の矩形は祖先基準になり信用できない：戻った直後に札が落ちた）
   const rt={top:top,bottom:top+hT}, rb={top:innerHeight-hB,bottom:innerHeight};
+  if(hits(rt.top,rt.bottom) && hits(rb.top,rb.bottom)){ fx.style.display='none'; return; } // 上に置いても下に置いても押した肢を覆う（極端に低い視口）：固定行を出さず、流れの帯に任せる（#17③）
   const bottom=hits(rt.top,rt.bottom) && !hits(rb.top,rb.bottom); if(!bottom){ fx.classList.remove('bottom'); fx.style.top=top+'px'; }
   const ok=opts&&opts.querySelector('.opt.ok'); const chip=fx.querySelector('.rx-ok-chip'); // 札：正解の肢が（固定の一行の下も含めて）視口に無いとき
   const okOut=!!ok && (function(){ const r=ok.getBoundingClientRect(); const y0=bottom?top:rt.bottom, y1=bottom?rb.top:innerHeight; return r.top<y0 || r.top+44>y1; })();
@@ -190,6 +211,7 @@ function rxVbSync(){ // 帯が視口の外（長い肢で下の方を押した�
 }
 let rxVbRaf=0;
 window.addEventListener('scroll',function(){ if(!App._rxVb || rxVbRaf) return; rxVbRaf=requestAnimationFrame(function(){ rxVbRaf=0; rxVbSync(); }); },{passive:true}); // 滚って帯が見えたら隠す・隠れたら出す
+window.addEventListener('resize',function(){ if(!App._rxVb || rxVbRaf) return; rxVbRaf=requestAnimationFrame(function(){ rxVbRaf=0; rxVbSync(); }); }); // 視口の高さが変わったら（転屏・鍵盤）判定し直す
 function rxBandInView(band){ const r=band.getBoundingClientRect(), tb=document.querySelector('.topbar'), top=tb?tb.getBoundingClientRect().bottom:0; return r.bottom>top+8 && r.top<innerHeight-8; } // 判定帯が視口に（一部でも）見えているか
 function rxOkChip(body,foot){ // 正解の肢が視口に無いとき（長い選択肢で上か下に外れている）：判定の横に「正解：C」の札を出す。ページは動かさない
   const opts=body.querySelector('.opts'); const ok=opts&&opts.querySelector('.opt.ok'), band=body.querySelector('.rx-verdict-band:not(.rx-vb-empty)'), fv=foot&&foot.querySelector('.rx-verdict'); const v=(band&&rxBandInView(band))?band:(fv||band); if(!ok || !v) return; // 帳簿（A′）：札は見えている方の判定（帯が視口外なら吸底の控え）の、「次へ」の左（CR432-8）
@@ -202,7 +224,7 @@ function rxVerdictBand(it,q){ // 帳簿 阶段 3（A′・Q-055）：題文の�
   if(letters) kids.push(el('span',{class:'rx-vb-p',text:t('optPicked')+'：'+letters}));
   return el('div',{class:'rx-verdict-band',role:'status'},kids);
 }
-function rxVerdict(ok,dk){ return el('div',{class:'rx-verdict jp '+(dk?'dk':ok?'ok':'no'),role:'status',text:dk?t('rxDkVerdict'):ok?t('rxRight'):t('rxMissed')}); } // dk＝「わからない」：記録は誤答のまま、表示は中性（U-90）
+function rxVerdict(ok,dk,truth){ const tf=(typeof truth==='boolean'); const tx=dk?t('rxDkVerdict'):(!tf?(ok?t('rxRight'):t('rxMissed')):t(ok?(truth?'rxTfRightTrue':'rxTfRightFalse'):(truth?'rxTfWrongTrue':'rxTfWrongFalse'))); /* truth は厳密な真偽値のときだけ ○× の一句（CR433-7） */ return el('div',{class:'rx-verdict jp '+(dk?'dk':ok?'ok':'no'),role:'status',text:tx}); } // truth が与えられた ○× 題は判定と真偽を一句に（F5-14・4.3.3 #8） // dk＝「わからない」：記録は誤答のまま、表示は中性（U-90）
 /* 選択肢の身分（旧課 runner と同じ標示・同じ鍵）：正解／自分で選んだ誤り／それ以外 */
 function rxMarkOpt(btn,isAns,picked){
   if(isAns){ btn.classList.add('ok'); btn.appendChild(el('span',{class:'lbl',text:t('optAns')})); }
@@ -232,6 +254,7 @@ function rxOnKey(e){
   if(e.metaKey||e.ctrlKey||e.altKey) return;
   if((k==='Enter'||k===' ') && (tg==='button'||tg==='a')) return;
   const R=App.rxRun, it=R.items[R.pos]; if(!it) return;
+  if(R.blind && !R.graded){ if(k==='ArrowRight'){ press(q('.rx-bl-next')); return; } if(k==='ArrowLeft'){ press(q('.rx-bl-prev')); return; } } // 期末模試：数字＝選ぶだけ（提出しない）、←→＝前後の題
   if(it.st.done){ if(k==='Enter'||k==='ArrowRight') press(q('.rx-verdict-band .btn')||q('.rx-run-f .btn')); return; }
   const kl=k.toLowerCase(), n=/^[1-9]$/.test(k)?parseInt(k,10):0;
   if(kl==='u'){ press(q('.rx-unsure')); return; }
@@ -255,9 +278,9 @@ function rxRunEnd(){ App._rxVb=null;
     el('p',{class:'rx-score jp',text:t('rxScore').replace('{n}',ok).replace('{m}',done.length)}) ].filter(Boolean);
   if(R.titleKey!=='rxReviewToday'){ // 次の一歩（U-47）：間違えた題だけ解き直す／全問正解ならもう一轮・回のページへ。今日の復習は従来どおり「次の一轮」だけ
     const wrong=done.filter(function(it){ return !it.st.ok; }), acts=el('div',{class:'rx-res-acts'});
-    if(wrong.length) acts.appendChild(el('button',{class:'btn',text:tf('rxRetryWrong',{n:wrong.length}),onclick:function(){ wrong.forEach(rxResetItem); rxRun(R.titleKey,wrong,R.lecId,{remake:R.remake}); }}));
-    else if(R.remake) acts.appendChild(el('button',{class:'btn',text:t('again'),onclick:function(){ rxRun(R.titleKey,R.remake(),R.lecId,{remake:R.remake}); }}));
-    if(R.lecId) acts.appendChild(el('button',{class:'btn ghost',text:t('rxBackToLec'),onclick:function(){ App.rxRun=null; goBack(); }}));
+    if(wrong.length) acts.appendChild(el('button',{class:'btn',text:tf('rxRetryWrong',{n:wrong.length}),onclick:function(){ wrong.forEach(rxResetItem); rxRun(R.titleKey,wrong,R.lecId,{remake:R.remake,from:R.from}); }}));
+    else if(R.remake) acts.appendChild(el('button',{class:'btn',text:t('again'),onclick:function(){ rxRun(R.titleKey,R.remake(),R.lecId,{remake:R.remake,from:R.from}); }}));
+    if(R.lecId || R.from==='home') acts.appendChild(el('button',{class:'btn ghost','data-res-back':R.from||'lec',text:t(R.from==='home'?'rxGoHome':'rxBackToLec'),onclick:function(){ App.rxRun=null; goBack(); }})); // 首页から直接始めた練習（期末模試＝lecId なし も）は goBack で首页に戻るので文言も「ホームへ戻る」（Q-074・CR433-36）
     if(acts.firstChild) kids.push(acts);
   }
   if(R.titleKey==='rxReviewToday'){ // U-89: 一轮（20 件）で今日の分が終わったとは限らない。いまの予定で数え直して、残りがあれば次の一轮へ
@@ -266,6 +289,14 @@ function rxRunEnd(){ App._rxVb=null;
       el('button',{class:'btn rx-review-more',text:t('rxReviewToday'),onclick:rxReviewRun}) ]));
     else kids.push(el('div',{class:'rx-left rx-review-done'},[ el('p',{class:'rx-hint jp',text:t('rxReviewDone')}), // 残りが無い：分数の一行だけで画面が空だった（S8 persona 第二批）→ 終わった一言と次の一歩（ホームへ）
       el('button',{class:'btn rx-go-home',text:t('rxGoHome'),onclick:function(){ App.rxRun=null; goHome(); }}) ]));
+  }
+  if(R.blind && R.graded){ // 期末模試：一題ずつの結果。押すとその題の判定と解説へ（rxBlindReview）
+    kids.push(el('h2',{class:'rx-bh jp',text:t('examOverview')}));
+    kids.push(el('div',{class:'rx-bl-res'},R.items.map(function(it,i){ const st=it.st;
+      return el('button',{class:'srow rx-bl-row','data-i':String(i),onclick:function(){ R.review=i; rxRunRender(); window.scrollTo(0,0); }},[
+        el('span',{class:'rx-bl-n mono',text:String(i+1)}),
+        el('span',{class:'rx-vb-v '+(st.ok?'ok':'no'),text:st.ok?t('rxRight'):st.blank?t('examOvTodo'):t('rxMissed')}),
+        el('span',{class:'sr-m jp',text:snippet(it.q.stem||'',[],48)}) ]); })));
   }
   const ids=Object.keys(shaky).filter(function(p){ return ix.props[p]; });
   if(ids.length){
@@ -278,18 +309,35 @@ function rxRunEnd(){ App._rxVb=null;
 }
 
 /* 文の中の誤り箇所を強調（wrong が文の部分文字列のとき） */
-function rxMarkWrong(text,wrong){
-  const i=wrong?text.indexOf(wrong):-1;
-  if(i<0) return el('span',{class:'jp',text:text});
-  return el('span',{class:'jp'},[ document.createTextNode(text.slice(0,i)), el('mark',{class:'rx-wrong',text:wrong}), document.createTextNode(text.slice(i+wrong.length)) ]);
+function rxWrongSpansOf(v){ // 錯処の区間：wrong（出題時に改変した所）＋wrong_alt（対調型のもう一方：直しても正しい文になる所。S3 が逐条標注、Q-031(a)）。RX.wrongSpans（s1/q031）が無い底では wrong だけ
+  if(!v) return [];
+  if(typeof RX!=='undefined' && typeof RX.wrongSpans==='function') return RX.wrongSpans(v);
+  const t=v.text||'', w=v.wrong||'', i=w?t.indexOf(w):-1; return i>=0?[{s:i,e:i+w.length,kind:'wrong'}]:[];
 }
-function rxMarkWrong2(text,wrong,a,b){ // 選んだ片段 [a,b) を淡い枠で、その中の誤り箇所 wrong を mark で：片段（助詞・句読点で切った選べる単位）と誤り箇所（改変した語）が一致しないことを見せる（S8 persona・Codex 両方が指摘）。判定は従来どおり「重なれば正解」
-  const w0=wrong?text.indexOf(wrong):-1, w1=w0+(wrong||'').length;
-  if(w0<0 || a==null || b==null || a>=b) return rxMarkWrong(text,wrong);
-  const pts=[0,a,b,w0,w1,text.length].filter(function(x,i,arr){ return x>=0 && x<=text.length && arr.indexOf(x)===i; }).sort(function(x,y){ return x-y; });
+function rxMarkNode(kind,pair,text,noLabel){ // noLabel：同じ区間が選んだ片段の境で割れた 2 片目以降（札は区間の先頭だけ：CR433-38b 必修 1） // 一つの印：見た目は実線（wrong）／点線（alt）。読み上げには見えない短い札を先に（WCAG 1.3.1：CR433-38 必修 6・快審第五十一批）：一箇所だけ＝「誤りの箇所、」、二箇所並ぶ（対調型）＝実線「下で直してある方」／点線「下では直していない方」（下の「正しくは」は実線の方を直す）
+  const key=pair?(kind==='alt'?'rxMarkAltSr':'rxMarkWrongPairSr'):'rxMarkWrongSr';
+  return el('mark',{class:'rx-wrong'+(kind==='alt'?' rx-wrong-alt':'')},(noLabel?[]:[ el('span',{class:'rx-srx',text:t(key)}) ]).concat([ document.createTextNode(text) ]));
+}
+function rxMarkSpans(text,spans){ // 複数の区間に印：wrong は従来の mark.rx-wrong、alt は mark.rx-wrong.rx-wrong-alt（点線の下線：もう一方）。重なりは wrong 優先（先に並べて後ろを飛ばす）
+  const ss=(Array.isArray(spans)?spans:[]).filter(function(x){ return x && x.s>=0 && x.e>x.s && x.e<=text.length; }).sort(function(a,b){ return (a.s-b.s) || ((a.kind==='wrong'?0:1)-(b.kind==='wrong'?0:1)); });
+  if(!ss.length) return el('span',{class:'jp',text:text});
+  const out=el('span',{class:'jp'}), pair=ss.some(function(x){ return x.kind==='alt'; }); let pos=0;
+  ss.forEach(function(x){ if(x.s<pos) return; if(x.s>pos) out.appendChild(document.createTextNode(text.slice(pos,x.s))); out.appendChild(rxMarkNode(x.kind,pair,text.slice(x.s,x.e))); pos=x.e; });
+  if(pos<text.length) out.appendChild(document.createTextNode(text.slice(pos)));
+  return out;
+}
+function rxMarkWrong(text,wrong){ // 一箇所だけ（選択式の選択肢の反馈など：f.wrong）
+  const i=wrong?text.indexOf(wrong):-1;
+  return rxMarkSpans(text, i>=0?[{s:i,e:i+wrong.length,kind:'wrong'}]:[]);
+}
+function rxMarkWrong2(text,spans,a,b){ // 選んだ片段 [a,b) を淡い枠で、その中の錯処（wrong／alt の区間）を mark で：片段（助詞・句読点で切った選べる単位）と錯処（改変した語）が一致しないことを見せる（S8 persona・Codex 両方が指摘）。判定は従来どおり「重なれば正」。第二引数は区間の配列（文字列は受けない：CR433-38 必修 7）
+  const ss=(Array.isArray(spans)?spans:[]).filter(function(x){ return x && x.s>=0 && x.e>x.s && x.e<=text.length; }).sort(function(p,q){ return (p.s-q.s) || ((p.kind==='wrong'?0:1)-(q.kind==='wrong'?0:1)); });
+  if(!ss.length || a==null || b==null || a>=b) return rxMarkSpans(text,ss);
+  const pts=[0,a,b,text.length].concat(ss.reduce(function(acc,x){ return acc.concat([x.s,x.e]); },[])).filter(function(x,i,arr){ return x>=0 && x<=text.length && arr.indexOf(x)===i; }).sort(function(x,y){ return x-y; });
+  const spanAt=function(x,y){ return ss.filter(function(q){ return x>=q.s && y<=q.e; })[0]||null; }, pair=ss.some(function(q){ return q.kind==='alt'; });
   const top=[], pick=el('span',{class:'rx-seg-pick'});
-  for(let i=0;i+1<pts.length;i++){ const x=pts[i], y=pts[i+1]; if(y<=x) continue; const piece=text.slice(x,y);
-    const n=(x>=w0 && y<=w1)?el('mark',{class:'rx-wrong',text:piece}):document.createTextNode(piece);
+  for(let i=0;i+1<pts.length;i++){ const x=pts[i], y=pts[i+1]; if(y<=x) continue; const piece=text.slice(x,y), sp=spanAt(x,y);
+    const n=sp?rxMarkNode(sp.kind,pair,piece,x!==sp.s):document.createTextNode(piece); // 一つの区間が片段の境で割れても読み上げの札は先頭の小片だけ（二度読まれていた：CR433-38b 必修 1）
     if(x>=a && y<=b) pick.appendChild(n); else { if(x>=b && pick.childNodes.length && top.indexOf(pick)<0) top.push(pick); top.push(n); } }
   if(pick.childNodes.length && top.indexOf(pick)<0) top.push(pick);
   return el('span',{class:'jp'},top);
@@ -300,7 +348,7 @@ function rxEvidence(propId,shown){ // 根拠：命題全文＋カードへの跳
   const dup=(shown||[]).some(function(x){ return x && String(x).trim()===String(e.prop.text||'').trim(); });
   if(dup && !card) return null;
   return el('div',{class:'rx-ev'},[ el('span',{class:'rx-ev-lb jp',text:t('rxBasis')}), dup?null:el('span',{class:'jp rx-ev-t',text:e.prop.text}),
-    card?el('button',{class:'rx-tri-go jp',text:t('rxSeeCard'),onclick:function(){ renderRxLecture(App.rx.ix.cards[card].lec); rxGoCard(card,propId); }}):null ].filter(Boolean));
+    card?el('button',{class:'rx-tri-go jp',text:t('rxSeeCard'),onclick:function(){ renderRxLecture(App.rx.ix.cards[card].lec); rxGoCard(card,propId,{anchor:'prop',hold:true}); }}):null ].filter(Boolean)); // 行定位：滚動も焦点もその命題の行へ（CR433-38 必修 2）
 }
 
 /* ---------- 命題○× ---------- */
@@ -325,14 +373,15 @@ function rxSegments(text){ // 正規表現の後読みは旧 Safari で構文エ
   return out.filter(function(x){ return x.trim(); });
 }
 function rxTFItem(p,v){
-  const it={kind:'tf',props:[p.id],st:{}};
+  const it={kind:'tf',props:[p.id],truth:!v,st:{}}; // truth＝app が出題時に導いた真偽（変種を出せば誤り）。契約（R05）は課程データから独立に導いた真偽と突き合わせる（CR433-22）
   it.render=function(box,after){
     const text=v?v.text:p.text, st=it.st, truth=!v; // finish（函数声明会提升）里要用 truth，必须先于任何调用声明
     box.appendChild(el('p',{class:'rx-stmt jp',text:text}));
     if(!st.done && !st.pickWhere){
       box.appendChild(el('div',{class:'rx-tf'},[
         el('button',{class:'opt jp rx-tf-o',text:t('rxSayTrue'),onclick:rxW(function(){ finish(true,null); })}),
-        el('button',{class:'opt jp rx-tf-x',text:t('rxSayFalse'),onclick:rxW(function(){ if(v){ st.pickWhere=true; box.innerHTML=''; it.render(box,after); rxGuard(box); } else finish(false,null); })})
+        el('button',{class:'opt jp rx-tf-x',text:t('rxSayFalse'),onclick:rxW(function(){ if(v && !RX.wrongSpans(v).some(function(x){ return x.kind==='wrong'; })){ try{ console.warn('rx: 誤り箇所（wrong）が誤述文に無い変体。× の時点で判分する', v.id); }catch(e){} finish(false,null); return; } // 卡口（CR433-37c）：選べる誤り箇所が無い変体は段を出さず、× の時点で真偽だけで判分・記録する（学生が押しても反応しない段に閉じ込めない）
+          if(v){ st.pickWhere=true; box.innerHTML=''; it.render(box,after); rxGuard(box); } else finish(false,null); })})
       ]));
       box.appendChild(el('p',{class:'rx-tf-hint jp',text:t('rxTfHint')})); // 「×」のあとに誤り箇所を選ぶ一手があることを先に言う（S8 persona：予告が無いと×を避ける）。正しい文でも出す：出る・出ないが文の真偽で決まると答えが漏れる（QR31 で総指揮が指摘）
       box.appendChild(rxAnswerAids(it,function(){ st.dontKnow=true; finish(null,null); }));
@@ -349,9 +398,11 @@ function rxTFItem(p,v){
     // 揭示
     box.innerHTML='';
     const segR=(v && st.segIdx!=null)?(function(){ const segs=rxSegments(text); let at=0; for(let i=0;i<st.segIdx && i<segs.length;i++) at+=segs[i].length; return segs[st.segIdx]?[at,at+segs[st.segIdx].length]:null; })():null;
-    box.appendChild(el('p',{class:'rx-stmt jp'},[ v?(segR?rxMarkWrong2(text,v.wrong,segR[0],segR[1]):rxMarkWrong(text,v.wrong)):el('span',{class:'jp',text:text}) ]));
+    const spans=rxWrongSpansOf(v); // Q-031(a)：wrong と wrong_alt の両方に印（alt は点線）
+    box.appendChild(el('p',{class:'rx-stmt jp'},[ v?(segR?rxMarkWrong2(text,spans,segR[0],segR[1]):rxMarkSpans(text,spans)):el('span',{class:'jp',text:text}) ]));
     box.appendChild(el('p',{class:'rx-truth jp '+(truth?'t':'f'),text:truth?t('rxIsTrue'):t('rxIsFalse')})); // この文の正誤は題文の直下に（操作条には短い判定だけ：收尾第二轮 R-05）
-    box.appendChild(rxVerdict(st.ok,st.dontKnow));
+    box.appendChild(rxVerdict(st.ok,st.dontKnow,truth)); // ○×：判定は真偽と合わせて一句（4.3.3 #8）
+    if(v && st.hit==='alt') box.appendChild(el('p',{class:'rx-alt-note jp',role:'note',text:t('rxAltHit')})); // もう一方（wrong_alt）を選んで正解：そこを直しても正しい文になる、と一言（Q-031(a)）
     if(v){
       box.appendChild(el('div',{class:'rx-var-c jp'},[ el('span',{class:'rx-var-lb',text:t('rxCorrectIs')}), document.createTextNode(v.correct||'') ]));
       if(v.tamper) box.appendChild(el('div',{class:'rx-tamper jp',text:t('rxTamper')+'：'+rxTamperName(v.tamper,App.rx.ix.tamper[v.tamper])}));
@@ -359,14 +410,18 @@ function rxTFItem(p,v){
     const ev=rxEvidence(p.id,[text, v&&v.correct]); if(ev) box.appendChild(ev);
     function finish(sayTrue,segIdx){ // sayTrue: true=○, false=×, null=わからない
       if(!canWrite()) return; // 判分の直前にもう一度（CR-01）
-      let ok=false;
+      let ok=false, hit=null;
       if(sayTrue===true) ok=truth;
       else if(sayTrue===false){
         if(truth) ok=false;
-        else { const segs=rxSegments(text); let at=0; for(let i=0;i<segIdx;i++) at+=segs[i].length;
-               const w0=text.indexOf(v.wrong), w1=w0+v.wrong.length, s1=at+segs[segIdx].length;
-               ok=(w0>=0 && at<w1 && s1>w0); }
+        else if(segIdx==null) ok=true; // 誤述文に × で、誤り箇所を選ばずに判分（× ボタンの卡口から来る：wrong が誤述文に無い変体。CR433-37c）
+        else { const sp=RX.wrongSpans(v); // 出題側 rxBuildTF・rxReviewRun の v.text && v.wrong の絞り込みが第二の防線
+               const segs=rxSegments(text); let at=0; for(let i=0;i<segIdx;i++) at+=segs[i].length;
+               const s1=at+segs[segIdx].length; // 所選の段が錯処（wrong・対調型のもう一方 wrong_alt）のどれかに重なれば正（Q-031(a)）。wrong が先に並ぶので両方に重なれば wrong
+               hit=sp.filter(function(x){ return at<x.e && s1>x.s; })[0]||null;
+               ok=!!hit; }
       }
+      st.hit=hit?hit.kind:null; st.hitSpan=hit?[hit.s,hit.e]:null; // 表示用（S6：alt なら両方に印）。毎回置き直す：記録に失敗して答え直しても前の値を残さない
       if(!rxRecord({mode:'tf',props:[p.id],ok:ok,unsure:!!st.unsure,tamper:v?v.tamper:null,concepts:p.concepts||[]})){ st.dontKnow=false; rxNotSaved(); return; } // 保存できなければ待答のまま（CR-07）
       st.done=true; st.ok=ok; st.pickWhere=false; st.segIdx=(sayTrue===false && segIdx!=null)?segIdx:null;
       box.innerHTML=''; it.render(box,after); after();
@@ -422,6 +477,7 @@ function rxQItem(q){
         multi?el('span',{class:'rx-opt-dk',text:'ABCDEF'[k]||''}):null, // 複選：どの肢の解説か（下にまとめるので字母を添える）
         (!f.correct && f.wrong)?el('div',{class:'rx-opt-w jp'},[ rxMarkWrong(f.text,f.wrong) ]):null, // 誤りの箇所に印（行の本文は動かさない）
         why?el('div',{class:'rx-why jp',text:why}):null,
+        rxWhyProps(ix,(q.options[oi]||{}).why_props), // 根拠になる命題（why_props）の短い参照（CX1-F04・4.3.3 #2）
         f.fix?el('div',{class:'rx-var-c jp'},[ el('span',{class:'rx-var-lb',text:t('rxCorrectIs')}), document.createTextNode(f.fix) ]):null,
         f.tamper?el('div',{class:'rx-tamper jp',text:t('rxTamper')+'：'+rxTamperName(f.tamper.code,f.tamper.name)}):null,
         f.propId?rxEvidence(f.propId,[f.text, f.fix]):null
@@ -433,19 +489,146 @@ function rxQItem(q){
     function submit(){
       const o0=box.querySelector('.opts'); st.optsY=o0?Math.round(o0.getBoundingClientRect().top+scrollY):null; // 答える前の選択肢の位置（文書座標）
       if(!canWrite()) return; // 判分の直前にもう一度（CR-01）
-      const judged=RX.judge(q,st.picked), props=[];
-      q.options.forEach(function(o,oi){ if(o.correct && o.prop) props.push({p:o.prop,ok:judged}); });
-      st.picked.forEach(function(oi){ const o=q.options[oi]; if(!o.correct && o.prop) props.push({p:o.prop,ok:false}); });
-      const one={}; props.forEach(function(x){ if(one[x.p]) one[x.p].ok=one[x.p].ok && x.ok; else one[x.p]=x; }); // 一題で同じ命題は一度だけ記録する（複選の正肢二つが同じ命題に挂かる題で seen が二つ進んでいた）
-      const evs=Object.keys(one).map(function(k){ return one[k]; }).map(function(x){ const pe=ix.props[x.p]; const o=q.options.filter(function(y){ return y.prop===x.p; })[0];
-        const ve=o&&o.variant&&ix.variants[o.variant];
-        return {mode:q.type,props:[x.p],ok:x.ok,unsure:!!st.unsure,tamper:(!x.ok&&ve)?ve.variant.tamper:null,concepts:pe?pe.prop.concepts||[]:[]}; });
+      const judged=RX.judge(q,st.picked), evs=rxQEvents(q,st.picked,!!st.unsure,q.type,judged);
       if(evs.length && !rxRecord(evs)){ st.picked=[]; st.dontKnow=false; rxNotSaved(); box.innerHTML=''; it.render(box,after); return; } // 一題の全命題を一つの事務で。保存できなければ待答に戻す：選択も外す（N-D：残った選択に次の選択が足されて誤判定していた）
       st.done=true; st.ok=judged;
       box.innerHTML=''; it.render(box,after); after();
     }
   };
   return it;
+}
+
+/* 一題の作答 → 記録の事件（命題ごと）：正肢の命題は判定どおり、選んだ誤肢の命題は誤り。一題で同じ命題は一度だけ（複選の正肢二つが同じ命題に挂かる題で seen が二つ進んでいた）。
+ * rxQItem（その場で判定）と期末模試の一括採点（rxBlindGrade）で共用 */
+function rxQEvents(q,picked,unsure,mode,judged){
+  const ix=App.rx.ix, props=[];
+  q.options.forEach(function(o){ if(o.correct && o.prop) props.push({p:o.prop,ok:judged}); });
+  picked.forEach(function(oi){ const o=q.options[oi]; if(o && !o.correct && o.prop) props.push({p:o.prop,ok:false}); });
+  const one={}; props.forEach(function(x){ if(one[x.p]) one[x.p].ok=one[x.p].ok && x.ok; else one[x.p]=x; });
+  return Object.keys(one).map(function(k){ return one[k]; }).map(function(x){ const pe=ix.props[x.p]; const o=q.options.filter(function(y){ return y.prop===x.p; })[0];
+    const ve=o&&o.variant&&ix.variants[o.variant];
+    return {mode:mode,props:[x.p],ok:x.ok,unsure:unsure,tamper:(!x.ok&&ve)?ve.variant.tamper:null,concepts:pe?pe.prop.concepts||[]:[]}; });
+}
+
+/* ---------- 期末の模擬試験：整場盲答（4.3.3 #11・FX1-06。行為規格は S1_4.3.3_計画 #11、総指揮 10-19 定 ②） ----------
+ * 答えている間：判定・解説を出さない。選び直せる・前後に移れる・上の題号の並び（回答済み・未回答・自信がない）から跳べる。
+ * 「採点する」→ 確認（未回答の数）→ 一度に判定。記録は一つの写入単元（rxSchedRecord に配列で渡す＝quotaAdmitted の一単元、mode＝'mock'）。未回答は不正解（時間切れと同じ）。
+ * 時間切れ＝その時点の解答で自動提出。書き手でなくなった（(c)）＝全部捨てて何も記録しない（rxInterrupt）。提出の記録が書けなければ答えている状態に留まる（時間切れなら tuFail）。
+ * 進度は保存しない：アプリの中で離れるときは確かめる（rxBlindGuard：見出しの戻る・ブランド・ブラウザの戻る・課の切替・talk の移動）。 */
+function rxBlindActive(){ const R=App.rxRun; return !!(R && R.blind && !R.graded && !R.interrupted && !R.tuFail && App.course && App.course.id===R.cid); }
+function rxBlindAsk(){ // 離れてよいか（Promise<boolean>）。期末模試の最中でなければすぐ true。やめると決まったら模試を捨てる（計時も止める）
+  if(!rxBlindActive()) return Promise.resolve(true);
+  const R=App.rxRun;
+  return askConfirm(t('rxModeMock'),t('rxMockLeaveQ'),t('rxMockLeaveOk'),true,t('rxMockLeaveNo')).then(function(ok){
+    if(ok && !(App.rxRun===R && rxBlindActive())) return false; // 確かめている間に交卷（時間切れ）した・別の模試になった：結果を消さない、ここに留まる（CR433-9 必修 3）
+    if(ok){ rxClearTimer(); App.rxRun=null;
+      const root=document.getElementById('modalRoot'); if(root) [].slice.call(root.children).forEach(function(m){ if(m.classList.contains('closing')) m.remove(); }); } // 閉じかけの確認框を先に外す：goBack は #modalRoot に子があると「浮層を閉じる」だけで画面を戻さない（PS29：ブラウザの戻る・見出しの戻るで残っていた）
+    return ok; });
+}
+function rxBlindGuard(go){ if(!rxBlindActive()){ go(); return; } rxBlindAsk().then(function(ok){ if(ok) go(); }); } // 模試の最中でなければ同期で（ふつうの練習の戻る・ブランドが一拍遅れない：CR433-9 必修 6）
+function rxBlindAnswered(it){ return it.st.picked.length>=((it.q&&it.q.select)||1); } // 複選は選び切ってはじめて回答済み：足りなければ題号条・交卷の確認・判定のどれでも未回答（#27(b)：逐題の練習は選び切るまで提出できない＝原模試と同じ）
+function rxBlindPaint(R,it){ // 選んだ印と題号の並びだけ塗り替える（作り直すと押したボタンが消えて画面がずれる：旧課の模試 O-17 と同じ）
+  document.querySelectorAll('.rx-blind .opts .opt').forEach(function(b){ const on=it.st.picked.indexOf(+b.getAttribute('data-oi'))>=0; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); });
+  const chips=document.querySelectorAll('.rx-blind .examstrip .echip');
+  R.items.forEach(function(x,i){ const c=chips[i]; if(!c) return; c.className='echip'+(i===R.pos?' cur':'')+(rxBlindAnswered(x)?' done':'')+(x.st.unsure?' is-unc':''); if(i===R.pos) c.setAttribute('aria-current','true'); else c.removeAttribute('aria-current');
+    c.setAttribute('aria-label',tf('rxBlChipAria',{n:i+1,state:t(rxBlindAnswered(x)?'examOvDone':'examOvTodo')+(x.st.unsure?t('rxBlChipSep')+t('examUncertain'):'')})); }); // aria-current：今の題。aria-label：題号と状態（「第3問：回答済み・自信がない」：#27(a)・快审第四十五批）
+}
+function rxBlindGo(R,i){ if(R.graded || App.rxRun!==R || i<0 || i>=R.items.length || i===R.pos) return; R.pos=i; rxStep=true; rxRunRender(); window.scrollTo(0,0); } // 交卷後は動かない（開いたままの確認框の題号から作答に戻らない：CR433-9 必修 3）
+function rxBlindRender(R,step){
+  const it=R.items[R.pos], q=it.q, st=it.st;
+  const body=el('div',{class:'rx-run-b',tabindex:'-1'});
+  RX.questionParts(q).forEach(function(part){
+    if(part==='case') body.appendChild(el('div',{class:'rx-case jp',text:q.case}));
+    if(part==='stem') body.appendChild(el('p',{class:'rx-stem jp',text:q.stem||''}));
+    if(part==='options'){
+      const wrap=el('div',{class:'opts'});
+      st.order.forEach(function(oi,k){
+        const on=st.picked.indexOf(oi)>=0;
+        const btn=el('button',{class:'opt jp'+(on?' on':''),'aria-pressed':String(on),'data-oi':String(oi)},[ el('span',{class:'mk',text:'ABCDEF'[k]||''}), el('span',{text:q.options[oi].text}) ]);
+        btn.addEventListener('click',rxW(function(){
+          const lim=q.select||1;
+          if(lim===1) st.picked=(st.picked[0]===oi)?[]:[oi]; // 単選：押した肢に置き換え。同じ肢をもう一度＝取り消し（未回答に戻せる）
+          else { const i=st.picked.indexOf(oi); if(i>=0) st.picked.splice(i,1); else { st.picked.push(oi); while(st.picked.length>lim) st.picked.shift(); } } // 複選：満ちていれば最も古い選択と入れ替える
+          rxBlindPaint(R,it);
+        }));
+        wrap.appendChild(btn);
+      });
+      body.appendChild(wrap);
+    }
+  });
+  if((q.select||1)>1) body.insertBefore(el('p',{class:'rx-hint jp',text:t('rxPickN').replace('{n}',q.select)}),body.lastChild);
+  const unsure=el('button',{class:'rx-unsure jp'+(st.unsure?' on':''),'aria-pressed':String(!!st.unsure),text:t('rxUnsure'),onclick:rxW(function(){
+    st.unsure=!st.unsure; unsure.classList.toggle('on',st.unsure); unsure.setAttribute('aria-pressed',String(st.unsure)); rxBlindPaint(R,it); })});
+  body.appendChild(el('div',{class:'rx-aids'},[unsure]));
+  let timer=null;
+  if(R.deadline){
+    timer=el('span',{class:'rx-timer mono','aria-live':'off',text:rxTimeLeftText(R)});
+    rxClearTimer();
+    App.rxTimer=setInterval(function(){ if(App.rxRun!==R || !App.course || App.course.id!==R.cid){ rxClearTimer(); return; }
+      if(Date.now()>=R.deadline){ rxTimeUp(); return; } timer.textContent=rxTimeLeftText(R); },500);
+  }
+  const strip=el('div',{class:'examstrip'},R.items.map(function(x,i){ return el('button',{class:'echip',type:'button',text:String(i+1),onclick:function(){ rxBlindGo(R,i); }}); }));
+  const last=R.pos>=R.items.length-1;
+  const prev=el('button',{class:'btn ghost rx-bl-prev',text:t('prev'),onclick:function(){ rxBlindGo(R,R.pos-1); }}); if(R.pos<=0) prev.disabled=true;
+  const next=el('button',{class:'btn rx-bl-next'+(last?' ghost':''),text:t('next'),onclick:function(){ rxBlindGo(R,R.pos+1); }}); if(last) next.disabled=true;
+  const submit=el('button',{class:'btn rx-bl-submit'+(last?'':' ghost'),text:t('examSubmit'),onclick:function(){ rxBlindCheck(R); }}); // 最後の題でだけ「採点する」が主ボタン（旧課の模試と同じ）
+  App._rxVb=null;
+  const nav=el('div',{class:'examnav rx-bl-nav'},[prev,next,submit]);
+  setView(el('div',{class:'rx-run rx-q rx-blind rbody'+(step?' qstep-next':'')},[
+    sectionHead(t(R.titleKey),function(){ rxBlindGuard(goBack); }),
+    el('div',{class:'qnum'},[ timer, el('span',{class:'prog',text:(R.pos+1)+' / '+R.items.length}) ].filter(Boolean)),
+    strip, body, nav ]));
+  rxBlindPaint(R,it);
+  const cur=strip.querySelector('.echip.cur'); if(cur){ try{ cur.scrollIntoView({inline:'center',block:'nearest'}); }catch(e){} } // 題を移ったら今の題号を条の中へ（S6 版式：scroll-snap は利用者の滚动にしか効かない）
+  rxFootWatch(nav); rxFootStuck(); // 下の三つのボタンの吸底（.stuck）判定：練習の操作条と同じ哨兵＋IntersectionObserver
+}
+function rxBlindCheck(R){ // 提出前の確認（旧課の模試と同じ部品・文言）：未回答と「自信がない」の題号（押すとその題へ）
+  if(R.graded || App.rxRun!==R) return;
+  const unans=[], unc=[];
+  R.items.forEach(function(it,i){ if(!rxBlindAnswered(it)) unans.push(i+1); if(it.st.unsure) unc.push(i+1); });
+  const body=[];
+  if(!unans.length && !unc.length) body.push(el('p',{class:'jp',text:t('examAllDone')}));
+  const mk=function(label,arr,warn){ if(!arr.length) return; body.push(el('div',{class:'chkline'+(warn?' warn':'')},[ el('div',{class:'cl-l jp',text:label}),
+    el('div',{class:'cl-n'},arr.map(function(n){ return el('button',{class:'sc-q mono',type:'button',text:String(n),onclick:function(){ closeModal(); rxBlindGo(R,n-1); }}); })) ])); };
+  mk(t('examOvTodo'),unans,true); mk(t('examUncList'),unc,false);
+  if(unans.length) body.push(el('p',{class:'jp warn',style:'margin-top:10px',text:t('examWillWrong')}));
+  body.push(el('div',{class:'row',style:'margin-top:14px;gap:10px'},[
+    el('button',{class:'btn rx-bl-do',text:t('examDoSubmit'),onclick:function(){ closeModal(); rxBlindGrade(R,false); }}),
+    el('button',{class:'btn ghost',text:t('back'),onclick:closeModal}) ]));
+  openModal(modalShell(t('examSubmitTitle'),body));
+}
+function rxBlindCloseAsk(){ // 開いていた確認框（提出前・離れる）を閉じる：時間切れで判定した・書けずに「もう一度保存する」へ移った後に、古い確認で模試を動かさせない（CR433-9 必修 3・CR433-16）。更新後の確認門は closeModal が閉じない
+  try{ const mr=document.getElementById('modalRoot'); if(mr && mr.querySelector(':scope > .modal:not(.closing)')) closeModal(); }catch(e){}
+}
+function rxBlindGrade(R,auto){ // 一度に判定し、一つの写入単元で記録する。auto＝時間切れ
+  if(App.rxRun!==R || R.graded || R.interrupted) return;
+  if(!App.course || App.course.id!==R.cid){ rxClearTimer(); return; } // 別の課へ移った（CR-23）
+  if(auto){ if(!fenceOk()){ rxClearTimer(); R.tuFail=true; rxBlindCloseAsk(); rxRunRender(); return; } } // 書けない：計時を止め「もう一度保存する」へ（自動では試し直さない：WLR1 合并裁定 三-9）
+  else if(!canWrite()) return;
+  const evs=[], res=R.items.map(function(it){ const q=it.q, st=it.st;
+    if(!rxBlindAnswered(it)){ (it.props||[]).forEach(function(pid){ evs.push({mode:'mock',props:[pid],ok:false,unsure:false}); }); return false; } // 未回答＝時間切れと同じ扱い（mode 'mock'）
+    const judged=RX.judge(q,st.picked); rxQEvents(q,st.picked,!!st.unsure,q.type,judged).forEach(function(e){ evs.push(e); }); return judged; }); // 答えた題の mode は題型（原模試と同じ：CR433-9 必修 5）
+  if(evs.length && !rxRecord(evs)){ // 何も残っていない（rxSchedRecord が戻した）：答えている状態に留まる
+    if(auto){ rxClearTimer(); rxBlindCloseAsk(); if(typeof rxDataNewer==='function' && rxDataNewer()){ R.newer=true; rxRunRender(); return; } R.tuFail=true; pulseWriterBanner(); rxRunRender(); } else rxNotSaved(); // 先の版の記録：押し直しは出さない（CR433-10）
+    return;
+  }
+  rxClearTimer();
+  R.items.forEach(function(it,i){ const st=it.st; st.done=true; st.ok=res[i]; if(!rxBlindAnswered(it)){ st.blank=true; if(auto) st.timeout=true; } });
+  R.graded=true; R.timedOut=!!auto; R.tuFail=false; R.review=null; R.pos=R.items.length;
+  rxBlindCloseAsk(); // 交卷後にこの模試を変えさせない（CR433-9 必修 3）
+  rxRunRender();
+}
+function rxBlindReview(R){ // 採点後の見直し：一題ずつ、答えた後の描き方（帳簿 A′：判定の帯・押した肢の下の解説・根拠）で
+  const i=R.review, it=R.items[i]; App._rxVb=null;
+  const body=el('div',{class:'rx-run-b',tabindex:'-1'});
+  it.render(body,function(){});
+  const go=function(j){ if(j<0 || j>=R.items.length) return; R.review=j; rxRunRender(); window.scrollTo(0,0); };
+  const prev=el('button',{class:'btn ghost rx-bl-prev',text:t('prev'),onclick:function(){ go(i-1); }}); if(i<=0) prev.disabled=true;
+  const next=el('button',{class:'btn rx-bl-next',text:t('next'),onclick:function(){ go(i+1); }}); if(i>=R.items.length-1) next.disabled=true;
+  setView(el('div',{class:'rx-run rx-q rx-answered rx-blind-rv rbody'},[
+    sectionHead(t(R.titleKey),function(){ R.review=null; rxRunRender(); }),
+    el('div',{class:'qnum'},[ el('span',{class:'prog',text:(i+1)+' / '+R.items.length}) ]),
+    body, el('div',{class:'examnav'},[prev,next]) ]));
 }
 
 /* ---------- 訂正ドリル ---------- */
@@ -465,7 +648,7 @@ function rxFixItem(p,v){
       box.appendChild(rxAnswerAids(it,function(){ st.revealed=true; st.dontKnow=true; box.innerHTML=''; it.render(box,after); }));
       return;
     }
-    box.appendChild(el('p',{class:'rx-stmt jp'},[ rxMarkWrong(v.text,v.wrong) ])); // 誤った文は一度だけ（誤りの箇所に印。U-60：上下に二度出ていた）
+    box.appendChild(el('p',{class:'rx-stmt jp'},[ rxMarkSpans(v.text,rxWrongSpansOf(v)) ])); // 誤った文は一度だけ（誤りの箇所に印、対調型は両方：Q-031(a)。U-60：上下に二度出ていた）
     const cmp=el('div',{class:'rx-fix-cmp'}); // 自分の答え｜正しくは を並べて見比べる（宽い画面は左右、狭い画面は上下）
     if(st.text) cmp.appendChild(el('div',{class:'rx-mine jp'},[ el('span',{class:'rx-var-lb',text:t('yourAns')}), document.createTextNode(st.text) ]));
     cmp.appendChild(el('div',{class:'rx-var-c jp'},[ el('span',{class:'rx-var-lb',text:t('rxCorrectIs')}), document.createTextNode(v.correct||'') ]));

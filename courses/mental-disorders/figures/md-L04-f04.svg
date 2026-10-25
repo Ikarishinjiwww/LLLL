@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 476" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">表に見える暴力と、その下に隠れていることがあるもの</title>
+  <desc id="d">非行・犯罪で表に見える暴力と、その下にあるものを、層を重ねて示した図。発達障害だからといって、犯罪に結びつくわけではない。生きにくさにいじめや家庭の問題が重なると、非行につながることがある。いちばん下の層は発達障害・知的障害で、その上に、友だちができない、勉強ができない、いつも叱られるといった経験がある。この経験の層には、横からいじめや家庭の問題が重なる。こうした経験から自信をなくしやすく、自信がないと馬鹿にされていると感じやすい。そこから生じた怒りが、暴力となって表に出ることがある。表に見える暴力の下に、怒りや自信のなさ、発達障害などが隠れていることがある。</desc>
+  <style>
+    .lay{fill:none;stroke:currentColor;stroke-width:1.4}
+    .lay0{fill:currentColor;fill-opacity:.14;stroke:currentColor;stroke-width:2.2}
+    .surf{fill:none;stroke:currentColor;stroke-width:1.4;stroke-dasharray:6 4}
+    .side{fill:none;stroke:currentColor;stroke-width:1.4;stroke-dasharray:4 3}
+    .sidearr{fill:none;stroke:currentColor;stroke-width:1.8}
+    .ah{fill:currentColor;stroke:none}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+  <text class="lab" x="16" y="28">発達障害だからといって、</text>
+  <text class="lab" x="16" y="50">犯罪に結びつくわけではない。</text>
+  <text class="sm" x="16" y="76">生きにくさにいじめや家庭の問題が重なると、</text>
+  <text class="sm" x="16" y="96">非行につながることがある。</text>
+  <path class="surf" d="M16 161 L134 161 M158 161 L384 161"/>
+  <text class="sm" x="384" y="152" text-anchor="end">表に見える</text>
+  <text class="sm" x="384" y="182" text-anchor="end">隠れている</text>
+  <polygon class="lay0" points="104.0,120 188.0,120 198.0,152 94.0,152"/>
+  <text class="lab" x="146" y="141" text-anchor="middle">暴力</text>
+  <polygon class="lay" points="87.0,170 205.0,170 215.0,202 77.0,202"/>
+  <text class="lab" x="146" y="191" text-anchor="middle">怒り</text>
+  <polygon class="lay" points="48.0,220 244.0,220 251.0,252 41.0,252"/>
+  <text class="it" x="146" y="241" text-anchor="middle">馬鹿にされていると感じる</text>
+  <polygon class="lay" points="37.0,270 255.0,270 259.0,302 33.0,302"/>
+  <text class="it" x="146" y="291" text-anchor="middle">自信がない</text>
+  <polygon class="lay" points="30.0,320 262.0,320 268.0,388 24.0,388"/>
+  <text class="it" x="146" y="338" text-anchor="middle">友だちができない、</text>
+  <text class="it" x="146" y="359" text-anchor="middle">勉強ができない、</text>
+  <text class="it" x="146" y="380" text-anchor="middle">いつも叱られる</text>
+  <polygon class="lay" points="21.0,406 271.0,406 276.0,438 16.0,438"/>
+  <text class="lab" x="146" y="427" text-anchor="middle">発達障害・知的障害</text>
+  <polygon class="ah" points="146,155 140,167 152,167"/>
+  <polygon class="ah" points="146,205 140,217 152,217"/>
+  <polygon class="ah" points="146,255 140,267 152,267"/>
+  <polygon class="ah" points="146,305 140,317 152,317"/>
+  <polygon class="ah" points="146,391 140,403 152,403"/>
+  <rect class="side" x="298" y="320" width="86" height="68" rx="6"/>
+  <text class="sm" x="341.0" y="339" text-anchor="middle">いじめや</text>
+  <text class="sm" x="341.0" y="359" text-anchor="middle">家庭の問題</text>
+  <text class="sm" x="341.0" y="379" text-anchor="middle">が重なる</text>
+  <path class="sidearr" d="M296 354.0 L274.0 354.0"/>
+  <polygon class="ah" points="266.0,354.0 275.0,349.0 275.0,359.0"/>
+  <text class="sm" x="16" y="466">▲：下から上へつながることがある</text>
+</svg>

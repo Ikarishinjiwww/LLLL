@@ -5,8 +5,9 @@
  "lectures": [
   "mi-L01",
   "mi-L02",
-  "mi-L03"
+  "mi-L03",
+  "mi-L04"
  ],
  "contract": "rx-content/1",
- "built": "2026-10-18"
+ "built": "2026-10-25"
 }

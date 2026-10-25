@@ -42,7 +42,17 @@ var RX = (function () {
       arr(L.props).forEach(function (p) {
         if (!p || !p.id) return;
         ix.props[p.id] = { prop: p, lec: L.id };
-        arr(p.variants).forEach(function (v) { if (v && v.id) ix.variants[v.id] = { variant: v, prop: p.id }; });
+        arr(p.variants).forEach(function (v) {
+          if (!v || !v.id) return;
+          ix.variants[v.id] = { variant: v, prop: p.id };
+          var vt = typeof v.text === 'string' ? v.text : '';
+          if (typeof v.wrong !== 'string' || !v.wrong) ix.diag.push(v.id + ': wrong が無い'); // ○× の題にはならない（rxBuildTF・rxReviewRun が v.text && v.wrong で選ぶ：CR433-37 二.2）
+          else if (vt.indexOf(v.wrong) < 0) ix.diag.push(v.id + ': wrong が誤述文にない'); // ○× の「誤り箇所」は判分も記録もしない（rxTFItem.finish の卡口：CR433-37b 一.1）
+          else if (vt.indexOf(v.wrong, vt.indexOf(v.wrong) + 1) >= 0) ix.diag.push(v.id + ': wrong が誤述文に複数ある'); // 判分は最初の位置で行う（従来どおり）。位置が一つに決まらないことだけ記す（CR433-37b N5）
+          if (v.wrong_alt === undefined) return; // 任意：对调型の另一側（Q-031(a)）。形が悪くても判分は wrong だけで続ける
+          if (!Array.isArray(v.wrong_alt)) { ix.diag.push(v.id + ': wrong_alt が配列でない（' + typeOf(v.wrong_alt) + '）'); return; } // 明示の null も記す（CR433-37 二.3）
+          v.wrong_alt.forEach(function (a, i) { var why = wrongAltWhy(v, a); if (why) ix.diag.push(v.id + ': wrong_alt[' + i + ']' + (typeof a === 'string' ? '「' + a + '」' : '（' + typeOf(a) + '）') + why); }); // 文字列でない要素は型だけ記す（任意の物に String() を呼ばない：{toString:0} で投げた。CR433-37 二.3）
+        });
       });
       arr(L.cards).forEach(function (c) { if (c && c.id) ix.cards[c.id] = { card: c, lec: L.id }; });
       arr(L.questions).forEach(function (q) { if (q && q.id) ix.questions[q.id] = { q: q, lec: L.id }; });
@@ -67,7 +77,7 @@ var RX = (function () {
    * 跳过＝diag に記して表示しない：disease/body/topic 以外のカードの块、explain が配列でないカード全体、text が空の块、
    * props が配列でない块、このカードに無い・存在しない命題を挂けた块。role が四値にない・hashes は、diag だけ記して照常表示（hashes は見ない）。
    * 残缺データは致命にしない（HF1-01・03）：kind・role・id・props の要素は own property／文字列として扱い、オブジェクトの toString に頼らない；
-   * 収めるのは正規化した写し {id, role, text, props}（描画側 rx-views が読むのはこの四つだけ）。 */
+   * 収めるのは正規化した写し {id, role, text, props[, prereq]}（prereq は 4.3.3 #13：あるときだけ。描画側 rx-views が読むのはこれだけ）。 */
   var EXPLAIN_KINDS = { disease: 1, body: 1, topic: 1 };
   var EXPLAIN_ROLES = { '機序': 1, '症状のつながり': 1, '臨床の筋道': 1, '心理職': 1 };
   function own(map, key) { return typeof key === 'string' && Object.prototype.hasOwnProperty.call(map, key); }
@@ -88,7 +98,14 @@ var RX = (function () {
       if (bad.length) { ix.diag.push(bid + ': 命題 ' + bad.map(function (x) { return x || '?'; }).join('・') + ' がこのカードに無い'); return; }
       var role = strOf(b.role);
       if (!own(EXPLAIN_ROLES, role)) ix.diag.push(bid + ': role「' + role + '」は四値にない');
-      kept.push({ id: bid, role: role, text: b.text, props: props });
+      var o = { id: bid, role: role, text: b.text, props: props };
+      if (b.prereq != null) { // 块级の先修（4.3.3 #13・S3 規格 v1・CR433-15）：命題 id の配列をそのまま透す。形の壊れたもの・無い命題は診断に記して外す（宽松：核心か・本拠の位置などは描く側 rxPrereqRow が判じる）
+        if (!Array.isArray(b.prereq)) ix.diag.push(bid + ': prereq が配列でない');
+        else { var pre = []; b.prereq.forEach(function (x) { var pid = strOf(x); if (!pid || !own(ix.props, pid)) { ix.diag.push(bid + ': prereq の命題 ' + (pid || '?') + ' が無い'); return; } if (pre.indexOf(pid) < 0) pre.push(pid); });
+          if (pre.length > 3) ix.diag.push(bid + ': prereq が ' + pre.length + ' 個（札は最多 3：4 個目からは出ない）'); // 外さない（描く側が核心・位置で絞ってから 3 個に切る）。作者が気づけるように記すだけ（CR433-20）
+          if (pre.length) o.prereq = pre; }
+      }
+      kept.push(o);
     });
     if (kept.length) ix.explain[cid] = kept;
   }
@@ -188,6 +205,31 @@ var RX = (function () {
     else s.due = today + 1;
     return s;
   }
+  /* 误述的「错处」区间（Q-031(a)）：wrong（出题时改动的那一处）＋可选 wrong_alt（对调型的另一侧：改掉它句子也成立，S3 逐条标注）。
+   * ○×「誤り箇所」所选的段与任一区间重叠即算对。合法＝字符串・非空・是误述文的子串・在误述文里只出现一次・不与 wrong 重叠（五条，CR433-37）；不合法的元素一律忽略，buildIndex 记诊断（宽松）。 */
+  function typeOf(x) { return x === null ? 'null' : Array.isArray(x) ? 'array' : typeof x; }
+  function wrongAltWhy(v, a) {
+    var t = (v && typeof v.text === 'string') ? v.text : '', w = (v && typeof v.wrong === 'string') ? v.wrong : '';
+    if (typeof a !== 'string') return 'が文字列でない';
+    if (!a) return 'が空';
+    var a0 = t.indexOf(a); if (a0 < 0) return 'が誤述文にない';
+    if (t.indexOf(a, a0 + 1) >= 0) return 'が誤述文に複数ある'; // 位置が一つに決まらない：どこを印すか・どの段を正とするかが曖昧になる（CR433-37 二.1：第五の条件）
+    var w0 = w ? t.indexOf(w) : -1;
+    if (w0 >= 0 && a0 < w0 + w.length && a0 + a.length > w0) return 'が wrong と重なる';
+    return null;
+  }
+  function wrongSpans(v) {
+    var t = (v && typeof v.text === 'string') ? v.text : '', w = (v && typeof v.wrong === 'string') ? v.wrong : '', out = [];
+    var w0 = w ? t.indexOf(w) : -1;
+    if (w0 >= 0) out.push({ s: w0, e: w0 + w.length, kind: 'wrong' });
+    if (Array.isArray(v && v.wrong_alt)) v.wrong_alt.forEach(function (a) {
+      if (wrongAltWhy(v, a)) return;
+      var a0 = t.indexOf(a), a1 = a0 + a.length;
+      if (out.some(function (x) { return x.s === a0 && x.e === a1; })) return;
+      out.push({ s: a0, e: a1, kind: 'alt' });
+    });
+    return out;
+  }
   function status(s) { return !s ? 'new' : (s.mastered ? 'mastered' : 'learning'); }
 
   /* 今日该复习的命题：到期（due≤today）且仍在索引中的（退役命题不进队列，状态保留）。
@@ -227,7 +269,7 @@ var RX = (function () {
 
   return { CONTRACT: CONTRACT, validate: validate, buildIndex: buildIndex, orderOf: orderOf,
            INTERVALS: INTERVALS, dayIndex: dayIndex, schedUpdate: schedUpdate, status: status,
-           dueQueue: dueQueue, mastery: mastery, topTamper: topTamper,
+           dueQueue: dueQueue, mastery: mastery, topTamper: topTamper, wrongSpans: wrongSpans,
            cardProps: cardProps, firstCardOf: firstCardOf,
            shuffledOrder: shuffledOrder, correctIdx: correctIdx, judge: judge,
            optionFeedback: optionFeedback, questionParts: questionParts };

@@ -21,7 +21,7 @@ function conceptCardNode(name,onQ){
   });
   if(qids.length) card.appendChild(el('button',{class:'btn',style:'margin-top:12px',text:t('cnPractice'),onclick:function(){
     const list=C.reviewSample(App.questions,{onlyIds:qids,count:Math.min(qids.length,20),recentIds:App.recent},App.rng);
-    newSession('review',list,{}); renderRunner();
+    leaveGuard(function(){ newSession('review',list,{}); renderRunner(); }); // 練習の最中（読本・概念ページへ移った先も）なら確かめてから：黙って置き換えると今の練習が消える（4.3.3 #30・CR433-40 必修 2）
   }}));
   return card;
 }
@@ -167,11 +167,22 @@ function readerCurUpdate(){ // 量って記す：書き手でなくても。幅�
   const cur=readerCurCompute(); if(!cur) return null;
   if(App.rdrCur && App.rdrCur.w!==innerWidth) App.rdrCurPrev=App.rdrCur; App.rdrCur=cur; return cur;
 }
-function readerReadSave(){
+let rdrSpyTick=0;
+function readerReadSave(){ if(rdrSpyTick) return; rdrSpyTick=requestAnimationFrame(function(){ rdrSpyTick=0; readerReadSaveNow(); }); } // scroll の監聴だけ一帧に一度（#17①）。明示の落盘は readerReadSaveNow／readerFlush（同期：CR433-3 第 4 条）
+function readerFlush(){ // 離れる・pagehide：待っている帧と計時器を取り消し、いまの位置を同期で持久化する（後景の頁では rAF が走らない）
+  if(rdrSpyTick){ cancelAnimationFrame(rdrSpyTick); rdrSpyTick=0; }
+  if(rdrReadTimer){ clearTimeout(rdrReadTimer); rdrReadTimer=null; }
+  if(!App.reader || !document.querySelector('#view .rdr')) return;
+  readerCurUpdate(); readerPersistNow();
+}
+function readerReadSaveNow(){
   readerCurUpdate(); // 錨は滚りごとに（錨合わせ中は節だけ判定し直さない：readerCurCompute）
   { const c=App.rdrCur; if(c && App.reader && c.kai===App.reader.kai && c.sec!==App.reader.sec && document.querySelector('#view .rdr-wide')) readerSetSec(c.sec); } // 節が変わったらすぐ目次・しおり・頁表示を合わせる（持久化の 600ms を待たない：CR432d-6）
   if(rdrReadTimer) return;
-  rdrReadTimer=setTimeout(function(){ rdrReadTimer=null;
+  rdrReadTimer=setTimeout(function(){ rdrReadTimer=null; readerPersistNow(); },600);
+}
+function readerPersistNow(){ // 持久化の本体（書き手だけ）：今の節・カード・相対位置を lastRead に
+  if(typeof replacingData!=='undefined' && replacingData) return; // 書込層の約束：データを取り替えたあとは書き戻さない（onPageHide と同じ守り：CR433-6 第 1 条）
     if(!App.reader || !App.course || !writerOk || !document.querySelector('#view .rdr')) return;
     const inHold=!!(App._rdrHold && Date.now()<App._rdrHold); // 節・カードの錨合わせ中（描画直後に字体・図が届いて版面が伸びる）：節は判定し直さない（U38：WebKit で節が一つ手前に記録されていた）。カード・相対位置の持久化は続ける（W06：続きから読むに card が要る）
     const hd=document.querySelector('.rdr-hd'), top=Math.max((parseFloat(getComputedStyle(document.body).paddingTop)||52), hd?hd.getBoundingClientRect().bottom:0)+8;
@@ -179,7 +190,6 @@ function readerReadSave(){
     let secNow=App.reader.sec; if(!inHold && document.querySelector('#view .rdr-wide')){ let k=0; document.querySelectorAll('#view .rdr-secwrap').forEach(function(w,i){ if(w.getBoundingClientRect().top<=top+40) k=i; }); secNow=k; if(secNow!==App.reader.sec) readerSetSec(secNow); } // 鋪開：上端の線を越えた最後の節（錨合わせ中は判定し直さない）
     const v={kai:App.reader.kai,sec:secNow}; if(card && window.scrollY>200){ v.card=card.id.replace(/^c-/,''); v.off=Math.round(top-card.getBoundingClientRect().top); }
     lsSet(nk('lastRead'),v);
-  },600);
 }
 window.addEventListener('scroll',readerReadSave,{passive:true});
 let rdrSpyRaf=0;
@@ -222,15 +232,17 @@ function readerRelayout(){ // 幅の境界をまたいだとき（core.js）：�
   place(); readerCurUpdate(); requestAnimationFrame(place); [120,300,600].forEach(function(ms){ setTimeout(place,ms); }); // 首回の置き直しの直後に錨を記す（その後すぐまたいでも新しい）
   setTimeout(function(){ evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); if(App._rdrGen!==gen) return; if(App._rdrHoldGen===gen) App._rdrHold=0; readerCurUpdate(); },700);
 }
+function readerAnchorCancel(){ ++App._rdrGen; App._rdrHold=0; const f=App._rdrAnchorStop; App._rdrAnchorStop=null; if(f) f(); } // 進行中の節の錨合わせを片付ける：代次を進め、保留を解き、監聴を外す（統一の片付け）
 function readerSecY(idx){ const n=document.getElementById('rdr-sec-'+idx); return n?Math.max(0, n.getBoundingClientRect().top+window.scrollY-readerTopLine()+8):window.scrollY; } // 節の上端を上端線に置く scrollY
 function readerAnchorSec(idx){ // 鋪開：節の錨へ動き、字体・図が後から届いて版面が伸びても数回合わせ直す（0／120／400／900／1600ms）。利用者が動いたら止める。その間は spy が節を判定し直さない（App._rdrHold、代次号つき）
-  if(App._navRestoring){ window.scrollTo(0,readerSecY(idx)); return; } // 歴史帧の復元中（戻る）：位置は restoreFrame が戻す。節首へは引かない（CR432c-2）
+  if(App._navRestoring){ readerAnchorCancel(); window.scrollTo(0,readerSecY(idx)); return; } // 譲るときも代次を進めて前の錨合わせを片付ける（監聴を外し・保留を解く）：離れる前の計時器が戻った位置を引き戻さない（#18①・CR433-3 第 3 条） // 歴史帧の復元中（戻る）：位置は restoreFrame が戻す。節首へは引かない（CR432c-2）
   const gen=++App._rdrGen;
   let moved=false, done=false; const stop=function(){ moved=true; if(App._rdrHoldGen===gen) App._rdrHold=0; }, evs=['wheel','touchstart','keydown','pointerdown']; // 利用者が動いたら錨合わせも spy の保留も終わり
   evs.forEach(function(ev){ window.addEventListener(ev,stop,{passive:true,capture:true}); });
   App._rdrHold=Date.now()+1700; App._rdrHoldGen=gen;
   const place=function(){ if(moved || done || App._rdrGen!==gen) return null; if(App.reader && App.reader.sec===idx && document.getElementById('rdr-sec-'+idx)){ const y=readerSecY(idx); if(Math.abs(window.scrollY-y)>4) window.scrollTo(0,y); return y; } return null; };
-  const finish=function(){ if(done) return; done=true; evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); if(App._rdrGen!==gen) return; if(App._rdrHoldGen===gen) App._rdrHold=0; readerCurUpdate(); }; // 合わせ終わり（自分の代次のときだけ）：保留を解き、落ち着いた位置を錨に記す
+  const finish=function(){ if(done) return; done=true; evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); if(App._rdrHoldGen===gen) App._rdrHold=0; if(App._rdrAnchorStop===finish) App._rdrAnchorStop=null; if(App._rdrGen!==gen) return; readerCurUpdate(); }; // 合わせ終わり：監聴を外し保留を解くのは代次に関わらず（取って代わられても漏らさない：CR433-3 第 3 条）、錨を記すのは自分の代次のときだけ
+  App._rdrAnchorStop=finish; // 譲り（readerAnchorCancel）から片付けられるように
   const imgsOk=function(){ return Array.prototype.every.call(document.querySelectorAll('#view .rdr img'),function(i){ return i.complete || (i.hasAttribute('width') && i.hasAttribute('height')); }); }; // 版面を伸ばしうる図が届くまで収口しない（届く前に収口すると、後から図が節首を押し下げる：CR432d-2）。width・height を持つ図（.rc-img は全部）は届く前から同じ箱なので待たない——読本の図は loading=lazy で、視口の下の図は滚るまで届かず、待てば常に 1.7 秒の上限まで保留が続いてしまう
   const check=function(){ const y=place(); if(y!=null && lastY!=null && Math.abs(y-lastY)<=1 && (!document.fonts || document.fonts.status==='loaded') && imgsOk()) finish(); lastY=y; }; // 節の錨が二回続けて同じ所にあり字体も揃っていれば、もう版面は伸びない：そこで終える（1.7 秒待たない——その後の滚りは利用者の動きとして節を判定し直す：scrollbar のドラッグ・別の code の scrollTo・S4 探針 C7）。document.fonts.ready は描画の時点では前の解決済みの約束を返すことがある（Chromium：status が loading でも即座に then）ので使わない
   let lastY=place(); readerCurUpdate(); // 首回の scrollTo の直後に錨を記す（跳んだ直後にまたいでも新しい：CR432c-1）。首回の位置も比較に入れる（CR432d-2）
@@ -259,7 +271,7 @@ function readerRail(unit){ // 広い画面の右欄（≥1440 だけ CSS で見�
 function readerRailSolve(ids,k){ // この回の内容の題で演習（CR432e-1）。守りは startReviewKai と同じ：newSession が canWrite（只読の標籤頁は始めない）を見る。旧課の題集に隠し／退役の札は無く、startReviewKai も App.idx（全題）から取る（CR432f-7 確認）
   if(!ids.length) return;
   const list=C.reviewSample(App.questions,{onlyIds:ids,count:ids.length,recentIds:App.recent},App.rng);
-  if(newSession('review',list,{kai:k})) renderRunner();
+  leaveGuard(function(){ if(newSession('review',list,{kai:k})) renderRunner(); }); // 練習の最中（読本・概念ページへ移った先も）なら確かめてから：黙って置き換えると今の練習が消える（4.3.3 #30・CR433-40 必修 2）
 }
 function readerSetSec(idx){ // 界面の同期だけ：節番号・目次／帯の選択・しおりの表示・頁の文字を今の節に合わせる。滚らない・書かない・描き直さない（滚るのは readerAnchorSec／gotoReader、書くのは readerReadSave の持久化：CR432f-2）
   if(!App.reader) return; App.reader.sec=idx;
@@ -271,7 +283,7 @@ function readerSetSec(idx){ // 界面の同期だけ：節番号・目次／帯�
 function gotoReader(idx){
   if(readWide() && document.getElementById('rdr-sec-'+idx)){ readerSetSec(idx); readerAnchorSec(idx); if(App.course && writerOk) lsSet(nk('lastRead'),{kai:App.reader.kai,sec:idx}); return; } // 鋪開：翻頁ではなく錨へ。持久化は書き手だけ（CR432-4：readerReadSave と同じ守り）
   const cur=App.reader?App.reader.sec:0; readerDir=(idx>cur)?'fwd':(idx<cur?'back':'none'); renderReader(App.reader.kai,idx); }
-function leaveReader(){ document.body.classList.remove('reader-view'); App.reader=null; }
+function leaveReader(){ try{ readerFlush(); }catch(e){} document.body.classList.remove('reader-view'); App.reader=null; } // 離れる前に読んでいた位置を同期で持久化（CR433-3 第 4 条）
 function curReaderFont(){ const v=parseFloat(document.documentElement.style.getPropertyValue('--rdr-fs')); return v||parseFloat(lsGet(nk('readerFs'),1))||1; }
 function setReaderFont(v){ v=Math.max(0.85,Math.min(1.3,parseFloat(v)||1)); document.documentElement.style.setProperty('--rdr-fs',String(v)); if(App.course) lsSet(nk('readerFs'),v); }
 const RDR_FS=[0.9,1,1.1,1.2,1.3]; // 文字の大きさは 5 段（滑らかな滑杆は指でもキーでも合わせにくい：S6 U-58）
@@ -673,6 +685,7 @@ function readerPracticeTarget(ids){ // 回末から一覧へ：この回の内�
   const any=(App.questions||[]).filter(same)[0];
   return inBlock||(any&&any.id)||ids[0];
 }
+function readerKaiCount(){ try{ const k=App.reader?App.reader.kai:null; return (App.questions||[]).filter(function(q){ return qShowKai(q)===k; }).length; }catch(e){ return 0; } } // 今の回（内容の回：content_kai||kai）の題数（読本右欄と同じ口径）
 function readerPractice(b){
   const ja=App.lang==='ja', ids=(b.items||[]).map(function(it){return it.qid;});
   const idsRow=el('div',{class:'rprac-ids'});
@@ -680,17 +693,18 @@ function readerPractice(b){
   if(ids.length>3) idsRow.appendChild(el('span',{class:'qid more',text:'+'+(ids.length-3)}));
   return el('div',{class:'rprac'},[
     el('span',{class:'ric',html:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'}),
-    el('div',{class:'rprac-h'},[ el('span',{class:'sub jp',text:b.title||t('pracTitle')}), el('span',{class:'cnt jp',text:tf((App.course&&App.course.shape==='reader')?'pracReaderCnt':'pracSecCnt',{n:ids.length})}) ]),
+    el('div',{class:'rprac-h'},[ el('span',{class:'sub jp',text:b.title||t('pracTitle')}), el('span',{class:'cnt jp',text:tf((App.course&&App.course.shape==='reader')?'pracReaderCnt':'pracSecCnt',{n:(App.course&&App.course.shape==='reader')?readerKaiCount():ids.length})}) ]), // 読む型（神経）：押すと開く一覧はその回の題なので、件数もその回（内容の回）の題数（V-17：1問と書いて 11 題の一覧が開いた）
     idsRow,
     /* 神経(読む/さがす型)は臨床の「出題→採点」フローを使わない。答えと解説が開いた一覧へ渡す。 */
     (App.course&&App.course.shape==='reader')
-      ? el('button',{class:'rprac-cta jp','aria-label':t('pracSeeQ'),
+      ? el('button',{class:'rprac-cta jp', // 読み上げ名は見える文字と同じ（aria-label を別の句にしない：O-20・V-17）
           html:t('pracSeeAns')+' ›',
           onclick:function(){ renderQuestionList(readerPracticeTarget(ids)); }})
       : el('button',{class:'rprac-cta jp','aria-label':t('pracSec'),html:t('pracSec')+' ›',onclick:function(){ startPracticeIds(ids); }})
   ]);
 }
-function startPracticeIds(ids){ const list=ids.map(function(id){ return App.idx.byId[id]; }).filter(Boolean); if(!list.length) return;
+function startPracticeIds(ids){ leaveGuard(function(){ startPracticeIdsNow(ids); }); } // 練習の最中（読本・概念ページへ移った先も）なら確かめてから：黙って置き換えると今の練習が消える（確かめた後の読本発の判定は今の画面で：examLeave は runner の帧だけを外す）（4.3.3 #30・CR433-40 必修 2）
+function startPracticeIdsNow(ids){ const list=ids.map(function(id){ return App.idx.byId[id]; }).filter(Boolean); if(!list.length) return;
   const inReader=!!App.reader && document.body.classList.contains('reader-view'); // 読本が画面に出ているときだけ読本発（字標で首页へ戻った後も App.reader は残る）
   const back=inReader?{kai:App.reader.kai,sec:App.reader.sec}:null;
   /* 模擬試験の最中は、その問題が隔離されて newSession が null を返す(トーストで通知済み)。

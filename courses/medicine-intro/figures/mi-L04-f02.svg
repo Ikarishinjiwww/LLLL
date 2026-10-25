@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 476" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">上行性の感染：尿道炎・膀胱炎から腎盂腎炎へ</title>
+  <desc id="d">尿路の模式図で、片側の腎臓は断面で示す。尿路感染症では、多くの場合、尿道から入った細菌が尿路を上行し、尿道炎・膀胱炎・腎盂腎炎を起こす。上行性の感染では、菌が膀胱から尿管をさかのぼり、腎盂・腎杯に達する。腎盂腎炎は、膀胱炎の菌がさらに上がって腎臓まで入り込んだ状態で、高熱が出やすい。破線の矢印は、細菌が上行する向きを表す。健康な人の膀胱の尿は無菌で、膀胱から尿管への逆流は防がれている。尿路感染症は女性に多い。理由の一つは、尿道の出口が肛門や腟に近く、菌が入りやすいことである。</desc>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <style>
+    .org{fill:currentColor;fill-opacity:.12;stroke:currentColor;stroke-width:1.8}
+    .cav{fill:currentColor;stroke:currentColor;stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
+    .pel{fill:currentColor;stroke:currentColor;stroke-width:4;stroke-linejoin:round}
+    .tube{fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
+    .bac{fill:none;stroke:currentColor;stroke-width:2.2;stroke-dasharray:5 4}
+    .up{fill:none;stroke:currentColor;stroke-width:1.6}
+    .lead{fill:none;stroke:currentColor;stroke-width:1;opacity:.6}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+  <text class="sm" x="16" y="22">尿路の模式図（片側の腎臓は断面）</text>
+  <text class="sm" x="16" y="42">破線の矢印：細菌が上行する向き</text>
+
+  <!-- 腎臓（断面）・腎盂・腎杯 -->
+  <path class="org" d="M110 66 C82 66 70 92 70 122 C70 154 84 178 110 178 C128 178 140 168 138 156 C136 147 130 138 130 122 C130 108 134 99 138 90 C141 78 128 66 110 66 Z"/>
+  <g opacity=".3">
+    <path class="cav" d="M116 106 L94 86 M114 122 L88 122 M116 138 L94 158"/>
+    <path class="pel" d="M114 104 C124 108 132 120 137 134 L141 148 C132 144 124 141 114 140 Z"/>
+  </g>
+  <path class="tube" d="M140 148 C148 186 148 234 142 266"/>
+  <path class="org" d="M120 282 Q120 268 136 268 L164 268 Q180 268 180 282 Q180 306 150 310 Q120 306 120 282 Z"/>
+  <path class="tube" d="M150 310 L150 350"/>
+
+  <!-- 細菌の上行（破線） -->
+  <path class="bac" d="M160 354 L160 320" marker-end="url(#ah)"/>
+  <path class="bac" d="M162 300 C164 286 156 274 156 258 C158 228 160 196 154 168" marker-end="url(#ah)"/>
+  <path class="bac" d="M146 156 C138 144 128 132 112 124" marker-end="url(#ah)"/>
+
+  <!-- 部位の名前 -->
+  <path class="lead" d="M48 70 L92 88 M48 186 L80 168 M166 108 L132 126 M130 214 L144 214 M106 290 L120 290 M134 334 L148 334"/>
+  <text class="it" x="16" y="74">腎杯</text>
+  <text class="it" x="16" y="192">腎臓</text>
+  <text class="it" x="170" y="112">腎盂</text>
+  <text class="it" x="98" y="220">尿管</text>
+  <text class="it" x="74" y="296">膀胱</text>
+  <text class="it" x="102" y="340">尿道</text>
+
+  <!-- 病気の名前（下から上へ） -->
+  <text class="lab" x="214" y="80">腎盂腎炎</text>
+  <text class="sm" x="214" y="102">菌が腎盂・腎杯に達し、</text>
+  <text class="sm" x="214" y="121">腎臓まで入り込む</text>
+  <text class="lab" x="214" y="146">高熱が出やすい</text>
+  <path class="up" d="M224 266 L224 162" marker-end="url(#ah)"/>
+  <text class="sm" x="236" y="208">膀胱から尿管を</text>
+  <text class="sm" x="236" y="227">さかのぼる</text>
+  <text class="lab" x="214" y="290">膀胱炎</text>
+  <path class="up" d="M224 334 L224 304" marker-end="url(#ah)"/>
+  <text class="lab" x="214" y="354">尿道炎</text>
+  <text class="sm" x="214" y="374">尿道から細菌が入る</text>
+
+  <!-- 注 -->
+  <text class="sm" x="16" y="404">健康な人の膀胱の尿は無菌で、膀胱から</text>
+  <text class="sm" x="16" y="423">尿管への逆流は防がれている。</text>
+  <text class="sm" x="16" y="449">尿路感染症は女性に多い。理由の一つは、尿道の出口が</text>
+  <text class="sm" x="16" y="468">肛門や腟に近く、菌が入りやすいことである。</text>
+</svg>

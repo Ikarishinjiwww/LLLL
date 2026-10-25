@@ -1,6 +1,7 @@
 /* rx-search.js ― 新課（rx-content/1）の検索と、書き出しに添える AI 提示の材料（Q-026）。
  * 検索の対象：回（題・シラバス）・カード（題・欄の見出しと本文・病名・症状・表・図の説明・発展の段落）・
- *   本文（命題の文・思い出す問い・講義／標準／試験の三欄・知識点の見出し）・概念名。
+ *   本文（命題の文・思い出す問い・講義／標準／試験の三欄・知識点の見出し）・概念名・
+ *   讲解块（ix.explain の本文。「カード」の組に出し、着地は「読む」）・用語表（回の glossary の用語・読み・意味・注意。RX_FLAGS.glossary が false なら入れない）。4.3.3 #1（FX1-07・HF1-02）
  * 対象にしない：誤述（わざと誤った文。当たると誤解を招く）・演習の問題・過去問（解錠後もメモリだけ）・文献。
  * 照合は旧課の検索と同じ部品（panels.js の sNorm・sTerms・sFind・markNode・snippet）。
  * 着地は rxGoCard 経由で、命題が「いま画面のどこに出ているか」を DOM で探す：回のページの見せ方（命題を何度出すか・
@@ -43,6 +44,12 @@ function rxsCorpus(){
       row(o,[p.text,p.recall,tr.lecture,tr.standard,tr.exam,k&&k.label]);
     });
   });
+  ix.lectures.forEach(function(Lc){ // 讲解块（「読む」にだけ出る本文）：一块一行。見出しはカードの題、当たりの抜粋は块の本文から
+    RX.orderOf(Lc).forEach(function(cid){ const c=ix.cards[cid]&&ix.cards[cid].card;
+      ((ix.explain&&ix.explain[cid])||[]).forEach(function(b){ row({g:'explain',lec:Lc.id,kai:Lc.kai,card:cid,block:b.id,title:(c&&c.title)||'',name:(c&&c.title)||'',text:b.text},[b.text]); }); });
+    if(RX_FLAGS.glossary!==false && typeof rxGlossRows==='function') rxGlossRows(Lc).forEach(function(g){ // 用語表（表と同じ開關・同じ行の取り方）
+      row({g:'gloss',lec:Lc.id,kai:Lc.kai,term:g.term,title:g.term,name:g.term},[g.term,g.yomi,g.gloss,g.note]); });
+  });
   Object.keys(ct.concepts||{}).forEach(function(g){
     const nm=L(ct.concepts[g])||''; if(nm) row({g:'concept',concept:g,title:nm,name:nm},[nm]);
   });
@@ -61,6 +68,7 @@ function rxsScore(r,terms){ // 見出しが検索語そのもの → 見出し�
 }
 function rxsSource(r,terms){ // 結果の下の一行：当たった部分（命題なら文 → 問い → 三欄の順）
   if(r.g==='prop'){ const c=[r.text,r.recall,r.tri].find(function(x){ return x && sHit(x,terms); }); return c||r.text; }
+  if(r.g==='explain') return r.text;
   const p=r.parts.slice(1).find(function(x){ return sHit(x,terms); });
   return p||r.parts.slice(1).join('　');
 }
@@ -77,15 +85,18 @@ function rxSearchOpen(q){
     const terms=sTerms(input.value);
     out.innerHTML='';
     if(!terms.length){ out.appendChild(el('div',{class:'gnone jp',text:sHasTooShort(input.value)?t('srTooShort'):t('rxSearchHint')})); return; }
-    const hits=rxsCorpus().filter(function(r){ return rxsHit(r,terms); });
+    const all=rxsCorpus().filter(function(r){ return rxsHit(r,terms); }), seen={};
+    all.forEach(function(r){ if(r.g==='card') seen[r.card]=1; });
+    const hits=all.filter(function(r){ if(r.g!=='explain') return true; if(seen[r.card]) return false; seen[r.card]=1; return true; }); // 讲解块はカードごとに一行（カード自体が当たっていればカードの行だけ）
     if(!hits.length){ out.appendChild(el('div',{class:'gnone jp',text:t('searchNone')})); return; }
     out.appendChild(el('div',{class:'srsum jp',text:tf('srHits',{n:hits.length})+(terms.length>1?t('srAllTerms'):'')}));
-    [['concept','srConcepts'],['lec','rxSrLec'],['card','rxSrCard'],['prop','rxSrProp']].forEach(function(gk){
-      const list=hits.filter(function(r){ return r.g===gk[0]; });
+    const glossLb=(t('coLabel')||{})['用語']||'用語'; // 用語表の組の見出し＝既存の札「用語」（快审第五批で签发済み）
+    [['concept',t('srConcepts')],['gloss',glossLb],['lec',t('rxSrLec')],['card',t('rxSrCard'),'explain'],['prop',t('rxSrProp')]].forEach(function(gk){
+      const list=hits.filter(function(r){ return r.g===gk[0] || (gk[2] && r.g===gk[2]); });
       if(!list.length) return;
       const sc=list.map(function(r,i){ return {r:r,i:i,s:rxsScore(r,terms)}; });
       sc.sort(function(a,b){ return b.s-a.s || a.i-b.i; });
-      out.appendChild(el('div',{class:'srhd jp',style:out.querySelector('.srhd')?'margin-top:12px':null,text:t(gk[1])+' ('+list.length+')'}));
+      out.appendChild(el('div',{class:'srhd jp',style:out.querySelector('.srhd')?'margin-top:12px':null,text:gk[1]+' ('+list.length+')'}));
       sc.slice(0,RXS_CAP).forEach(function(x){ out.appendChild(rxsRow(x.r,terms)); });
     });
   };
@@ -103,10 +114,12 @@ function rxSearchOpen(q){
   if(!back && !App.rxSearchQ){ try{ input.focus({preventScroll:true}); }catch(e){} }
 }
 function rxsRow(r,terms){ // 行の印は data-pid（data-prop は回のページの命題行の印なので使わない）
-  const b=el('button',{class:'srow','data-g':r.g,'data-lec':r.lec||null,'data-card':r.card||null,'data-pid':r.prop||null,'data-concept':r.concept||null,
+  const b=el('button',{class:'srow','data-g':r.g,'data-lec':r.lec||null,'data-card':r.card||null,'data-pid':r.prop||null,'data-concept':r.concept||null,'data-block':r.block||null,'data-term':r.g==='gloss'?r.term:null,
     onclick:function(){
       if(r.g==='concept'){ renderRxConcept(r.concept); return; }
       if(r.g==='lec'){ renderRxLecture(r.lec); return; }
+      if(r.g==='explain'){ rxsLandExplain({lec:r.lec,card:r.card,block:r.block,terms:terms}); return; }
+      if(r.g==='gloss'){ rxsLandGloss({lec:r.lec,term:r.term,terms:terms}); return; }
       rxSearchLand({lec:r.lec,card:r.card,prop:r.prop,terms:terms,
         inTriple:r.g==='prop' && !sHit(r.text,terms) && !sHit(r.recall,terms) && sHit(r.tri,terms)});
     }});
@@ -132,7 +145,7 @@ function rxSearchLand(a){
   const view=document.getElementById('view');
   let node=null, cardId=null;
   if(a.prop){
-    const sel='[data-prop="'+a.prop+'"]'; // カードの中と要点だけを見る（切替の動きのあいだ、前の画面が #view に残っていることがある）
+    const esc=(window.CSS&&CSS.escape)?CSS.escape:function(x){ return String(x).replace(/["\\]/g,'\\$&'); }; const sel='[data-prop="'+esc(a.prop)+'"]'; // 属性値は逸脱させる（#17⑥） // カードの中と要点だけを見る（切替の動きのあいだ、前の画面が #view に残っていることがある）
     const all=[].slice.call(view.querySelectorAll('[id^="rxc-"] '+sel+', #rx-sum '+sel));
     const inCard=all.filter(function(n){ return n.closest('[id^="rxc-"]'); });
     const withTri=inCard.filter(function(n){ const w=n.closest('.rx-prop-w'); return w && w.querySelector('.rx-tri,.rx-tri-tog'); }); // ux/render：三栏は「比較」（.rx-tri-tog）で開くまで DOM に無い
@@ -146,7 +159,7 @@ function rxSearchLand(a){
   else if(a.prop) cardId=RX.firstCardOf(ix,a.prop);
   if(!cardId) return;
   if(!document.getElementById('rxc-'+cardId)){ renderRxLecture(a.lec,cardId); if(!document.getElementById('rxc-'+cardId)) return; // 回のページは出ているがカードは別の頁（翻頁）：その頁を出してから。無ければそこで止める
-    if(a.prop){ const n2=[].slice.call(view.querySelectorAll('[id^="rxc-"] [data-prop="'+a.prop+'"]')); const wt=n2.filter(function(n){ const w=n.closest('.rx-prop-w'); return w && w.querySelector('.rx-tri,.rx-tri-tog'); }); node=(a.inTriple && wt[0]) || n2[0] || node; } } // 描き直したら命題の節点を探し直す（高亮・三栏の展開のため）
+    if(a.prop){ const n2=[].slice.call(view.querySelectorAll('[id^="rxc-"] [data-prop="'+((window.CSS&&CSS.escape)?CSS.escape(a.prop):a.prop)+'"]')); const wt=n2.filter(function(n){ const w=n.closest('.rx-prop-w'); return w && w.querySelector('.rx-tri,.rx-tri-tog'); }); node=(a.inTriple && wt[0]) || n2[0] || node; } } // 描き直したら命題の節点を探し直す（高亮・三栏の展開のため）
   const cel=document.getElementById('rxc-'+cardId);
   for(let d=(node||cel).closest('details'); d; d=d.parentElement&&d.parentElement.closest('details')) d.open=true;
   if(node && a.inTriple){ const w=node.closest('.rx-prop-w'); if(w){ w.querySelectorAll('details').forEach(function(d){ d.open=true; });
@@ -154,6 +167,42 @@ function rxSearchLand(a){
   // 命中の行を顶栏の下 1/3 に置き、強調は利用者が動くまで（最長約 3 秒）残す（C-N01）。「隠して思い出す」を解くのは検索の着地だけ：reveal で明示する（N-B）
   rxGoCard(cardId,a.prop||null,a.prop?{anchor:'prop',hold:true,reveal:true}:{reveal:true});
   rxsMarkLanded(a.terms,cardId);
+}
+/* 讲解块・用語表への着地（4.3.3 #1・HF1-02）：どちらも「読む」にだけ出る。表示が「覚える」なら臨時に「読む」（App.rxViewTmp：偏好 rx:view には書かない。
+ * ずれ→臨時に「覚える」（rxGoGaps）と対の扱い）。着地の高亮・保持・錨止めは命題への着地と同じ部品（rxGoCard の opts.row／rxAlignLanding） */
+function rxsAttrSel(name,v){ return '['+name+'="'+String(v).replace(/["\\]/g,'\\$&')+'"]'; } // 値に引用符・逆斜線があっても壊れない属性選択子
+function rxsReadView(Lc){ if(rxViewOf(Lc)!=='read') App.rxViewTmp={lec:Lc.id,view:'read'}; }
+function rxsLandExplain(a){
+  const ix=App.rx.ix, Lc=ix.lecById[a.lec]; if(!Lc || !ix.cards[a.card]) return;
+  rxsReadView(Lc);
+  const top=viewStack[viewStack.length-1], here=document.getElementById('rxc-'+a.card);
+  if(!top || top.key!=='rx-lec:'+a.lec || !here || !here.classList.contains('rx-read')) renderRxLecture(a.lec,a.card); // 「覚える」で出ていた・別の頁：「読む」で描き直す（焦点のカードの頁へ）
+  const sel=rxsAttrSel('data-explain',a.block);
+  rxGoCard(a.card,null,{reveal:true,row:sel,hold:true});
+  if(App.rxLand && App.rxLand.card===a.card) App.rxLand.terms=a.terms||null; // 描き直し（rxMarkLanding）でも検索語の色を付け直す
+  const n=document.querySelector('#view #rxc-'+a.card+' '+sel);
+  if(n && a.terms && a.terms.length) rxsMarkIn(n,a.terms);
+}
+function rxsLandGloss(a){
+  const ix=App.rx.ix, Lc=ix.lecById[a.lec]; if(!Lc) return;
+  rxsReadView(Lc);
+  renderRxLecture(Lc.id,null,{page:0}); // 用語表は 1 頁目（窄幅の翻頁）
+  const box=document.querySelector('#view #rx-gloss'); if(!box) return;
+  box.open=true; App.rxGlossOpen=Lc.id; // 描き直しても開いたまま（rxGlossBlock）
+  const sel=rxsAttrSel('data-gloss-term',a.term), r=box.querySelector(sel); if(!r) return;
+  window.scrollBy(0,r.getBoundingClientRect().top-rxRowTarget());
+  if(a.terms && a.terms.length) rxsMarkIn(r,a.terms);
+  App.rxLand={card:null,gloss:a.term,lec:Lc.id,row:sel,terms:a.terms||null,until:Date.now()+3000,hold:true}; // 強調・保持・描き直しでの付け直しは命題の着地と同じ rxMarkLanding（利用者が動かした時点で until を今に：CR433-5）
+  rxMarkLanding();
+  if(typeof rxAlignLanding==='function') rxAlignLanding(null,sel,'rx-gloss',Lc.id); // 図の読み込みなどで版面が動いても、その行に合わせ直す（利用者が動かすまで）
+  if(r && typeof rxFocusLanding==='function') rxFocusLanding(r); // #31：用語の着地にも焦点（h1 に残り、画面外に置き去りだった：S4 2026-10-25。範囲は #31 に含むと確定：CR433-38d）
+}
+function rxsHold(n){ // 行の強調を、利用者が動かすまで（最長約 3 秒）残す（命題・要点への着地と同じ振る舞い）
+  n.classList.add('rx-hl');
+  const evs=['wheel','touchstart','keydown','pointerdown'];
+  let tm=0; const stop=function(){ clearTimeout(tm); evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); n.classList.remove('rx-hl'); };
+  tm=setTimeout(stop,3000);
+  evs.forEach(function(ev){ window.addEventListener(ev,stop,{passive:true,capture:true}); });
 }
 /* 検索語の色は rxGoCard／rxGoGaps が実際に着いた所に付ける：App.rxLand.gaps なら #rx-gaps の命題の行、そうでなければ App.rxLand.card（無ければ呼んだカード）。 */
 function rxsMarkLanded(terms,cardId){
@@ -173,11 +222,7 @@ function rxsLandSummary(n,terms){
   if(q){ try{ q.focus({preventScroll:true}); }catch(e){} } // 「残りを表示」は焦点を別の行へ送る：着いた行の問いへ戻す
   window.scrollBy(0,n.getBoundingClientRect().top-rxRowTarget());
   if(terms && terms.length) rxsMarkIn(n,terms);
-  n.classList.add('rx-hl');
-  const evs=['wheel','touchstart','keydown','pointerdown'];
-  let tm=0; const stop=function(){ clearTimeout(tm); evs.forEach(function(ev){ window.removeEventListener(ev,stop,{capture:true}); }); n.classList.remove('rx-hl'); };
-  tm=setTimeout(stop,3000);
-  evs.forEach(function(ev){ window.addEventListener(ev,stop,{passive:true,capture:true}); });
+  rxsHold(n);
 }
 function rxsMarkIn(root,terms){ // 着いたカードの中の検索語に色を付ける（次に描き直すまで）
   if(!root) return;

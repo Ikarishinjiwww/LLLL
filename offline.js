@@ -1,6 +1,6 @@
 /* offline.js ― 离线（Service Worker）的页面侧：注册・新版提示（只在安全点）・离线状态提示・每课离线包・设置区块。
- * 新版就绪：只在首页出不打扰的提示，用户点了才切换，且只重新载入点的这个标签；模试・练习中途绝不刷新。
- * 别的标签被切到新 SW 后继续用已载入的旧版，到首页时提示「重新载入」，不自动刷新。 */
+ * 新版就绪：只在安全点（首页・读本・回页・概念页）出不打扰的提示，用户点了才切换，且只重新载入点的这个标签；模试・练习中途绝不刷新。
+ * 别的标签被切到新 SW 后继续用已载入的旧版，到安全点时提示「重新载入」，不自动刷新。 */
 'use strict';
 
 const SW={ ok:('serviceWorker' in navigator) && window.isSecureContext, reg:null, waiting:null, mine:false, reloadOnly:false, frame:'' };
@@ -37,11 +37,18 @@ function swWatch(w){
 }
 function swSetWaiting(w){ SW.waiting=w; SW.reloadOnly=false; swPrompt(); } // 新しい waiting が来たら「再読み込みだけ」より優先
 
-/* registerFrame 每次渲染时告知当前画面；只有首页是安全点 */
-function swOnFrame(key){ SW.frame=key; swPrompt(); swNetChip(); }
+/* registerFrame 每次渲染时告知当前画面；新版提示只在安全点出（4.3.3 #9・F9-2：原来只有首页）。
+ * 安全点＝只读的画面：首页・旧课读本（含目次）・新课的回页・概念页（新旧）。按下＝重新载入，这些画面都能经网址（navRoute）或 lastRead 回到原处。
+ * 练习・模试・结果・检索（输入中）不出：重新载入会丢掉正在做的事 */
+const SW_SAFE=/^(home|reader|readerIndex|rx-lec:.+|concept:.+|rx-concept:.+)$/;
+function swSafeNow(){ // 画面の積み重ね（viewStack）が全部安全点のときだけ：練習・模試の途中から解説の概念ページへ来た等、下に会話が残っていれば出さない（CR433-5：押すと重載で会話が消える）
+  const st=(typeof viewStack!=='undefined' && viewStack.length)?viewStack:[];
+  return SW_SAFE.test(SW.frame||'') && st.every(function(f){ return SW_SAFE.test((f&&f.key)||''); }); // いま知らされた画面と積み重ねの両方：registerFrame で知らせと積むのがどちらが先でも同じ（CR433-11）
+}
+function swOnFrame(key){ SW.frame=key; swPrompt(); swNetChip(); } // 出栈（goBack）も描き直しで registerFrame→ここを通る
 function swPrompt(){
   const old=document.getElementById('swUpd'); if(old) old.remove();
-  if(!(SW.waiting||SW.reloadOnly) || SW.frame!=='home') return;
+  if(!(SW.waiting||SW.reloadOnly) || !swSafeNow()) return;
   document.body.appendChild(el('div',{id:'swUpd',class:'sw-upd',role:'status'},[
     el('span',{class:'jp',text:t('swReady')}),
     el('button',{class:'btn sm jp',text:SW.reloadOnly?t('swReload'):t('swUpdate'),onclick:swApply}) ]));

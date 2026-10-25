@@ -193,7 +193,7 @@ function renderQuestionList(focusQid){
   kids.push(lede);
   /* 章程第 21 条：一覧は答えを開いたまま。スイッチが入っていれば、同じ問題を先答後看で解く入口と今日の復習を添える（S1-d） */
   const tools=el('div',{class:'rx-tools ql-tools'});
-  if(feat('answerFirst')) tools.appendChild(el('button',{class:'btn sm jp',text:t('qlTry'),onclick:function(){ if(newSession('review',qs.slice(),{})) renderRunner(); }}));
+  if(feat('answerFirst')) tools.appendChild(el('button',{class:'btn sm jp',text:t('qlTry'),onclick:function(){ leaveGuard(function(){ if(newSession('review',qs.slice(),{})) renderRunner(); }); }})); // #30（CR433-40 必修 2）
   if(feat('spaced')){ const n=spQueue().length; if(n) tools.appendChild(el('button',{class:'btn ghost sm jp',text:t('rxReviewToday')+'　'+tf('rxReviewN',{n:n}),onclick:spReviewRun})); }
   if(tools.childNodes.length) kids.push(tools);
   qs.forEach(function(q,i){
@@ -231,7 +231,7 @@ function renderQuestionList(focusQid){
     kids.push(card);
   });
   setView(el('div',null,kids));
-  if(focusQid) requestAnimationFrame(function(){ const c=document.getElementById('q-'+focusQid); if(c){ c.scrollIntoView({block:'start'}); c.classList.add('rc-flash'); } }); // 回末「答えと解説を見る」：その回の問題の所へ（S6 U-15）
+  if(focusQid) requestAnimationFrame(function(){ const c=document.getElementById('q-'+focusQid); if(c){ const tb=document.querySelector('.topbar'), top=(tb?tb.getBoundingClientRect().bottom:0)+12; window.scrollTo(0, Math.max(0, window.scrollY+c.getBoundingClientRect().top-top)); c.classList.add('rc-flash'); } }); // 焦点の題は顶栏の直下 12px に（scrollIntoView(start) だと固定の顶栏に隠れる：V-17） // 回末「答えと解説を見る」：その回の問題の所へ（S6 U-15）
 }
 
 /* 现无 UI 入口（入口缺失，非废弃）：复活或退役待裁定，勿当死代码删除。 */
@@ -279,21 +279,26 @@ function buddySayT(msg,then){
 }
 function buddyStartQuiz(){
   try{
-    var pool=C.reviewSample(App.questions,{weakness:App.progress.weakness,count:24,recentIds:App.recent},App.rng).filter(function(q){ return q.type==='choice'; });
+    var ql0=(typeof quarantinedIds==='function' && quarantinedIds())||[], quar=function(q){ return ql0.indexOf(q.id)>=0; }; // 中断中の模試の題（examInProgress の ids）は出さない：正解を見せてしまう（B-020／X1-12。#26 で中断・続考が常のことになった）
+    var pool=C.reviewSample(App.questions,{weakness:App.progress.weakness,count:24,recentIds:App.recent},App.rng).filter(function(q){ return q.type==='choice' && !quar(q); });
     if(pool.length<10){ var have={}; pool.forEach(function(q){ have[q.id]=1; });
-      C.reviewSample(App.questions,{count:30,recentIds:App.recent},App.rng).forEach(function(q){ if(pool.length<10&&q.type==='choice'&&!have[q.id]){ pool.push(q); have[q.id]=1; } }); }
+      C.reviewSample(App.questions,{count:30,recentIds:App.recent},App.rng).forEach(function(q){ if(pool.length<10&&q.type==='choice'&&!have[q.id]&&!quar(q)){ pool.push(q); have[q.id]=1; } }); }
     buddyQuiz={list:pool.slice(0,10),pos:0,good:0};
     if(!buddyQuiz.list.length){ buddyQuiz=null; buddySayT(t('chatSumEmpty'),buddyHomeChips); return; }
     buddySayT(t('chatGoWeak'),buddyAskNext);
   }catch(e){ buddyQuiz=null; buddySayT(t('chatSumEmpty'),buddyHomeChips); }
 }
 function buddyAskNext(){
-  if(!buddyQuiz||buddyQuiz.pos>=buddyQuiz.list.length) return buddyFinishQuiz();
+  if(!buddyQuiz) return buddyFinishQuiz();
+  var ql=(typeof quarantinedIds==='function' && quarantinedIds())||[]; // 出題のその時の隔離（中断中の模試の題）で判る：開いていた小測を模試の中断後に続けても・別のタブで模試を始めても、その題と正解を出さない（CR433-34）
+  if(ql.length) buddyQuiz.list=buddyQuiz.list.slice(0,buddyQuiz.pos).concat(buddyQuiz.list.slice(buddyQuiz.pos).filter(function(x){ return ql.indexOf(x.id)<0; })); // 出した題は残し、まだの題から外す：「n/総数」と小結は実際に出した題で数える
+  if(!buddyQuiz.list.length){ buddyQuiz=null; buddySayT(t('chatSumEmpty'),buddyHomeChips); return; } // 全部が隔離：池子が空のときと同じ収め方（文案は既存）
+  if(buddyQuiz.pos>=buddyQuiz.list.length) return buddyFinishQuiz();
   var q=buddyQuiz.list[buddyQuiz.pos];
   var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   buddyTyping(true);
   setTimeout(function(){
-    buddyTyping(false);
+    buddyTyping(false); if(!buddyQuiz) return; // 打字の間に小測が終わった・空で収めた：古い出題を描かない
     var card=el('div',{class:'mcQ'});
     card.appendChild(el('div',{class:'qh'},[ el('span',{class:'pl2',text:q.kind||''}), q.topic?el('span',{class:'pl2 alt',text:q.topic}):null, el('span',{class:'pl2 alt',text:(buddyQuiz.pos+1)+'/'+buddyQuiz.list.length}) ]));
     card.appendChild(el('div',{class:'qt',text:q.q}));
@@ -366,8 +371,10 @@ function buddyFinishQuiz(){
   else { buddyHomeChips(); }
 }
 function buddyGo(fn){ closeBuddyChat();
-  try{ if(App.session){ examDropClean(); pauseSessionClock(App.session); clearCareTimer(); clearRunnerTimer(); App.session=null; App.readerReturn=null; } }catch(e){}
-  try{ fn(); }catch(e){}
+  const go=function(){
+    try{ if(App.session){ examDropClean(); pauseSessionClock(App.session); clearCareTimer(); clearRunnerTimer(); App.session=null; App.readerReturn=null; } }catch(e){}
+    try{ fn(); }catch(e){} };
+  leaveGuard(go); // 模試の最中は確かめてから（4.3.3 #11・#26）
 }
 /* 課の切替時にまっさらへ。パネル・幕・気泡・chip・検索行を全部落とす。 */
 function resetBuddy(){

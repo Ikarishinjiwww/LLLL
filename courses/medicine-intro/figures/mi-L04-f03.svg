@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 516" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">房水の流れと眼圧：緑内障のしくみ</title>
+  <desc id="d">眼球を横から見た断面の模式図で、左が目の前側である。房水は毛様体で作られ、水晶体と虹彩の間を通って前房へ流れ、シュレム管などから眼の外へ流れ出る。前房へは瞳孔を通って流れ、虹彩と角膜の間の隅角から排出される。矢印は房水の流れを表す。房水の作られる量と出ていく量が釣り合って、眼圧が一定に保たれる。房水の流出が滞って眼圧が上がると、視神経が圧迫されて傷み、視野が欠けていく。失った視野は戻らない。急に房水の出口が詰まると激しい目の痛みが起こり、頭痛や吐き気・嘔吐を伴うことがある。頭痛の原因が目にあることもある。緑内障は眼圧が正常範囲のままでも起こり、日本では正常眼圧緑内障が最も多い。水晶体は角膜の内側にあって、目のレンズの役割をする。白内障ではこの水晶体が濁り、緑内障では視神経が傷む。</desc>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <style>
+    .wall{fill:none;stroke:currentColor;stroke-width:2}
+    .cor{fill:none;stroke:currentColor;stroke-width:2.4}
+    .iris{fill:none;stroke:currentColor;stroke-width:5;stroke-linecap:round}
+    .cil{fill:currentColor;fill-opacity:.3;stroke:currentColor;stroke-width:1.2}
+    .lens{fill:currentColor;fill-opacity:.14;stroke:currentColor;stroke-width:1.6}
+    .sch{fill:currentColor;stroke:none}
+    .nerve{fill:none;stroke:currentColor;stroke-width:2}
+    .aq{fill:none;stroke:currentColor;stroke-width:2}
+    .lead{fill:none;stroke:currentColor;stroke-width:1;opacity:.6}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <!-- 眼球（左が前） -->
+  <path class="wall" d="M122.9 105 A85 85 0 1 1 122.9 195"/>
+  <path class="cor" d="M122.9 105 A46.5 46.5 0 0 0 122.9 195"/>
+  <path class="nerve" d="M279 140 L330 140 M279 160 L330 160"/>
+  <polygon class="cil" points="128,98 150,78 152,108"/>
+  <polygon class="cil" points="128,202 150,222 152,192"/>
+  <path class="iris" d="M130 106 L134 136 M130 194 L134 164"/>
+  <ellipse class="lens" cx="158" cy="150" rx="11" ry="32"/>
+  <ellipse class="sch" cx="121" cy="103" rx="3.8" ry="2.4" transform="rotate(-40 121 103)"/>
+  <ellipse class="sch" cx="121" cy="197" rx="3.8" ry="2.4" transform="rotate(40 121 197)"/>
+
+  <!-- 房水の流れ -->
+  <path class="aq" d="M149 110 C143 120 140 130 139 140 C137 154 118 156 110 146 C104 136 110 120 124 111" marker-end="url(#ah)"/>
+  <path class="aq" d="M118 99 L104 91" marker-end="url(#ah)"/>
+
+  <!-- 名前 -->
+  <path class="lead" d="M108 58 L119 98 M172 60 L146 90 M76 113 L115 110 M76 139 L89 139 M76 165 L132 158 M76 191 L106 178 M76 217 L132 184 M162 174 L174 247"/>
+  <text class="it" x="16" y="36">シュレム管など</text>
+  <text class="sm" x="16" y="55">（房水の出口）</text>
+  <text class="sm" x="96" y="96" text-anchor="end">眼の外へ</text>
+  <text class="it" x="160" y="36">毛様体</text>
+  <text class="sm" x="160" y="55">（房水を作る）</text>
+  <text class="it" x="74" y="118" text-anchor="end">隅角</text>
+  <text class="it" x="74" y="144" text-anchor="end">角膜</text>
+  <text class="it" x="74" y="170" text-anchor="end">瞳孔</text>
+  <text class="it" x="74" y="196" text-anchor="end">前房</text>
+  <text class="it" x="74" y="222" text-anchor="end">虹彩</text>
+  <text class="it" x="288" y="130">視神経</text>
+  <text class="sm" x="288" y="184">緑内障では、</text>
+  <text class="sm" x="288" y="203">ここが傷む</text>
+  <text class="it" x="150" y="262">水晶体（目のレンズ）</text>
+  <text class="sm" x="150" y="281">白内障では、ここが濁る</text>
+  <text class="sm" x="16" y="306">矢印は房水の流れ。作られる量と出ていく量が</text>
+  <text class="sm" x="16" y="325">釣り合って、眼圧が一定に保たれる。</text>
+
+  <!-- 流出が滞ると -->
+  <text class="lab" x="16" y="354">房水の流出が滞ると</text>
+  <text class="sm" x="16" y="374">眼圧が上がる → 視神経が圧迫されて傷む</text>
+  <text class="sm" x="16" y="393">→ 視野が欠けていく（失った視野は戻らない）</text>
+  <text class="lab" x="16" y="421">急に房水の出口が詰まると</text>
+  <text class="sm" x="16" y="442">激しい目の痛みが起こり、頭痛や吐き気・嘔吐を</text>
+  <text class="sm" x="16" y="461">伴うことがある（頭痛の原因が目にあることもある）</text>
+  <text class="sm" x="16" y="487">※眼圧が正常範囲のままでも緑内障は起こり、</text>
+  <text class="sm" x="16" y="506">日本では正常眼圧緑内障が最も多い。</text>
+</svg>

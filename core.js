@@ -69,6 +69,7 @@ let currentView=null; // closure replayed on language change (keeps you on the s
 /* ---------- view history stack (返回到正确层级, 修掉详情页一律回首页的潜伏 bug) ---------- */
 let viewStack=[]; // [{key, render}]  栈顶 = 当前屏; currentView 是栈顶 render 的别名
 let navGen=0; // 导航代次：压栈・返回・重置栈时 +1；同 key 就地重绘（语言切换・获书写权后的重绘）不算。等待中的动作据此作废（X12b-01）
+let frameSeq=0; // 画面を描いた回数（registerFrame ごとに +1。同 key の就地重绘も数える）：離れる確認の後に行き先が描かれたか（examLeaveSettle：CR433-40 必修 3）
 let navDir='none'; // 一次性方向信号 (供 setView 给页面套入场动画): 'fwd' 压栈前进 / 'back' goBack·goHome 后退 / 'none' 就地重绘
 let viewSwapFade=false; // 一次性: 语言切换走就地重绘 (navDir='none'), 由 setLang 置 true, setView 给新内容套一次柔和淡入后复位
 let qStep='none';  // 一次性题间步进信号 (供 renderRunner 给 .rbody 套轻量转场): 'next' / 'prev' / 'none'
@@ -82,6 +83,7 @@ function registerFrame(render,key){
   if(!samekey && navDir!=='back') navDir='fwd'; // 异 key = 前进; goBack/goHome 已置 'back' 时不覆盖
   if(samekey){ top.render=render; }
   else { if(top){ top.y=window.scrollY; top.fi=viewFocusIndex(); } viewStack.push({key:key, render:render}); navGen++; } // 離れる画面の位置と焦点を覚える：戻ったときに元の所へ（S6 U-40）
+  frameSeq++;
   if(typeof swOnFrame==='function') swOnFrame(key); // 离线：新版提示只在首页（安全点）出
   currentView=render;
 }
@@ -121,6 +123,7 @@ function navRoute(key){ // 再読み込みで戻せる画面の hash。演習中
   if(k.indexOf('concept:')===0) return c+'/concept/'+encodeURIComponent(k.slice(8));
   if(k==='flashcards') return c+'/cards';
   if(k==='rx-search') return c+'/search'+(App.rxSearchQ?'/'+encodeURIComponent(App.rxSearchQ):''); // 新課の検索（S1：rx-search.js、語は App.rxSearchQ）
+  if(k==='search') return c+'/search'+(App._searchQ?'/'+encodeURIComponent(App._searchQ):''); // 旧課の検索（4.3.3 #3・FX1-08：panels.js renderSearch、語は App._searchQ）。新課と同じ形の網址
   return c;
 }
 function navRestorable(key){ return key==='home' || navRoute(key)!==(App.course?'#/'+App.course.id:''); }
@@ -146,8 +149,10 @@ function navBack(){ // 「戻る」の代行：対話框・talk を閉じる →
   const root=document.getElementById('modalRoot'); if(root && root.querySelector(':scope > .modal:not(.closing)')){ closeModal(); return; }
   const bc=document.getElementById('buddyChat'); if(bc && bc.classList.contains('on') && typeof closeBuddyChat==='function'){ closeBuddyChat(); return; }
   const top=viewStack[viewStack.length-1], k=top&&top.key;
-  if(App.session && (k==='runner'||k==='examGrading'||k==='result')){ if(k==='runner' && App.readerReturn && typeof backToReader==='function') backToReader(); else exitToHome(); return; } // 模試は保存されて首页から続けられる
-  if(App.rxRun && k==='rx-run'){ if(typeof rxClearTimer==='function') rxClearTimer(); App.rxRun=null; goBack(); return; }
+  if(App.session && (k==='runner'||k==='examGrading'||k==='result')){ const r=App.readerReturn; leaveGuard(function(){ if(k==='runner' && r && typeof backToReaderAt==='function') backToReaderAt(r); else exitToHome(); navSync(); }); return; } // r＝確かめる前の戻る先（確かめて終えると examLeave が App.readerReturn を消す：CR433-40 必修 1） // 模試は保存されて首页から続けられる。作答中・採点中は確かめてから（#26：B-024）。やめなければ見張りは呼び手の navSync が戻す
+  if(App.rxRun && k==='rx-run'){ const R=App.rxRun; if(R.blind && R.graded && R.review!=null){ R.review=null; rxRunRender(); return; } // 期末模試の見直し中：見出しの戻ると同じく結果の一覧へ（CR433-9 必修 4）
+    const leave=function(){ if(typeof rxClearTimer==='function') rxClearTimer(); App.rxRun=null; goBack(); navSync(); };
+    leaveGuard(leave); return; } // 期末模試の最中は確かめてから（4.3.3 #11：やめなければ見張りは navSync が戻す）
   if(viewStack.length>1) goBack();
 }
 window.addEventListener('popstate',function(e){
@@ -175,6 +180,7 @@ function navOpenHash(){ // hash が今の課の深い画面なら、その画面
       else if(r[0]==='concept' && r[1] && App.idx && App.idx.conceptMeta && App.idx.conceptMeta[dec(r[1])]) renderConcept(dec(r[1]),{from:'home'});
       else if(r[0]==='cards' && !isRxCourse()) renderFlashcards();
       else if(r[0]==='search' && isRxCourse() && typeof rxSearchOpen==='function') rxSearchOpen(r[1]?dec(r[1]):''); // 新課の検索（S1）
+      else if(r[0]==='search' && !isRxCourse() && typeof renderSearch==='function') renderSearch(r[1]?dec(r[1]):'',{restore:true}); // 旧課の検索（4.3.3 #3）
     }catch(e){}
   return viewStack.length>before;
 }
@@ -199,7 +205,8 @@ function goBack(){ // 返回上一级: 先关浮层(与 Esc 统一); 栈底 no-o
   try{ App._navRestoring=true; if(typeof top.render==='function') top.render(); } finally { App._navRestoring=false; }
   restoreFrame(top);
 }
-function setView(node,wide){ try{ setViewInner(node,wide); } finally { try{ navSync(); }catch(e){} try{ if(writerPreparing) prepUI(true); }catch(e){} } } // 描いたあとに履歴・題名を合わせる（U-38）。準備中に描き直した記述欄も読み取り専用・「準備中」を引き継ぐ（WLR2 応修 4）
+function setView(node,wide){ try{ if(App.reader && typeof readerFlush==='function' && document.querySelector('#view .rdr') && !(node&&node.classList&&node.classList.contains('rdr'))) readerFlush(); }catch(e){} // 読本から別の画面へ：読んでいた位置を同期で持久化してから描く（ホームへ・戻る・練習へ、どの経路でも：CR433-3 第 4 条）
+  try{ setViewInner(node,wide); } finally { try{ navSync(); }catch(e){} try{ if(writerPreparing) prepUI(true); }catch(e){} } } // 描いたあとに履歴・題名を合わせる（U-38）。書き手の準備中は準備の UI を描き直す（main 4132a59）
 function setViewInner(node,wide){
   const wrap=document.querySelector('.wrap'); if(wrap) wrap.classList.toggle('wide',!!wide); document.body.classList.toggle('wide-view',!!wide); document.body.classList.remove('reader-view','rx-lec-view','rx-wide'); App.tocOpen=null; // rx-lec-view・rx-wide（宽屏样张）＝新課回次页（顶栏の目次ボタンを出す）は renderRxLecture が setView の後で付ける
   const dir=navDir; navDir='none';
@@ -389,7 +396,7 @@ function hasUnsaved(key){ return key ? !!unsavedKeys[key] : Object.keys(unsavedK
 function noteSave(key,ok){ if(!isCourseKey(key)) return; const before=hasUnsaved(); if(ok) delete unsavedKeys[key]; else unsavedKeys[key]=1; if(before!==hasUnsaved()) renderWriterBanner(); } // 只読のタブが書かないのは数えない（呼ぶ側で書き手のときだけ）
 let replacingData=false; // 取り込み・取り消し・全消去のあとの再読み込み：離页で記憶の古い値を書き戻さない
 function dataReplaced(){ replacingData=true; clearUnsaved(); try{ if(App.session){ pauseSessionClock(App.session); App.session=null; } if(App.rxRun){ if(typeof rxClearTimer==='function') rxClearTimer(); App.rxRun=null; } }catch(e){} } // 記憶の会話も終える：visibilitychange・blur が pagehide より先に来ても古い模試を書かない（WLR1 合并裁定 三-7）。新課の限時の練習も止める：再読み込みまでに到点して置き換えたデータへ時間切れを書かない（WLR2 応修 7・WLR-B 四、軽重置と同じ） // 取り込み・取り消し・全消去で存档を置き換えた（続けて再読み込みする）：この文書は離页で記憶の古い値を書き戻さない（合成稿 v3.3「替换数据后不写回」）
-function onPageHide(){ if(!replacingData){ if(writerOk && hasUnsaved(nk('progress'))) saveProgress(); if(App.session && App.session.mode==='exam' && writerOk) persistExam(); } leaveWriter(); navGen++; } // 閉じる・移る直前（pagehide）：4.2.0 と同じく書けずにいた進度と模試を書く
+function onPageHide(){ if(!replacingData){ try{ if(typeof readerFlush==='function') readerFlush(); }catch(e){} if(writerOk && hasUnsaved(nk('progress'))) saveProgress(); if(App.session && App.session.mode==='exam' && writerOk) persistExam(); } leaveWriter(); navGen++; } // 閉じる・移る直前（pagehide）：4.2.0 と同じく書けずにいた進度と模試を書く
 function clearUnsaved(){ const had=hasUnsaved(); unsavedKeys={}; if(had) renderWriterBanner(); } // 記憶を捨てて読み直したとき
 function forgetUnsaved(key){ if(!unsavedKeys[key]) return; delete unsavedKeys[key]; if(!hasUnsaved()) renderWriterBanner(); } // 書けなかった操作そのものが取りやめになった：待つものが無いので印を外す（「書けた」ではない：X15e-01）
 let handoffReq=null; // 自分が出した「譲って」：{cid, id, superseded}（他の頼み手に先を越されたら、その書き手が決まってから頼み直す）
@@ -397,6 +404,7 @@ let writerGen=0, reqSeq=0; // writerGen＝自分が書き手になったとき�
 const courseGen={}; // 課ごとに持つ：known＝これまでに知ったいちばん新しい代（札・知らせから）、hint＝BroadcastChannel で受けた知らせ（{kind:'handoff',to,gen,at}／{kind:'leaving',tab,gen,at}：札の伝わりが遅いエンジンでも譲れるように）
 function cg(){ const k=App.course?App.course.id:''; return courseGen[k]||(courseGen[k]={known:0,hint:null}); } // 代は課ごとに数える（切課しても、ほかの課の代・知らせが混ざらない）
 function noteGen(n){ const s=cg(); if(typeof n==='number' && n>s.known) s.known=n; }
+let brokenReq=false; // 保存の故障で認領に失敗したとき、そこで終えた頼みがあった（押した意図）。譲るときに頼みとして登記し直す（CR433-39c 必修 1）
 let writerOk=false, storageBroken=false, lockRetrying=false, lockAbort=null, lockRelease=null, lockCourse=null, bannerTimer=null, yieldTimer=null, retryTimer=null, handoffTimer=null, lockFailures=0;
 function writerKey(){ return nk('writer'); }
 function readFence(){ try{ const f=JSON.parse(localStorage.getItem(writerKey())||'null'); if(f) noteGen(f.n); return f; }catch(e){ return undefined; } } // undefined＝読めない
@@ -405,7 +413,7 @@ function ownsFence(){ const f=readFence(); return !!(f && f.owner===DOC_ID); }
 function claimFence(){ // フェンス札を自分の名で書き、読み戻して確かめる。失敗＝保存できない
   try{ const f=readFence(); if(f===undefined) return false;
     const n=Math.max((f&&f.n)||0,cg().known)+1; // 札の伝わりが遅くても、知らせで知った代より小さい代を名乗らない
-    localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:n,ver:APP_VERSION})); // ver＝この書き手の版（ver の無い札＝4.2.0 以前の書き手：更新後の確認門）
+    localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:n,ver:APP_VERSION,lp:LOCK_PROTO})); // ver＝この書き手の版（ver の無い札＝4.2.0 以前の書き手：更新後の確認門）
     if(!ownsFence()) return false;
     writerGen=n; noteGen(n); return true; }catch(e){ return false; }
 }
@@ -417,7 +425,7 @@ function fenceState(){ // 札を一度だけ読んで決める（X15b-02）：'m
   if(f===undefined) return 'broken';
   if(f && f.owner===DOC_ID) return 'mine';
   if(!staleFence(f)) return 'lost';
-  try{ localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION})); }catch(e){ return 'broken'; } // ロックを持つ書き手が札を書き直す
+  try{ localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION,lp:LOCK_PROTO})); }catch(e){ return 'broken'; } // ロックを持つ書き手が札を書き直す
   const g=readFence();
   if(g===undefined) return 'broken';
   return (g && g.owner===DOC_ID)?'mine':'lost';
@@ -440,12 +448,14 @@ function writeAllowed(key){ // この課の名前空間（札を除く）へ書�
   return holdsWriter();
 }
 function yieldDelay(){ // ロックを受け取ったが譲るべきときの残り時間：引き継ぎ先が別の文書／離れた書き手が別のタブ
-  const f=readFence(); if(f && f.owner===DOC_ID) return 0;
+  const f=readFence(); if(f && f.owner===DOC_ID && !f.handoffTo) return 0; // 自分の卡で引き継ぎ先が無い（bfcache から戻った・自分の leaving 卡）：待たない。自分が譲った卡（handoffTo あり）は「まだ自分のもの」ではない（#25 改①）
   const now=Date.now(), s=cg(), h=(s.hint && s.hint.gen>=s.known)?s.hint:null; // h＝札より先に届く知らせ（エンジンによっては札の伝わりが遅い）。その後に書き手が決まった知らせは済んでいる
   let hand=null; // いちばん新しい「引き継ぎ先」：札と知らせのうち代の新しいほう（古い札の引き継ぎ先に惑わされない）
-  if(f && f.handoffTo) hand={to:f.handoffTo,gen:f.n||0,at:f.at||0};
-  if(h && h.kind==='handoff' && (!hand || h.gen>=hand.gen)) hand={to:h.to,gen:h.gen,at:h.at};
-  if(hand) return hand.to===DOC_ID ? 0 : Math.max(0,hand.at+HANDOFF_TIMEOUT*2-now); // 自分あてなら待たない；ほかあてなら譲る
+  if(f && f.handoffTo) hand={to:f.handoffTo,gen:f.n||0,at:f.at||0,own:f.owner===DOC_ID};
+  if(h && h.kind==='handoff' && (!hand || h.gen>=hand.gen)) hand={to:h.to,gen:h.gen,at:h.at,own:false}; // hint は自分からは来ない（文書ごとに BC は一つ、BC は送り手に返らない）。この前提が崩れると交出方が旁観者の段に落ちる
+  if(hand){ if(hand.to===DOC_ID) return 0; // 受方：待たない
+    const k=(hand.own && hand.gen>=s.known)?2:3; // 交接の途中（#25 改②）：今の交出方（自分の卡で代が既知の最新以上）は at＋3 s、それ以外の旁観者は at＋4.5 s。受方が認領しないまま閉じたら交出方が先に戻る（R2b）
+    return Math.max(0,hand.at+HANDOFF_TIMEOUT*k-now); } // 限界（DS433b 最終設計説明 第二節「已知局限」と同じ定義）：計時器が 1 s を超えて遅れると旁観者が先になりうる。旁観者が受锁後 400 ms のうちに handing も交出卡も受け取らなければ割り込みうる（卡と二つの BC が揃って遅れる形に限らない：handing(B→A) が落ち、卡が 0.4〜3 s 遅れる形も）
   let wait=0;
   const sameTab=function(tk){ return tk===TAB_TOKEN || (!!PREV_TAB_TOKEN && tk===PREV_TAB_TOKEN); }; // 同じタブの前の文書（再読み込み・整頁遷移で戻った：V-09）
   if(f && f.leaving && !(f.tab ? sameTab(f.tab) : f.leaving<DOC_BORN)) wait=Math.max(wait,f.leaving+HANDOFF_GRACE-now); // 同じタブの再読み込み・整頁遷移は待たない（ロックはもう得ている＝前の文書は去った。あとは一律 400 ms：合成稿 v3.3）。タブ印のない旧形式の札は生まれた時刻で見る
@@ -456,11 +466,11 @@ function becomeWriter(){ // 書き手になる唯一の入口
   if(navigator.locks && navigator.locks.request && !(lockSettled && lockRelease)) return false; // 同じ授锁で 400 ms を待ち終えていなければ、認領も読み直しもしない（合成稿 v3.3 口径一.6）
   const hadExam=!!(App.session && App.session.mode==='exam');
   const claimed=claimFence(); // 先に札を取ってから読み直す（読んだ後・札を取る前に古い書き手が書いた分を取りこぼさない）
-  if(!claimed){ storageBroken=true; setWriter(false); return false; } // 接管できなかった：会話・記憶は消さない（CR-21：消してから戻っていた）
+  if(!claimed){ storageBroken=true; setWriter(false); brokenReq=brokenReq||!!handoffReq; if(handoffTimer){ clearTimeout(handoffTimer); handoffTimer=null; } handoffReq=null; return false; } // 接管できなかった：会話・記憶は消さない（CR-21：消してから戻っていた）。自分の頼みは終える（ロックはここにある：見張りが 3 s 後に「書き手の標籤へ」と誤って知らせないように。知らせは保存の故障の帯：CR433-39b 一.1）
   const lost=(typeof lostNow==='function')?lostNow():null; // 読み直すと消える「保存できなかったもの」（告知と复制だけ：合成稿 v3.3 四。同じ処理の最後に見せ、持ち越さない）
   if(hadExam) App.session=null; // 試験は古い記憶を捨て、ストレージ側の状態から開き直す
   loadProgress(); clearUnsaved(); // 記憶を捨てて読み直した：書けずにいた記録はもう無い
-  storageBroken=false; lockRetrying=false;
+  storageBroken=false; lockRetrying=false; brokenReq=false;
   if(handoffTimer){ clearTimeout(handoffTimer); handoffTimer=null; }
   const req=handoffReq?handoffReq.id:null;
   handoffReq=null; cg().hint=null;
@@ -473,22 +483,42 @@ function becomeWriter(){ // 書き手になる唯一の入口
   if(lost) showLostDrafts(lost);
   return true;
 }
-/* 更新後の確認門（合成稿 v3.3）：版が変わって最初の起動では書き込みを閉じ、「ほかに開いている reviewX のタブを再読み込みするか閉じて」と確かめてから開く（旧版のタブと交互に書かない）。
- * 出すのは「確かめた版（quiz:ackVer）が今の版でなく、今の版でない書き手の札が残っている」とき：旧版がこの端末で書き手だった＝更新後。初めて使う端末では出さない。
- * どのタブで確かめても（quiz:ackVer）ほかの新版タブも開く。新版のコードは旧版のページを閉じられない：これが門にできる上限 */
-const ACK_KEY='quiz:ackVer';
+/* 更新後の確認門（合成稿 v3.3・#39 設計説明 v4）：版が変わって最初の起動では書き込みを閉じ、「ほかに開いている reviewX のタブを再読み込みするか閉じて」と確かめてから開く（旧版のタブと交互に書かない）。
+ * 第 0 步：lp を持ち LOCK_PROTO と違う札があり、quiz:ackLp が LOCK_PROTO でなければ、版に関わらず出す。次に版の規則：確かめた版（quiz:ackVer）が今の版以上（ackCovers：verCmp≥0）なら出さない。
+ * そうでなく、旧い版の書き手の札（isOldCard：ver が今の版より古い〔verCmp<0〕・読めない、lp も ver も無い）が残っていれば出す：旧版がこの端末で書き手だった＝更新後。初めて使う端末では出さない。
+ * どのタブで確かめても、確認で ack（quiz:ackVer）を書いたときは、その storage 事件で同じ版のほかのタブも開く。ack が既に自分以上で書かなかったとき・書けなかったときは開かない（#39 設計説明 v4 第二節 6）。新版のコードは旧版のページを閉じられない：これが門にできる上限 */
+const ACK_KEY='quiz:ackVer', ACK_LP_KEY='quiz:ackLp';
+/* LOCK_PROTO＝写锁の協議の代号（#39）。札（quiz:<課>:writer）に lp として書く。札の意味や鍵の名を変えたら 1 増やす。将来の版への約束：
+ * quiz:ackLp を読み、lp:1 の札（lp の無い札も）を「協議が違う」と見なし、確認钮と門の無い出口で自分の lp を ackLp に書く（先に読み、等しければ書かない）。
+ * 守らないと「協議が切り替わるたびに一度だけ門」が成り立たない（S1 #39 設計説明 v4 第二節 2） */
+const LOCK_PROTO=1;
+const VER_RE=/^\d+(\.\d+){2,}$/; // 版の形：三段以上の数字（4.3.3・4.3.0.2）。'9'・'4.3'・'4.3.3-rc1'・数字・null は不正（発布検査 ver_monotonic.py と同じ口径）
+function verCmp(a,b){ if(!(typeof a==='string' && VER_RE.test(a) && typeof b==='string' && VER_RE.test(b))) throw new TypeError('verCmp: bad version'); // 段ごとに数値で比べ、足りない段は 0（4.3.3＝4.3.3.0）
+  const x=a.split('.').map(Number), y=b.split('.').map(Number); for(let i=0;i<Math.max(x.length,y.length);i++){ const d=(x[i]||0)-(y[i]||0); if(d) return d<0?-1:1; } return 0; }
+function appVerOk(){ return typeof APP_VERSION==='string' && VER_RE.test(APP_VERSION); }
+function ackCovers(v){ if(!appVerOk()) return v===APP_VERSION; return typeof v==='string' && VER_RE.test(v) && verCmp(v,APP_VERSION)>=0; } // 確かめた版が自分以上（回滾先は新しい版の確認を引き継ぐ）
+function isOldCard(f){ // 旧い版の書き手の札か
+  if(!f) return false;                           // 札が無い（null）・偽値：4.3.2 の !!f と同じく旧卡としない
+  if(typeof f!=='object') return true;           // 真値の非対象（5・'x'・true）：旧卡として門を出す（in で抛ると起動が止まる：DS433c-c 必修 1）
+  if(('lp' in f) && !('ver' in f)) return false; // lp があって ver の鍵が無い：第 0 步が lp で判じる。ver の鍵があって値が不正なら下の坏値へ（必修 2）
+  if(!appVerOk()) return f.ver!==APP_VERSION;
+  return !(typeof f.ver==='string' && VER_RE.test(f.ver)) || verCmp(f.ver,APP_VERSION)<0; }
+function lpMismatch(f){ return !!f && typeof f==='object' && ('lp' in f) && f.lp!==LOCK_PROTO; } // 協議の違う札（lp の無い札・非対象は版の規則へ）
+function ackLpMark(){ return lsGet(ACK_LP_KEY,null)===LOCK_PROTO || lsSet(ACK_LP_KEY,LOCK_PROTO); } // 先に読み、等しければ書かない。戻り値＝書いた後に自分の協議になっているか
+function writerCards(){ return Object.keys(lsSize).filter(function(k){ return /^quiz:.+:writer$/.test(k); }).map(function(k){ return lsGet(k,null); }); }
 let updateGateOn=false;
 function updateGateInit(){ // 起動時（lsScan の後、最初の requestWriter の前）
-  if(lsGet(ACK_KEY,null)===APP_VERSION) return;
+  const cards=lsUsedOk?writerCards():null;
+  if(lsUsedOk && cards.some(lpMismatch) && lsGet(ACK_LP_KEY,null)!==LOCK_PROTO){ updateGateOn=true; return; } // 第 0 步：協議の違う札があり、この協議をまだ確かめていない（版に関わらず門）
+  if(ackCovers(lsGet(ACK_KEY,null))){ if(lsUsedOk) ackLpMark(); return; } // 早退（門の無い出口一）：第 0 步を通った＝協議の違う札が無いか ackLp が既に自分。鍵を数えられないときは lp を見ていないので書かない
   if(!lsUsedOk){ try{ localStorage.getItem(ACK_KEY); }catch(e){ return; } updateGateOn=true; return; } // 鍵を数えられなかった：旧版の跡が無いと確かめられないので門を出す（確かめずに ack を書かない：WLR1 合并裁定 三-8）。ただし保存そのものが使えない（触るだけで例外）なら門は出さない：旧版も書けない。理由は「保存できません」の帯が知らせる（S2 B-009：更新の門を出すと原因を取り違える）
-  const older=Object.keys(lsSize).some(function(k){ if(!/^quiz:.+:writer$/.test(k)) return false; const f=lsGet(k,null); return !!f && f.ver!==APP_VERSION; });
-  if(!older){ lsSet(ACK_KEY,APP_VERSION); return; } // 旧版の書き手の跡が無い（初めて使う・同じ版）：門は要らない
+  if(!cards.some(isOldCard)){ if(!ackCovers(lsGet(ACK_KEY,null))) lsSet(ACK_KEY,APP_VERSION); ackLpMark(); return; } // 旧い版の書き手の跡が無い（初めて使う・同じ版・回滚先）：門は要らない（門の無い出口二）。ack は自分以上なら書き下げない
   updateGateOn=true;
 }
 function showUpdateGate(oldHolder){ // oldHolder＝並んでいる間に、ロックを持つのが旧版（札に ver が無い）と分かった：確かめても開かず、閉じるだけ（そのタブが閉じればロックが回ってくる）
   if(document.querySelector('#modalRoot [data-update-gate]')) return;
   openModal(modalShell(t('updateGateTitle'),[ el('div',{'data-update-gate':'1'},[ el('p',{class:'jp',text:t('updateGateBody')}),
-    el('div',{class:'row',style:'margin-top:14px;gap:10px'},[ el('button',{class:'btn',text:t('updateGateOk'),onclick:function(){ if(oldHolder) closeModal(true); else { if(!lsSet(ACK_KEY,APP_VERSION)) toast(t('updateGateAckFail')); openUpdateGate(); } }}) ]) ]) ])); // 門はこのボタンでしか閉じない（外側の押下・Esc・戻るでは閉じない：三-8）。確かめた版が書けなくても、このタブは開けて知らせる
+    el('div',{class:'row',style:'margin-top:14px;gap:10px'},[ el('button',{class:'btn',text:t('updateGateOk'),onclick:function(){ if(oldHolder) closeModal(true); else { const okLp=ackLpMark(), okAck=ackCovers(lsGet(ACK_KEY,null)) || lsSet(ACK_KEY,APP_VERSION); if(!(okLp && okAck)) toast(t('updateGateAckFail')); openUpdateGate(); } }}) ]) ]) ],{noClose:true})); // 門は × を描かない（押しても閉じない＝closeModal が門を拒むのに見えていると、固まったと思われる：S8 模擬器冒烟 10-25）。oldHolder は確認ではない：ack も ackLp も書かない。どちらかが書けなければ一度だけ知らせ、この標籤は開く（DS433c-c 必修 3） // 門はこのボタンでしか閉じない（外側の押下・Esc・戻るでは閉じない：三-8）。確かめた版が書けなくても、このタブは開けて知らせる
 }
 function openUpdateGate(){ if(!updateGateOn) return; updateGateOn=false; if(document.querySelector('#modalRoot [data-update-gate]')) closeModal(true); if(App.course) requestWriter(); }
 function requestWriter(){ // ロックの待ち行列に並ぶ（強奪はしない：合成稿 v3.3 決定 2＝B）
@@ -510,12 +540,12 @@ function requestWriter(){ // ロックの待ち行列に並ぶ（強奪はしな
       setTimeout(function(){
         if(lost || !App.course || App.course.id!==cid){ res(); return; } // その間に奪われた／課を離れた
         const wait=yieldDelay();
-        if(wait){ res(); yieldTimer=setTimeout(function(){ yieldTimer=null; if(App.course && App.course.id===cid) requestWriter(false); },wait+50); return; } // ロックはすぐ返して待つ
+        if(wait){ res(); yieldFor(cid,wait); return; } // ロックはすぐ返して待つ
         lockCourse=cid; lockRelease=res; lockSettled=false; // 課を離れるまで持ち続ける。この授锁の 400 ms はまだ
         writerPreparing=true; prepUI(true);
         prepTimer=setTimeout(function(){ prepTimer=null; writerPreparing=false; prepUI(false);
           if(lost || !App.course || App.course.id!==cid || lockRelease!==res) return; // 待つ間に奪われた・課を離れた・返した
-          lockSettled=true; if(writerOk) return; becomeWriter(); },WRITER_SETTLE_MS); // もう書き手なら名乗り直さない（二度目の becomeWriter で代が二つ進み、模試が開き直されるのを防ぐ：WLR1 合并裁定 一-1①） // 排队で来ても、すぐ取れても、札や知らせに何が見えても、取得後は一律 400 ms 待ってから読み直して書き始める（N-S2-03：前の書き手の最後の一笔を読み落とさない）
+          lockSettled=true; if(writerOk) return; claimOrYield(); },WRITER_SETTLE_MS); // もう書き手なら名乗り直さない（二度目の becomeWriter で代が二つ進み、模試が開き直されるのを防ぐ：WLR1 合并裁定 一-1①） // 排队で来ても、すぐ取れても、札や知らせに何が見えても、取得後は一律 400 ms 待ってから読み直して書き始める（N-S2-03：前の書き手の最後の一笔を読み落とさない）
       },0);
     });
   }); }catch(e){ req=Promise.reject(e); }
@@ -528,6 +558,13 @@ function requestWriter(){ // ロックの待ち行列に並ぶ（強奪はしな
     lockFailed(cid);
   });
 }
+function yieldFor(cid,wait){ yieldTimer=setTimeout(function(){ yieldTimer=null; if(App.course && App.course.id===cid) requestWriter(false); },wait+50); } // 譲って待つ：期限が来たら並び直す
+function claimOrYield(){ // 持ったロックの 400 ms が明けた：認領の直前にもう一度、譲るべきか確かめる（#25 改③：400 ms の間に届いた交出卡・知らせ・leaving を使う）。0 なら書き手に、そうでなければロックを返して待つ。授锁後の待ち明け（requestWriter）と保存の故障からの名乗り直し（takeOverWriter）が共用する
+  const cid=lockCourse, wait=yieldDelay();
+  if(!wait) return becomeWriter();
+  const r=lockRelease; lockRelease=null; lockCourse=null; lockSettled=false; if(r) r();
+  yieldFor(cid,wait); return false; // 次に受け取ったときも 400 ms を待ち直す（requestWriter の授锁の道）
+}
 function lockFailed(cid){ // ロック API に拒まれた（SecurityError など）：間を置いて数回だけやり直し、だめなら「保存できない」に落とす
   lockFailures++; lockRetrying=true; // やり直しの間も「保存できない」と出す（別のタブのせいではない）
   if(lockFailures>LOCK_RETRY_MAX){ storageBroken=true; setWriter(false); return; } // 無限には繰り返さない（再読み込みでやり直せる）
@@ -535,6 +572,7 @@ function lockFailed(cid){ // ロック API に拒まれた（SecurityError な�
   retryTimer=setTimeout(function(){ retryTimer=null; if(App.course && App.course.id===cid) requestWriter(false); },500*Math.pow(2,lockFailures-1));
 }
 function releaseWriter(){ // 課を離れる：ロックを返し、待ちも取りやめる
+  brokenReq=false;
   if(writerOk && typeof rxInterrupt==='function') rxInterrupt(); // 離页・切課で書き手を手放す：限時の練習は中断（往返キャッシュから戻って自動で記録しない：総指揮 (c)）
   if(yieldTimer){ clearTimeout(yieldTimer); yieldTimer=null; }
   if(retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
@@ -549,7 +587,7 @@ function releaseWriter(){ // 課を離れる：ロックを返し、待ちも取
 function leaveWriter(){ // pagehide：札に leaving とタブ印を残してからロックを返す（bfcache から戻れば pageshow で並び直す）
   try{ sessionStorage.setItem('quiz:tabLeft',TAB_TOKEN); }catch(e){} // このタブで次に生まれる文書にだけ「前の文書はこの印」と渡す（WLR2 応修 6）
   if(writerOk){
-    try{ if(fenceMine()) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION,leaving:Date.now(),tab:TAB_TOKEN})); }catch(e){} // 代は自分が確かめた代（読み直した札の n を写さない：X15b-01）
+    try{ if(fenceMine()) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION,lp:LOCK_PROTO,leaving:Date.now(),tab:TAB_TOKEN})); }catch(e){} // 代は自分が確かめた代（読み直した札の n を写さない：X15b-01）
     try{ if(WRITER_BC && App.course) WRITER_BC.postMessage({t:'leaving',course:App.course.id,from:DOC_ID,gen:writerGen,tab:TAB_TOKEN}); }catch(e){}
   }
   releaseWriter();
@@ -557,10 +595,13 @@ function leaveWriter(){ // pagehide：札に leaving とタブ印を残してか
 function onWriterKeyChanged(){ // 別の文書が札を書いた（steal の通知より先に届くこともある）
   if(writerOk) confirmWriter(); // 古い代の遅れた書き込みなら札を戻して書き手のまま
   const f=readFence();
-  if(f && !f.leaving && !f.handoffTo && f.owner!==DOC_ID){
+  if(f && !f.leaving && !f.handoffTo && f.owner!==DOC_ID){ // 他の文書の普通の卡（引き継ぎ先も離脱の印も無い）
+    const hn=cg().hint; if(hn && typeof f.n==='number' && f.n<=hn.gen) return; // 知らせより新しくない卡（同じ代の認領卡が遅れて届いた）：その代の後の交接を覚えた hint を消さない（#25 改⑦。消すと割り込む）。この return は下の早めの並び直しも飛ばす（hint が残る限り受锁しても譲るので、並び直しは yieldTimer の期限か新しい代の卡に任せてよい：害なし）
     cg().hint=null; // 引き継ぎ・再読み込みは済んだ
     if(yieldTimer) requestWriter(false); // 戻ってきた本人／引き継ぎ先が取った：その後ろに並ぶ
   }
+  else if(f && f.owner!==DOC_ID && f.handoffTo===DOC_ID && (f.n||0)>=cg().known && yieldTimer) requestWriter(false); // 卡で「自分に譲る」と知った受方（handing が落ちた・遅れた）：すぐ並び直す。最新の代の卡だけ（#25 改④b）
+  if(f && f.owner!==DOC_ID && ((f.handoffTo && f.handoffTo!==DOC_ID) || f.leaving) && !writerOk && storageBroken && lockSettled && lockRelease && yieldDelay()) brokenYield(false); // 保存の故障でロックを持ったまま、ほかの標籤あての交出卡・離脱の札を見た：自分から譲る（CR433-39b 一.3・CR433-39c 必修 2：handing・leaving の知らせの道と同じ）
 }
 function bcPost(m){ try{ if(WRITER_BC) WRITER_BC.postMessage(m); return !!WRITER_BC; }catch(e){ return false; } }
 function handOff(to,req){ // 協調的に譲る：未保存を書き切る→（書けたら）引き継ぎを告げる→札に引き継ぎ先→書くのをやめる→ロックを返す→後ろに並び直す
@@ -582,7 +623,7 @@ function handOff(to,req){ // 協調的に譲る：未保存を書き切る→（
     return;
   }
   bcPost({t:'handing',course:cid,from:DOC_ID,gen:writerGen,to:to,req:req}); // 書き手は生きていて、この相手に譲る（ほかの頼み手は強奪せず待つ）
-  try{ const f=readFence(); if(f && f.owner===DOC_ID) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION,handoffTo:to,at:Date.now()})); }catch(e){}
+  try{ const f=readFence(); if(f && f.owner===DOC_ID) localStorage.setItem(writerKey(),JSON.stringify({owner:DOC_ID,n:writerGen,ver:APP_VERSION,lp:LOCK_PROTO,handoffTo:to,at:Date.now()})); }catch(e){}
   setWriter(false);
   const r=lockRelease; lockRelease=null; lockCourse=null; lockSettled=false; r();
   requestWriter(false); // 引き継いだタブが閉じれば自動で戻る
@@ -591,7 +632,9 @@ function armHandoffTimer(ms,giveUp){ // 頼んだあとの見張り：giveUp＝�
   if(handoffTimer) clearTimeout(handoffTimer);
   const cid=handoffReq&&handoffReq.cid;
   handoffTimer=setTimeout(function(){ handoffTimer=null;
-    if(writerOk || writerPreparing || !handoffReq || !App.course || App.course.id!==cid) return;
+    if(writerPreparing && handoffReq && App.course && App.course.id===cid){ armHandoffTimer(WRITER_SETTLE_MS,giveUp); return; } // 準備中に期限が来た：結末は準備明けに持ち越す（譲れば提示か頼み直し、書き手になれば becomeWriter が片づける：#25 改⑥）
+    if(writerOk){ handoffReq=null; return; } // 書き手になった：頼みはもう要らない（残すと交出後の claimed で頼み直してしまう：H2 の兜底）
+    if(!handoffReq || !App.course || App.course.id!==cid) return;
     if(giveUp){ handoffReq=null; noReplyNotice(); } // 頼みはここで終える。待ち行列には並んだまま（相手が閉じればロックが回ってくる）。帯の「こちらで続ける」から頼み直せる
     else sendHandoff();
   },ms);
@@ -619,6 +662,8 @@ function onWriterMessage(e){ const m=(e && e.data)||{}; // 別のタブからの
     if(gen<cg().known) return; // その後に新しい書き手が決まっている：済んだ引き継ぎ
     noteGen(gen);
     cg().hint={kind:'handoff',to:m.to,gen:gen,at:Date.now()}; // 自分あても記録（古い札の別あての引き継ぎ先より新しい）
+    if(m.to===DOC_ID && yieldTimer) requestWriter(false); // 受方なのに譲って待っている（先の交接で旁観者として退いた）：すぐ並び直す（#25 改④a）
+    if(!writerOk && storageBroken && lockSettled && lockRelease && yieldDelay()) brokenYield(false); // 割り込んで受锁したが認領に失敗してロックを持ったまま：交接が進んでいると分かったら自分から譲る（CR433-39b 一.3。持ち続けると受方は只読のまま）
     if(handoffReq){
       if(m.to===DOC_ID) armHandoffTimer(HANDOFF_TIMEOUT*2,true); // 自分あて：ロックが回ってくるのを待つ（上限を過ぎたら知らせるだけ。並んだままなので回ってくれば書き手になる）
       else { handoffReq.superseded=true; armHandoffTimer(HANDOFF_TIMEOUT*2,false); } // 先を越された：新しい書き手が決まったら頼み直す
@@ -630,14 +675,22 @@ function onWriterMessage(e){ const m=(e && e.data)||{}; // 別のタブからの
     if(handoffReq && m.from!==DOC_ID) sendHandoff();
   }
   else if(m.t==='refused'){ if(m.to===DOC_ID && handoffReq && m.req===handoffReq.id && gen>=cg().known){ handoffReq=null; if(handoffTimer){ clearTimeout(handoffTimer); handoffTimer=null; } toast(t('handoffRefused')); } } // いまの頼みへの、いまの書き手からの断りだけ（その後に書き手が替わっていれば、新しい書き手への頼みは続ける）
-  else if(m.t==='leaving'){ if(gen<cg().known) return; cg().hint={kind:'leaving',tab:m.tab,gen:gen,at:Date.now()}; }
+  else if(m.t==='leaving'){ if(gen<cg().known) return; cg().hint={kind:'leaving',tab:m.tab,gen:gen,at:Date.now()};
+    if(!writerOk && storageBroken && lockSettled && lockRelease && yieldDelay()) brokenYield(false); } // 離脱の知らせでも、保存の故障でロックを持ったままなら自分から譲る（戻ってくる文書に回す：CR433-39c 必修 2）
 }
+function brokenYield(press){ // 保存の故障でロックを持ったまま（storageBroken）の標籤：名乗り直すか、譲るべきなら譲る（#25 改③・CR433-39b 一.1〜3）。press＝「もう一度」を押した（頼みを続ける）
+  claimOrYield(); if(writerOk) return false; if(lockRelease){ if(press) brokenReq=true; return false; } // 書き手になれた／まだ書けない（ロックは持ったまま。次の押下・次の知らせでまた試す）。押したのに書けなかった：その意図を brokenReq に残し、あとで知らせで譲るときに頼みとして続ける（CR433-39d 必修 1）
+  storageBroken=false; lockRetrying=false; setWriter(false); renderWriterBanner(); // lockRetrying も降ろす：残ると帯が storageBlocked になり、接手钮ももう一度も出ない（CR433-39c 応修 10）。 譲った：保存の故障の帯（もう一度）ではなく「別のタブで開いています」（接手钮）を今すぐ（setWriter(false) の 1 s 遅れを待たない：CR433-39b 一.2）
+  if(press || brokenReq){ brokenReq=false; if(WRITER_BC && !handoffReq){ handoffReq={cid:App.course.id,id:DOC_ID+':'+(++reqSeq),superseded:false}; sendHandoff(); } else if(!WRITER_BC) noReplyNotice(); } // 押した意図は頼みとして続ける（改⑤と同じ。既にある頼みはそのまま）。認領失敗で終えた頼み（brokenReq）も、知らせで自分から譲るときに続ける
+  return true; }
 function takeOverWriter(){ // 「こちらで続ける」：書き手のタブに譲ってもらう（強奪はしない：合成稿 v3.3 決定 2＝B）
   if(!navigator.locks || !navigator.locks.request){ noLocks=true; setWriter(false); return; } // Web Locks が無い：只読のまま
-  if(!App.course || (handoffReq && handoffTimer)) return; // 頼んで返事を見張っている最中（見張りのない頼みは残っていてもやり直せる）
+  if(!App.course) return;
+  if(writerOk) return; // 書き手自身は頼まない：ロック要求も頼みも増やさない（残った頼みが、後で交出したあと新しい書き手から自分へ戻させる：CR433-39c 必修 6・H2）
+  if(storageBroken && !prepTimer && lockSettled && lockRelease && lockCourse===App.course.id){ brokenYield(true); return; } // 一-1③：保存の故障で札が書けず、待ちの計時は走っておらず、ロックは持ったまま：押されたら名乗り直すか譲る。下の「見張り中」の守衛より前（CR433-39b 一.1：書けずにいる間の頼みの見張りが残っていても「もう一度」を吞まない）
+  if(handoffReq && handoffTimer) return; // 頼んで返事を見張っている最中（見張りのない頼みは残っていてもやり直せる）
   if(updateGateOn){ showUpdateGate(false); return; } // 更新後の確認がまだ
-  if(writerPreparing){ prepNotice(); return; } // 準備中（授锁后 400 ms の間）：認領も読み直しもしない。待ち終えれば自動で書き手になる（WLR1 WL-01）
-  if(!writerOk && storageBroken && !prepTimer && lockSettled && lockRelease && lockCourse===App.course.id){ becomeWriter(); return; } // 一-1③：札が書けなかったとき（storageBroken）だけ、待ちの計時が走っていないとき // ロックは持っているが札が取れなかった（保存の故障：CR-21）：持ったまま名乗り直す（持ち続けたので別の書き手は書いていない）
+  if(writerPreparing){ prepNotice(); /* BC が無くても準備中の知らせは出す（CR433-39 一.2） */ if(WRITER_BC && !handoffReq){ handoffReq={cid:App.course.id,id:DOC_ID+':'+(++reqSeq),superseded:false}; sendHandoff(); } return; } // 準備中（授锁后 400 ms の間）：認領も読み直しもしない。ただし待ち明けに譲ることがある（#25 改③）ので、押した意図は頼みとして登記する。ロックはもう持っているので二つ目は並ばない（#25 改⑤：WLR1 WL-01・一-1② の調整。ボタンは準備中も押せないまま）
   const f0=readFence(); if(f0 && f0.owner!==DOC_ID && !f0.ver && !f0.leaving && !f0.handoffTo){ showUpdateGate(true); return; } // ロックを持つのは旧版（札に ver が無い）：頼まず只読のまま、旧版のタブを閉じてもらう（合成稿 v3.3）
   if(!lockAbort) requestWriter(); // 待ち行列に並んでいること（書き手が返したロックを順に受け取る）
   if(!WRITER_BC){ noReplyNotice(); return; } // 頼む手段がない：強奪せず知らせる（相手が閉じればロックが回ってくる）
@@ -857,6 +910,7 @@ async function boot(){
   updateGateInit(); // 更新後の確認門（最初の requestWriter の前）
   if(typeof installErrorBoundary==='function') installErrorBoundary(); // dev 部件（?dev=1）だけが持つ
   document.addEventListener('keydown',onKey);
+  if(typeof noteFocusKey==='function'){ document.addEventListener('keydown',noteFocusKey,true); document.addEventListener('pointerdown',noteFocusPointer,true); } // 焦点を動かしたのが Tab か指か（B-041：Enter をボタンへ任せるのは Tab で来たときだけ）
   document.addEventListener('visibilitychange',onVisibility);
   window.addEventListener('storage',function(e){ if(e.storageArea===localStorage){ if(e.key==null) lsScan(); else lsNote(e.key,e.newValue); if(e.key===ACK_KEY && e.newValue===JSON.stringify(APP_VERSION)) openUpdateGate(); } if(App.course && e.key===writerKey()) onWriterKeyChanged(); }); // 別のタブの書き込みも使用量に入れる（容量の閘）
   if(WRITER_BC){ WRITER_BC.addEventListener('message',onWriterMessage); bcPost({t:'tab-hello',tab:TAB_TOKEN,doc:DOC_ID}); } // 起動時に名乗る（複製タブなら印を替えてもらう）

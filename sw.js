@@ -9,7 +9,7 @@
  * 只处理本作用域内的同源 GET；跨源（Google Fonts 等）与 POST 不碰。同源的自托管字体（fonts/*.woff2、名带内容哈希）走 DATA：安装时按 fonts/noto-subset.css 的 url() 预取（不挡安装），
  *   以后 cache-first；继承旧版 DATA 时丢掉当前 CSS 不再引用的旧哈希字体。真题层只有密文（quiz.enc.json）会进缓存，明文只在页面内存。 */
 'use strict';
-const VERSION='4.3.2';
+const VERSION='4.3.3';
 const SCOPE=self.registration.scope;
 function scopeTag(path){ let h=5381; for(let i=0;i<path.length;i++) h=((h*33)^path.charCodeAt(i))>>>0; return h.toString(36); } // offline.js・tools/sw_unregister.js 同式
 const PFX='rx-'+scopeTag(new URL(SCOPE).pathname)+'-';

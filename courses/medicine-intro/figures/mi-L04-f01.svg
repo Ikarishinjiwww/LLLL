@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 486" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">腎臓の位置と尿の流れ</title>
+  <desc id="d">上は背中側から見た図、下は体を横から見た図で、腎臓と尿路を模式的に示す。腎臓は腰の後ろ（背中側）にあり、左右に1つずつ、計2つある。腎臓は、1つでも十分に働くことができる。腎臓で血液から濾過された老廃物は尿となり、尿管を通って膀胱へ流れる。矢印は尿の流れを表す。</desc>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <style>
+    .body{fill:none;stroke:currentColor;stroke-width:1.4}
+    .vb{fill:none;stroke:currentColor;stroke-width:1;opacity:.4}
+    .org{fill:currentColor;fill-opacity:.16;stroke:currentColor;stroke-width:1.8}
+    .tube{fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
+    .flow{fill:none;stroke:currentColor;stroke-width:2}
+    .lead{fill:none;stroke:currentColor;stroke-width:1;opacity:.6}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+
+  <!-- 上：背中側から見た図 -->
+  <text class="sm" x="16" y="22">背中側から見た図（模式）</text>
+  <path class="body" d="M48 40 Q34 44 34 76 L40 126 Q50 152 50 168 Q42 200 44 250"/>
+  <path class="body" d="M182 40 Q196 44 196 76 L190 126 Q180 152 180 168 Q188 200 186 250"/>
+  <g class="vb">
+    <rect x="109" y="44" width="12" height="11" rx="2"/>
+    <rect x="109" y="59" width="12" height="11" rx="2"/>
+    <rect x="109" y="74" width="12" height="11" rx="2"/>
+    <rect x="109" y="89" width="12" height="11" rx="2"/>
+    <rect x="109" y="104" width="12" height="11" rx="2"/>
+    <rect x="109" y="119" width="12" height="11" rx="2"/>
+    <rect x="109" y="134" width="12" height="11" rx="2"/>
+    <rect x="109" y="149" width="12" height="11" rx="2"/>
+    <rect x="109" y="164" width="12" height="11" rx="2"/>
+    <rect x="109" y="179" width="12" height="11" rx="2"/>
+  </g>
+  <path class="org" d="M80 102 C63 102 58 116 58 126 C58 140 64 150 80 150 C88 150 92 145 90 139 C88 135 86 131 86 126 C86 121 88 117 90 113 C92 107 88 102 80 102 Z"/>
+  <path class="org" d="M150 102 C167 102 172 116 172 126 C172 140 166 150 150 150 C142 150 138 145 140 139 C142 135 144 131 144 126 C144 121 142 117 140 113 C138 107 142 102 150 102 Z"/>
+  <path class="tube" d="M88 131 C94 156 98 184 102 207"/>
+  <path class="tube" d="M142 131 C136 156 132 184 128 207"/>
+  <path class="org" d="M96 211 Q96 202 106 202 L124 202 Q134 202 134 211 Q134 232 115 234 Q96 232 96 211 Z"/>
+  <path class="flow" d="M80 158 C84 172 87 184 90 196" marker-end="url(#ah)"/>
+  <path class="flow" d="M150 158 C146 172 143 184 140 196" marker-end="url(#ah)"/>
+  <path class="lead" d="M171 118 L208 104 M136 172 L208 180 M135 218 L208 218"/>
+  <text class="lab" x="214" y="110">腎臓</text>
+  <text class="sm" x="214" y="132">左右に1つずつ、計2つ</text>
+  <text class="sm" x="214" y="151">1つでも十分に働く</text>
+  <text class="it" x="214" y="186">尿管</text>
+  <text class="it" x="214" y="224">膀胱</text>
+  <text class="sm" x="16" y="276">矢印は尿の流れ。腎臓で血液から濾過された</text>
+  <text class="sm" x="16" y="296">老廃物は尿となり、尿管を通って膀胱へ流れる。</text>
+
+  <!-- 下：体を横から見た図 -->
+  <text class="sm" x="16" y="334">体を横から見た図（模式）</text>
+  <path class="body" d="M128 352 Q118 392 116 414 Q114 440 128 468"/>
+  <path class="body" d="M238 352 Q246 384 240 410 Q234 432 246 468"/>
+  <text class="it" x="110" y="362" text-anchor="end">お腹側</text>
+  <text class="it" x="250" y="362">背中側</text>
+  <path class="org" d="M214 376 C226 376 228 388 228 396 C228 406 224 416 214 416 C208 416 204 412 205 407 C206 403 208 400 208 396 C208 392 206 389 205 385 C204 380 208 376 214 376 Z"/>
+  <path class="tube" d="M207 404 C204 422 182 432 163 444"/>
+  <path class="org" d="M134 452 C134 444 142 440 150 440 C158 440 166 444 166 452 C166 462 158 466 150 466 C142 466 134 462 134 452 Z"/>
+  <path class="lead" d="M229 392 L252 392"/>
+  <text class="it" x="258" y="397">腎臓は、腰の後ろ</text>
+  <text class="it" x="258" y="418">（背中側）にある</text>
+  <text class="it" x="174" y="474">膀胱</text>
+</svg>

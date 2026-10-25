@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 606" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">機能プロフィールの形：知的障害・境界知能・学習障害・自閉スペクトラム症</title>
+  <desc id="d">機能ごとの発達レベルを折れ線で示し、定型（破線）と比べた図。知的障害はどの機能も全体に低く、境界知能は全体に、定型と知的障害の中間の高さに位置する。学習障害は特定の機能だけが著しく低く、ほかの機能は定型とほぼ同じ水準である。自閉スペクトラム症は機能間の凸凹が大きく、とても苦手な機能がある一方、定型を上回る機能をもつこともある。境界知能に1つだけ苦手な領域が重なると、境界知能とみるか学習障害とみるかの判断が難しい。</desc>
+  <style>
+    .ax{fill:none;stroke:currentColor;stroke-width:1.2;opacity:.6}
+    .ref{fill:none;stroke:currentColor;stroke-width:1.6;stroke-dasharray:6 4}
+    .ln{fill:none;stroke:currentColor;stroke-width:2.8;stroke-linejoin:round}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+  <text class="sm" x="16" y="26">縦：機能ごとの発達レベル（上ほど高い）</text>
+  <text class="sm" x="16" y="46">横：機能（破線は定型）</text>
+  <!-- 段1 -->
+  <text class="it" x="16" y="78"><tspan font-weight="600">知的障害</tspan>：どの機能も全体に低い</text>
+  <text class="it" x="16" y="98"><tspan font-weight="600">境界知能</tspan>：全体に、定型と知的障害の中間</text>
+  <path class="ax" d="M44 104 L44 176 L300 176"/>
+  <polyline class="ref" points="52,120 100,117 148,122 196,118 244,123 292,119"/>
+  <text class="sm" x="308" y="124">定型</text>
+  <polyline class="ln" points="52,142 100,139 148,144 196,140 244,145 292,141"/>
+  <polyline class="ln" points="52,164 100,161 148,166 196,162 244,167 292,163"/>
+  <text class="sm" x="308" y="146">境界知能</text>
+  <text class="sm" x="308" y="168">知的障害</text>
+  <!-- 段2 -->
+  <text class="it" x="16" y="208"><tspan font-weight="600">学習障害</tspan>：特定の機能だけが著しく低い</text>
+  <text class="sm" x="16" y="228">（ほかの機能は定型とほぼ同じ水準）</text>
+  <path class="ax" d="M44 234 L44 306 L300 306"/>
+  <polyline class="ref" points="52,250 100,247 148,252 196,248 244,253 292,249"/>
+  <text class="sm" x="308" y="254">定型</text>
+  <polyline class="ln" points="52,253 100,250 148,255 196,294 244,256 292,252"/>
+  <!-- 段3 -->
+  <text class="it" x="16" y="338"><tspan font-weight="600">自閉スペクトラム症</tspan>：機能間の凸凹が大きい</text>
+  <text class="sm" x="16" y="358"><tspan>（とても苦手な機能があり、</tspan><tspan x="30" dy="20">定型を上回る機能をもつこともある）</tspan></text>
+  <path class="ax" d="M44 384 L44 456 L300 456"/>
+  <polyline class="ref" points="52,400 100,397 148,402 196,398 244,403 292,399"/>
+  <text class="sm" x="308" y="404">定型</text>
+  <polyline class="ln" points="52,414 100,388 148,442 196,404 244,428 292,392"/>
+  <!-- 段4 -->
+  <text class="it" x="16" y="488"><tspan font-weight="600">境界知能</tspan>に1つだけ苦手な領域が重なると、</text>
+  <text class="sm" x="16" y="508">境界知能とみるか学習障害とみるかの判断が難しい</text>
+  <path class="ax" d="M44 514 L44 586 L300 586"/>
+  <polyline class="ref" points="52,530 100,527 148,532 196,528 244,533 292,529"/>
+  <text class="sm" x="308" y="534">定型</text>
+  <polyline class="ln" points="52,552 100,549 148,554 196,574 244,555 292,551"/>
+</svg>

@@ -11,9 +11,8 @@ function renderHome(){
    * 優先：ホーム画面アプリ初回の取り込み案内（U-03）＞初訪の一言＞横幅。横幅は、初訪の一言を出したタブでは出さず、次に開いたときに回す。 */
   var a2i=a2hsImportCardNode();
   if(a2i){ pad.appendChild(a2i); }
-  else if(!lsGet(nk('helpSeen'),false)){
-    /* 読む/さがす主体の課(神経)で「模擬試験を通しで」と言うのは製品として嘘。課の形で文案を分ける。 */
-    const hintKey=(m.shape==='reader')?'firstHintReader':'firstHint';
+  else if(!lsGet(nk('helpSeen'),false) && m.shape==='reader'){ // 試験型の課（臨床）の固定の初訪提示は廃止（#10・Q-067-4C：今日の復習と模試が首屏に並ぶ）。読む型（神経）の一言はそのまま
+    const hintKey='firstHintReader';
     pad.appendChild(el('div',{class:'firsthint'},[ el('span',{class:'jp',text:t(hintKey)}),
       el('button',{text:'×','aria-label':t('close'),title:t('close'),onclick:function(e){ lsSet(nk('helpSeen'),true); e.target.closest('.firsthint').remove(); }}) ]));
     try{ sessionStorage.setItem('quiz:a2hs-later','1'); }catch(e){}
@@ -178,7 +177,8 @@ function examElapsed(){ const s=App.session; if(!s) return 0; return (s.elapsedM
 function clockShouldRun(s){ return !!(s && ((s.mode==='exam' && s.phase==='answering') || s.mode!=='exam')); } // exam:仅答题阶段; 练习:整个 runner 期 (离页由 onVisibility 冻结 elapsed)
 function pauseSessionClock(s){ if(s&&s.runningSince){ s.elapsedMs=(s.elapsedMs||0)+(Date.now()-s.runningSince); s.runningSince=0; if(s.mode==='exam') persistExam(); } }
 function resumeSessionClock(s){ if(clockShouldRun(s) && !s.runningSince){ s.runningSince=Date.now(); } }
-function onVisibility(){ const s=App.session; if(!s) return; if(document.hidden){ pauseSessionClock(s); if(s.mode==='exam') persistExam(); } else resumeSessionClock(s); } // 隠れたら記述の入力もすぐ残す
+function onVisibility(){ if(document.hidden){ try{ if(typeof readerFlush==='function') readerFlush(); }catch(e){} } // 後景へ（iOS の PWA はこの事件しか来ないことが多い）：読んでいた位置を同期で持久化（replacingData の守りは readerPersistNow 側：CR433-6 第 2 条）
+  const s=App.session; if(!s) return; if(document.hidden){ pauseSessionClock(s); if(s.mode==='exam') persistExam(); } else resumeSessionClock(s); } // 隠れたら記述の入力もすぐ残す
 
 function startExam(){ if(!canWrite() || quotaStopped()) return; // 容量の 90% 以上は新しい模試を始めない（WLR1 WL-08）
   if(!examStoreOk()){ examBadNotice(); return; } // 盤上の模試の記録が読めない・知らない版：始めない（保存できないまま模試を進めない：WLR2 応修 8）。知らせて、その記録だけを消す出口を出す
@@ -290,7 +290,7 @@ function renderExamAnswer(){
   const body=el('div',{class:'rbody'});
   const timerEl=el('span',{class:'qtimer'}); // 時計は題頭行（Q.01 の行）へ：題頭行は顶栏の下に sticky なので、操作条が流れに戻った長い題でも残り時間が見える（V-11 補、総指揮 10-15）。U-54 の「上に置くと顶栏の下に隠れた」は absolute だったため：sticky の top を顶栏の高さにそろえる
   body.appendChild(el('div',{class:'qhd'},[
-    el('div',{class:'qhd-l'},[ el('button',{class:'qhome jp',text:'‹ '+t('home'),onclick:exitToHome}), sessionBackBtn(), el('div',{class:'crs jp'},[ el('span',{class:'qmode',text:modeLabel()}), el('b',{text:L(App.course.title)}) ]) ]) // 戻る類は左上にそろえる（S6 U-68）
+    el('div',{class:'qhd-l'},[ el('button',{class:'qhome jp',text:'‹ '+t('home'),onclick:function(){ leaveGuard(exitToHome); }}), sessionBackBtn(), el('div',{class:'crs jp'},[ el('span',{class:'qmode',text:modeLabel()}), el('b',{text:L(App.course.title)}) ]) ]) // 戻る類は左上にそろえる（S6 U-68）
   ]));
   body.appendChild(el('div',{class:'qnum'},[
     el('span',{class:'n',text:'Q.'+String(s.pos+1).padStart(2,'0')}),
@@ -437,7 +437,7 @@ function renderGrading(){ const s=App.session; if(!s) return;
     else { subjTotal++; if(st.evaluated) subjEval++; } });
   const allEval=(subjEval===subjTotal);
   const wrap=el('div',{class:'grading'});
-  wrap.appendChild(el('div',{class:'sechd'},[ el('button',{class:'back',text:'‹ '+t('home'),onclick:exitToHome}), el('h2',{class:'jp',text:t('gradingTitle')}) ])); // 左上＝戻る（S6 U-68） // 中断可(phase=grading 持久化 → 中断続行で復帰)
+  wrap.appendChild(el('div',{class:'sechd'},[ el('button',{class:'back',text:'‹ '+t('home'),onclick:function(){ leaveGuard(exitToHome); }}), el('h2',{class:'jp',text:t('gradingTitle')}) ])); // 左上＝戻る（S6 U-68） // 中断可(phase=grading 持久化 → 中断続行で復帰)
   wrap.appendChild(el('p',{class:'muted jp',text:t('gradingIntro')}));
   /* 上半区: 記述(自己採点・操作可) */
   if(subjTotal>0){ const sz=el('div',{class:'gzone subj'});
@@ -552,6 +552,13 @@ const KEYS={ // 题型注册表(键盘侧); 走分发, 不写死两种, 未知 t
     onEnter:function(q){ const s=App.session; if(s.mode==='exam'&&s.phase==='answering'){ goNext(); return true; } const st=s.perItem[q.id]||(s.perItem[q.id]={}); if(!st.revealed && writerPreparing){ prepNotice(); return true; } if(!st.revealed){ st.revealed=true; st.checked=st.checked||{}; renderRunner(); return true; } goNext(); return true; }
   }
 };
+let focusByTab=false; // 焦点を最後に動かしたのが Tab キーか（B-041）。Tab で true、指（マウス・タッチ）で false。Enter 自身では変えない
+function noteFocusKey(e){ if(e.key==='Tab') focusByTab=true; }
+function noteFocusPointer(){ focusByTab=false; }
+function focusControl(tg){ return (tg && tg.closest && tg.closest('button, a[href], summary, [role="button"], [role="link"]')) || null; } // 焦点のあるボタン類（無ければ null）
+function focusOnControl(tg){ // Enter をボタン自身に任せるか（B-041）：Tab で移ってきたボタン類だけ。マウスで押した直後に焦点が残っているボタン（Chromium）や本文・body なら従来どおり Enter＝次へ——
+  // 押したばかりの ★・自信がない・複選肢をもう一度押して黙って反転させない（CR433-29 必修 2）。:focus-visible は使わない：Chromium はキーを押した瞬間に焦点の要素を :focus-visible にするので、Enter の keydown の中では常に真になる
+  return !!(focusControl(tg) && focusByTab); }
 function overlayOpen(){ // モーダル・talk 窓・コース浮きのいずれかが開いているか（キー経路と模試書き込みガードの共通判定）
   const root=document.getElementById('modalRoot'); if(root&&root.firstChild) return true;
   const mc=document.getElementById('buddyChat'); if(mc&&mc.classList.contains('on')) return true;
@@ -568,18 +575,31 @@ function onKey(e){
   const q=App.session.list[App.session.pos]; if(!q) return;
   const h=KEYS[q.type]; if(!h) return; // 未知题型: 优雅跳过(不崩溃)
   if(/^[1-9]$/.test(e.key)){ if(h.onDigit && h.onDigit(q,parseInt(e.key,10))) e.preventDefault(); }
-  else if(e.key==='Enter'){ if(h.onEnter && h.onEnter(q)) e.preventDefault(); }
+  else if(e.key==='Enter'){ // Tab で移ってきたボタン類なら Enter はそのボタンへ（ブラウザの既定のまま）：選択肢・前へ・採点する・★・自信がない・題番号などで「次へ」に奪われていた（B-041）
+    // 指で押したボタンに焦点が残っている（Chromium）：Enter はボタンへ渡さない。翻页できればする・できなければ何もしない（未作答の練習で ★・自信がない を黙って反転させない：CR433-30）。リンクは止めない（CR433-32）
+    if(focusOnControl(e.target)) return; const fc=focusControl(e.target); if(fc && !fc.matches('a[href], [role="link"]')) e.preventDefault(); if(h.onEnter && h.onEnter(q)) e.preventDefault(); }
   else if(e.key==='ArrowLeft'){ if(App.session.pos>0){ goPrev(); e.preventDefault(); } }
   else if(e.key==='ArrowRight'){ if(App.session.mode==='exam'&&App.session.phase==='answering'){ if(App.session.pos<App.session.list.length-1){ goNext(); e.preventDefault(); } return; } const st=App.session.perItem[q.id]; const ready=(q.type==='choice'?(st&&st.answered):(st&&st.revealed))||App.session.pos<(App.session.frontier||0); if(ready){ goNext(); e.preventDefault(); } }
 }
+function examLeave(){ // 模試を中断して離れる（leaveAsk で確かめた後：4.3.3 #26・CR433-19 必修 2）。exitToHome と同じ後始末（計時を止めて保存・会話を消す）に、模試の画面帧（runner・examGrading・result）を棧から外すのを足す：
+  // 行き先（検索・読本・talk の先・課の入口）で品牌を押しても模試の確認が出ない・「戻る」で死んだ模試の画面に戻らない。行き先は呼び手が描く
+  if(!App.session) return;
+  examDropClean(); pauseSessionClock(App.session); clearCareTimer(); clearRunnerTimer(); App.session=null; App.readerReturn=null;
+  const keep=viewStack.filter(function(f){ return f.key!=='runner' && f.key!=='examGrading' && f.key!=='result'; });
+  if(keep.length!==viewStack.length){ viewStack=keep.length?keep:[{key:'home',render:renderHome}]; currentView=viewStack[viewStack.length-1].render; navGen++; }
+  const seq=frameSeq; setTimeout(function(){ examLeaveSettle(seq); },0); // 行き先が描かれなかったとき（続く確認を取り消した・課の読み込みに失敗した・切替の途中だった）に、失効した模試の画面を残さない（CR433-24）
+}
+function examLeaveSettle(seq){ if(!App.session && (document.querySelector('#view .runner, #view .grading') || frameSeq===seq)) goHome(); } // 会話を消した後に画面が一つも描かれていない＝行き先が落ちなかった：読本・概念ページから離れて、続く確認を取り消したときも（CR433-40 必修 3） // 会話は無いのに作答・判分の画面が出たまま＝行き先が落ちなかった：首页へ（画面と棧を合わせる）
 function exitToHome(){ examDropClean(); pauseSessionClock(App.session); clearCareTimer(); clearRunnerTimer(); App.session=null; App.readerReturn=null; goHome(); } // 離脱前に時計を停止=累計確定(exam は persist)。ホーム = 常に主頁(手册発でも誤解を避ける); 上一頁(reader)は「戻る」で
-function backToReader(){ const r=App.readerReturn; if(!r) return exitToHome(); examDropClean(); pauseSessionClock(App.session); App.readerReturn=null; App.session=null; clearCareTimer(); clearRunnerTimer();
+function backToReader(){ backToReaderAt(App.readerReturn); } // 引数を取らない（onclick に直接渡されて MouseEvent が入っても使わない）
+// r＝戻る先。離れる確認（leaveAsk→examLeave）は App.readerReturn を消すので、確かめる前に取っておいた値で戻る（CR433-40 必修 1）
+function backToReaderAt(r){ if(!r) return exitToHome(); examDropClean(); pauseSessionClock(App.session); App.readerReturn=null; App.session=null; clearCareTimer(); clearRunnerTimer();
   /* newSession() が baseHome() でスタックを [home] に潰し、その上に runner が積まれる。
    * ここで reader を積むと [home, runner, reader] になり、次の「戻る」が session=null の runner を
    * 再生して画面が固まる(その状態で目次を押すと TypeError)。スタックを [home] に戻してから reader を積む。 */
   baseHome(); navDir='back';
   renderReader(r.kai,r.sec); }
-function sessionBackBtn(){ return App.readerReturn ? el('button',{class:'qback jp',html:'‹ '+t('back'),onclick:backToReader}) : null; } // 手册発 session のみ左上に「戻る」
+function sessionBackBtn(){ return App.readerReturn ? el('button',{class:'qback jp',html:'‹ '+t('back'),onclick:function(){ const r=App.readerReturn; leaveGuard(function(){ backToReaderAt(r); }); }}) : null; } // 手册発 session のみ左上に「戻る」。navBack を経ない。readerReturn は startPracticeIds（練習）だけが置くので模試には出ないが、出ても確かめる（CR433-19 必修 3）
 function renderRunner(){
   const s=App.session;
   if(!s){
@@ -599,7 +619,7 @@ function renderRunner(){
   const body=el('div',{class:'rbody'});
   const timerEl=(s.mode==='exam')?el('span',{class:'qtimer'}):null;
   body.appendChild(el('div',{class:'qhd'},[
-    el('div',{class:'qhd-l'},[ el('button',{class:'qhome jp',text:'‹ '+t('home'),onclick:exitToHome}), sessionBackBtn(), el('div',{class:'crs jp'},[ el('span',{class:'qmode',text:modeLabel()}), el('b',{text:L(App.course.title)}) ]) ]), // 戻る類は左上にそろえる（S6 U-68）
+    el('div',{class:'qhd-l'},[ el('button',{class:'qhome jp',text:'‹ '+t('home'),onclick:function(){ leaveGuard(exitToHome); }}), sessionBackBtn(), el('div',{class:'crs jp'},[ el('span',{class:'qmode',text:modeLabel()}), el('b',{text:L(App.course.title)}) ]) ]), // 戻る類は左上にそろえる（S6 U-68）
     timerEl
   ]));
   body.appendChild(el('div',{class:'qnum'},[
@@ -744,7 +764,7 @@ function renderSubjectiveBody(q,body,readOnly){
   body.appendChild(el('div',{class:'scoreline jp'},[ document.createTextNode(t('achieve')+'  '), el('b',{text:pct+'%'}), document.createTextNode('  （'+tf('ptsOf',{total:total,u:t('ofPoints'),hit:hit})+'）') ]));
   body.appendChild(buildReveal(q,false));
 }
-function rubricToggle(q,st,i){ if(quotaStopped()) return false; st.checked[i]=!st.checked[i]; commitSubjective(q); return true; } // 自己採点の要点を切り替えて記録。停記中は記憶も切り替えない（得点＝判定を見せたのに保存されていない、を作らない：WLR2 応修 5）
+function rubricToggle(q,st,i){ if(!canWrite() || quotaStopped()) return false; st.checked[i]=!st.checked[i]; commitSubjective(q); return true; } // 自己採点の要点を切り替えて記録。停記中・書けない（只読・準備中）ときは記憶も切り替えない（得点＝判定を見せたのに保存されていない、を作らない：WLR2 応修 5・快审第四十九批 第 5 条。只読の説明は canWrite が出す）
 function subjUnknown(q,st,s,raw){ if(!canWrite() || quotaStopped()) return false; // 「わからない」：何も当てはまらない自己採点として記録してから答えを開く（あとで要点を押せば上書き）。停記中は開かない（WLR2 応修 5）
   st.revealed=true; st.raw=raw; st.checked={}; s.answeredCount=(s.answeredCount||0)+1; commitSubjective(q); return true; }
 function commitSubjective(q){ if(!canWrite() || quotaStopped()) return; if(!quotaAdmit) return quotaAdmitted(commitSubjective,this,arguments); // 90% 以上は受け付けない（WLR1 WL-08）。準入したら一笔を割らずに書く（WLR2 必修 2）
@@ -939,13 +959,17 @@ function spQueue(){ // 今日の復習：期限が来た題のうち、いまの
   return spDueIds(sc,function(id){ return !!App.idx.byId[id]; },quarantinedIds()||[],today)
     .sort(function(a,b){ return (sprint?mine(a)-mine(b):0) || sc.items[a].due-sc.items[b].due || sc.items[b].wrong-sc.items[a].wrong || (a<b?-1:1); });
 }
-function spReviewRun(){ const list=spQueue().slice(0,20).map(function(id){ return App.idx.byId[id]; }); if(newSession('spaced',list,{})) renderRunner(); }
+function spReviewRun(){ leaveGuard(function(){ const list=spQueue().slice(0,20).map(function(id){ return App.idx.byId[id]; }); if(newSession('spaced',list,{})) renderRunner(); }); } // 練習の最中（読本・概念ページへ移った先も）なら確かめてから：黙って置き換えると今の練習が消える（4.3.3 #30・CR433-40 必修 2）
 function spHomeNode(){ // 旧課ホーム（演習タブ）の「今日の復習」
   const n=spQueue().length;
   if(!n) return el('div',{class:'subrow sdr-row'},[ reviewDoneNode() ]); // 無いときは押せないカードではなく完了の一行（新課と同じ：U-52）
-  const b=el('button',{class:'subcard sdr-due',onclick:spReviewRun},[ el('span',{class:'scic',html:NEW_ICONS.refresh}),
+  const f=flagNode({pill:t('rxFlagReviewPill'),title:t('rxReviewToday'),desc:tf('rxReviewN',{n:n}),cta:t('rxFlagReviewCta'),onCta:spReviewRun}); // #37 C（Q-075）：電脳は模試の旗卡と同じ部品（標籤／見出し／件数／鈕）、鍵は新課の旗卡と同じ四つ；押せるのは鈕だけ、動作は従来の小卡と同じ spReviewRun
+  f.classList.add('sdr-due','sdr-wide'); // 印は従来どおり（契約 U52e・HOME04 が見る）；.sdr-wide＝≥1024 だけ表示
+  const ti=f.querySelector('.fti'), de=f.querySelector('.fde'), cta=f.querySelector('.fcta'); if(ti&&de&&cta){ ti.id='sdr-due-t'; de.id='sdr-due-n'; cta.setAttribute('aria-describedby','sdr-due-t sdr-due-n'); } // 鈕の読み上げに見出し（今日の復習）と件数を添える（CR433-35 順手）
+  if(typeof examResumable==='function' && examResumable()) f.appendChild(el('div',{class:'ffoot ffoot-ghost','aria-hidden':'true'},[ el('span',{class:'fchip jp',text:t('examOverwriteOk')}) ])); // 中断した模試があると模試の旗卡に尾行（「最初から」の chip）が付く：同じ高さの幽霊（見えず・読まれず・Tab 不可）を置いて二つの主鈕の底を揃える（CR433-35 F-01）
+  const b=el('button',{class:'subcard sdr-due sdr-compact',onclick:spReviewRun},[ el('span',{class:'scic',html:NEW_ICONS.refresh}), // Q-076：手机（<1024）は従来の一行の小卡のまま（CSS で切り替え、再描画は要らない）
     el('span',{class:'sctx'},[ el('b',{class:'jp',text:t('rxReviewToday')}), el('small',{class:'jp',text:tf('rxReviewN',{n:n})}) ]) ]);
-  return el('div',{class:'subrow sdr-row'},[ b ]);
+  return el('div',{class:'subrow sdr-row'},[ b, f ]);
 }
 
 function finishSession(){
@@ -984,12 +1008,12 @@ function renderResult(agg,answered,total){
   card.appendChild(buildAIGuidance());
   /* 次の一歩（U-47）：実心は一つだけ。模試＝この試験の間違いを解き直す、練習＝苦手を重点的に。AI の書き出しは描边（buildAIGuidance） */
   const acts=el('div',{class:'racts1'}), exam=App.session.mode==='exam', wids=(agg.wrongIds||[]).slice();
-  const prim=exam?(wids.length?el('button',{class:'btn',text:t('histRedo'),onclick:function(){ startPracticeIds(wids); }}):null):(cw.length?el('button',{class:'btn',text:t('weighted'),onclick:startWeighted}):null);
+  const prim=exam?(wids.length?el('button',{class:'btn',text:t('histRedo'),onclick:function(){ startPracticeIds(wids); }}):null):(cw.length?el('button',{class:'btn',text:t('weighted'),onclick:function(){ startWeighted(); }}):null);
   if(prim) acts.appendChild(prim);
   if(App.readerReturn) acts.appendChild(el('button',{class:'btn'+(prim?' ghost':''),text:t('back'),onclick:backToReader}));
   if(exam) acts.appendChild(el('button',{class:'btn ghost',text:t('again'),onclick:startExam}));
   if(exam) acts.appendChild(el('button',{class:'btn ghost',text:t('histTitle'),onclick:renderExamHistory}));
-  if(exam && cw.length) acts.appendChild(el('button',{class:'btn ghost',text:t('weighted'),onclick:startWeighted}));
+  if(exam && cw.length) acts.appendChild(el('button',{class:'btn ghost',text:t('weighted'),onclick:function(){ startWeighted(); }}));
   acts.appendChild(el('button',{class:'btn ghost',text:t('home'),onclick:exitToHome}));
   card.appendChild(acts);
   kids.push(card);
@@ -1032,9 +1056,10 @@ function showRestPop(){
 function startReviewKai(kai){
   const ids=App.idx.kaiToQuestions[kai]||[];
   const list=C.reviewSample(App.questions,{onlyIds:ids,count:ids.length,recentIds:App.recent},App.rng);
-  newSession('review',list,{kai:kai}); renderRunner();
+  leaveGuard(function(){ newSession('review',list,{kai:kai}); renderRunner(); });
 }
 function startWeighted(n){ // n 指定時(圆窗「10問」チップ)は題数を守約: 苦手在庫が薄ければ全体から不足分を補充
+  if(!(typeof n==='number' && n>0)) n=0; // ボタンの onclick に直接渡すとクリックの event が n に入る：題数ではないので既定（12）に（B-018／X1-08：「苦手を重点的に」が始まらなかった）
   const want=(n||12);
   let list=C.reviewSample(App.questions,{weakness:App.progress.weakness,count:want,recentIds:App.recent},App.rng);
   if(n && list.length<want){
@@ -1043,11 +1068,11 @@ function startWeighted(n){ // n 指定時(圆窗「10問」チップ)は題数�
       .filter(function(q){ return !have[q.id]; }).slice(0, want-list.length);
     list=list.concat(pad);
   }
-  newSession('weak',list,{}); renderRunner();
+  leaveGuard(function(){ newSession('weak',list,{}); renderRunner(); });
 }
 function startRandom(){
   const list=C.reviewSample(App.questions,{count:12,recentIds:App.recent},App.rng);
-  newSession('review',list,{}); renderRunner();
+  leaveGuard(function(){ newSession('review',list,{}); renderRunner(); });
 }
 
 /* ---------- WRONG + WEAK merged hub: 間違い + 苦手 を一つの枢に, 分段切替, 両視図の内容は原様流用 ---------- */
@@ -1058,7 +1083,7 @@ function wrongBodyNodes(){ // 「間違い」子視図の本体 (sectionHead/reg
   const top=el('div',{class:'card'},[ el('p',{class:'muted jp',text:ids.length+' '+t('q')}) ]);
   top.appendChild(el('button',{class:'btn',style:'margin-top:10px',text:t('startReview'),onclick:function(){
     const list=C.reviewSample(App.questions,{onlyIds:ids,count:Math.min(ids.length,20),weakness:App.progress.weakness,recentIds:App.recent},App.rng);
-    newSession('wrong',list,{}); renderRunner();
+    leaveGuard(function(){ newSession('wrong',list,{}); renderRunner(); });
   }}));
   out.push(top);
   const groups={};
@@ -1074,7 +1099,7 @@ function wrongBodyNodes(){ // 「間違い」子視図の本体 (sectionHead/reg
       el('span',{class:'wgrp-c',text:gids.length+' '+t('q')}),
       el('button',{class:'btn sm ghost wgrp-go',text:t('retryGroup'),onclick:function(){
         const list=C.reviewSample(App.questions,{onlyIds:gids,count:gids.length,recentIds:App.recent},App.rng);
-        newSession('wrong',list,{}); renderRunner();
+        leaveGuard(function(){ newSession('wrong',list,{}); renderRunner(); });
       }})
     ]));
   });
@@ -1101,20 +1126,20 @@ function renderWrongList(){ // 錯題本: 間違えた問題一覧(誤答回数�
   const kids=[ hd ];
   if(!wrongIds.length){ // 空: 間違いがまだ無ければ苦手重点(重み付き)へ
     kids.push(el('div',{class:'card'},[ el('p',{class:'muted jp',text:t('wrongNone')}),
-      el('button',{class:'btn ghost',style:'margin-top:12px',text:t('weakTile'),onclick:startWeighted}) ]));
+      el('button',{class:'btn ghost',style:'margin-top:12px',text:t('weakTile'),onclick:function(){ startWeighted(); }}) ]));
     setView(el('div',null,kids)); return;
   }
   const top=el('div',{class:'card'},[ el('p',{class:'muted jp',text:wrongIds.length+' '+t('q')}) ]);
   top.appendChild(el('button',{class:'btn',style:'margin-top:12px',text:t('wrongPractice'),onclick:function(){
     const list=C.reviewSample(App.questions,{onlyIds:wrongIds,count:Math.min(wrongIds.length,20),weakness:App.progress.weakness,recentIds:App.recent},App.rng);
-    newSession('wrong',list,{}); renderRunner();
+    leaveGuard(function(){ newSession('wrong',list,{}); renderRunner(); });
   }}));
   kids.push(top);
   const list=el('div',{class:'card wl-list'});
   wrongIds.map(function(id){ return {q:App.idx.byId[id], n:wc[id]||1}; }).filter(function(r){ return r.q; })
     .sort(function(a,b){ return b.n-a.n; })
     .forEach(function(r){ const q=r.q;
-      list.appendChild(el('button',{class:'wl-row',title:t('wrongPracticeOne'),onclick:function(){ newSession('wrong',[q],{}); renderRunner(); }},[
+      list.appendChild(el('button',{class:'wl-row',title:t('wrongPracticeOne'),onclick:function(){ leaveGuard(function(){ newSession('wrong',[q],{}); renderRunner(); }); }},[
         el('span',{class:'wl-kai mono',text:tf('kaiTag',{n:qShowKai(q)})}),
         el('span',{class:'wl-q jp',text:q.q}),
         el('span',{class:'wl-n mono',text:t('wrongMiss').replace('{n}',r.n)}) ]));

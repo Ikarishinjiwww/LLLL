@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 502" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">耳の構造：外耳・中耳・内耳と耳管</title>
+  <desc id="d">上は耳の断面の模式図で、左が頭の外側である。耳は外耳・中耳・内耳からなり、内耳には聴覚をつかさどる蝸牛と、平衡感覚に関わる半規管などがある。中耳は、鼓膜と、空気で満たされた鼓室からなる。鼻の奥と中耳は耳管でつながっている。風邪のときに鼻の菌やウイルスが耳管を通って中耳に入ると、中耳炎を起こす。破線の矢印は、菌やウイルスが鼻の奥から中耳へ入る向きを表す。メニエール病は、内耳にリンパ液が過剰にたまる内リンパ水腫で起こる。下は耳管の形を比べた図である。3歳以下の子どもは、耳管が太く、短く、水平に近いため、中耳炎になりやすい。成長すると耳管は斜めに傾くので、大人は子どもより鼻の菌が中耳に入りにくい。</desc>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <style>
+    .wall{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+    .drum{fill:none;stroke:currentColor;stroke-width:3.2;stroke-linecap:round}
+    .inner{fill:none;stroke:currentColor;stroke-width:2.2}
+    .ves{fill:currentColor;fill-opacity:.2;stroke:currentColor;stroke-width:1.6}
+    .tubef{fill:currentColor;fill-opacity:.16;stroke:currentColor;stroke-width:1.6}
+    .box{fill:none;stroke:currentColor;stroke-width:1.6}
+    .brk{fill:none;stroke:currentColor;stroke-width:1.4}
+    .bac{fill:none;stroke:currentColor;stroke-width:2.2;stroke-dasharray:5 4}
+    .lead{fill:none;stroke:currentColor;stroke-width:1;opacity:.6}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+  <text class="sm" x="16" y="22">耳の断面（模式）。左が頭の外側</text>
+
+  <!-- 外耳・中耳・内耳の範囲 -->
+  <path class="brk" d="M18 68 L18 62 L140 62 L140 68 M146 68 L146 62 L206 62 L206 68 M212 68 L212 62 L282 62 L282 68"/>
+  <text class="lab" x="79" y="52" text-anchor="middle">外耳</text>
+  <text class="lab" x="176" y="52" text-anchor="middle">中耳</text>
+  <text class="lab" x="247" y="52" text-anchor="middle">内耳</text>
+
+  <!-- 外耳 -->
+  <path class="wall" d="M58 106 C48 98 46 82 36 78 C22 74 16 102 20 130 C24 160 32 180 44 190 C52 196 60 190 60 178 L60 140"/>
+  <path class="wall" d="M58 106 C90 102 120 102 148 100 M60 140 C92 138 122 140 152 144"/>
+  <!-- 鼓膜・中耳・耳管 -->
+  <path class="drum" d="M148 98 L154 146"/>
+  <path class="wall" d="M150 98 L196 90 Q206 89 206 99 L206 150 L306 226 M153 146 L186 160 L294 240"/>
+  <!-- 内耳 -->
+  <ellipse class="inner" cx="234" cy="84" rx="15" ry="11"/>
+  <ellipse class="inner" cx="252" cy="93" rx="10" ry="15"/>
+  <ellipse class="inner" cx="231" cy="101" rx="13" ry="7" transform="rotate(20 231 101)"/>
+  <ellipse class="ves" cx="236" cy="116" rx="12" ry="7"/>
+  <path class="inner" d="M254 140 A4 4 0 0 1 262 140 A8 8 0 0 1 246 140 A12 12 0 0 1 270 140 A16 16 0 0 1 238 140"/>
+  <!-- 鼻の奥から中耳へ -->
+  <path class="bac" d="M292 228 L206 163" marker-end="url(#ah)"/>
+
+  <path class="lead" d="M134 172 L151 138"/>
+  <text class="it" x="104" y="186">鼓膜</text>
+  <text class="it" x="272" y="82">半規管など</text>
+  <text class="sm" x="272" y="100">（平衡感覚）</text>
+  <text class="it" x="278" y="146">蝸牛（聴覚）</text>
+  <text class="it" x="200" y="228">耳管</text>
+  <text class="it" x="290" y="264">鼻の奥</text>
+
+  <text class="sm" x="16" y="296">破線の矢印：風邪のとき、鼻の菌やウイルスが</text>
+  <text class="sm" x="16" y="315">耳管を通って中耳に入ると、中耳炎を起こす。</text>
+  <text class="sm" x="16" y="340">メニエール病は、内耳にリンパ液が過剰に</text>
+  <text class="sm" x="16" y="359">たまる内リンパ水腫で起こる。</text>
+
+  <!-- 子どもと大人の耳管 -->
+  <text class="lab" x="16" y="394">3歳以下の子ども</text>
+  <rect class="box" x="18" y="404" width="40" height="26" rx="4"/>
+  <text class="sm" x="24" y="422">中耳</text>
+  <polygon class="tubef" points="58,409 118,411 118,427 58,425"/>
+  <text class="sm" x="124" y="424">鼻の奥</text>
+  <text class="lab" x="214" y="394">大人</text>
+  <rect class="box" x="214" y="400" width="40" height="26" rx="4"/>
+  <text class="sm" x="220" y="418">中耳</text>
+  <polygon class="tubef" points="255.4,408.3 333.4,438.3 330.6,445.7 252.6,415.7"/>
+  <text class="sm" x="338" y="452">鼻の奥</text>
+  <text class="sm" x="16" y="474">子ども：太く、短く、水平に近い → 中耳炎になりやすい</text>
+  <text class="sm" x="16" y="494">大人：斜めに傾く → 子どもより鼻の菌が中耳に入りにくい</text>
+</svg>

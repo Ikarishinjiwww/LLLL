@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 438" role="img" aria-labelledby="t d" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+  <title id="t">実行機能（遂行機能）の流れ</title>
+  <desc id="d">実行機能の働きを、問題の表象・計画・実行・評価の流れで示した図。うまくいかなければ、評価から計画に戻って計画し直す。実行機能とは、目標に向けて思考・感情・行動を調整する認知機能の総称である。遂行機能とも訳され、両者は同じ機能を指す。実行機能が弱いと、どうするべきか分かっていても、計画どおりに実行できないことがある。ADHDでは、注意や抑制制御などの実行機能に障害がみられる。</desc>
+  <style>
+    .box{fill:none;stroke:currentColor;stroke-width:1.6}
+    .ln{fill:none;stroke:currentColor;stroke-width:1.8}
+    .frm{fill:none;stroke:currentColor;stroke-width:1.2;opacity:.7}
+    .ah{fill:currentColor;stroke:none}
+    .lab{fill:currentColor;font-size:16px;font-weight:600}
+    .it{fill:currentColor;font-size:15px}
+    .sm{fill:currentColor;font-size:14px}
+  </style>
+  <!-- 定義 -->
+  <text class="lab" x="16" y="28">実行機能とは</text>
+  <text class="it" x="16" y="54">目標に向けて思考・感情・行動を調整する</text>
+  <text class="it" x="16" y="76">認知機能の総称である。</text>
+  <text class="sm" x="16" y="100">遂行機能とも訳され、両者は同じ機能を指す。</text>
+  <text class="sm" x="16" y="134">矢印：働きの流れ</text>
+  <!-- 流れ：表象 → 計画 → 実行 → 評価、うまくいかなければ評価から計画へ -->
+  <rect class="box" x="16" y="146" width="100" height="42" rx="6"/>
+  <text class="it" x="66" y="172" text-anchor="middle">問題の表象</text>
+  <rect class="box" x="146" y="146" width="100" height="42" rx="6"/>
+  <text class="it" x="196" y="172" text-anchor="middle">計画する</text>
+  <rect class="box" x="276" y="146" width="100" height="42" rx="6"/>
+  <text class="it" x="326" y="172" text-anchor="middle">実行する</text>
+  <rect class="box" x="276" y="240" width="100" height="42" rx="6"/>
+  <text class="it" x="326" y="266" text-anchor="middle">評価する</text>
+  <path class="ln" d="M118 167 L136 167"/>
+  <polygon class="ah" points="144,167 135,162 135,172"/>
+  <path class="ln" d="M248 167 L266 167"/>
+  <polygon class="ah" points="274,167 265,162 265,172"/>
+  <text class="sm" x="261" y="158" text-anchor="middle">※</text>
+  <path class="ln" d="M326 190 L326 230"/>
+  <polygon class="ah" points="326,238 321,229 331,229"/>
+  <path class="ln" d="M274 261 L196 261 L196 198"/>
+  <polygon class="ah" points="196,190 191,199 201,199"/>
+  <text class="sm" x="186" y="242" text-anchor="end">うまくいかなければ</text>
+  <text class="sm" x="186" y="262" text-anchor="end">計画し直す</text>
+  <!-- 弱いとき -->
+  <text class="sm" x="16" y="314">※実行機能が弱いと、どうするべきか分かっていても、</text>
+  <text class="sm" x="30" y="334">計画どおりに実行できないことがある。</text>
+  <!-- ADHD との関係 -->
+  <rect class="frm" x="16" y="354" width="368" height="70" rx="8"/>
+  <text class="it" x="30" y="382">ADHDでは、注意や抑制制御などの</text>
+  <text class="it" x="30" y="406">実行機能に障害がみられる。</text>
+</svg>
